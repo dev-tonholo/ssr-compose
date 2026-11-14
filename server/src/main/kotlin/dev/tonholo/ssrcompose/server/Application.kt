@@ -2,8 +2,8 @@ package dev.tonholo.ssrcompose.server
 
 import dev.tonholo.ssrcompose.protocol.ScreenService
 import dev.tonholo.ssrcompose.protocol.ServerEndpoint
+import dev.tonholo.ssrcompose.server.screen.CounterScreen
 import dev.tonholo.ssrcompose.server.screen.HomeScreen
-import dev.tonholo.ssrcompose.server.tree.renderTree
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -26,8 +26,12 @@ fun Application.module(service: ScreenService) {
 }
 
 fun main() {
+    val clock = Clock.systemDefaultZone()
     val service = ScreenServiceImpl(
-        screens = mapOf(ServerEndpoint.HOME_SCREEN to { renderTree { HomeScreen(clock = Clock.systemDefaultZone()) } }),
+        screens = mapOf(
+            ServerEndpoint.HOME_SCREEN to { HomeScreen(clock = clock) },
+            ServerEndpoint.COUNTER_SCREEN to { CounterScreen(clock = clock) },
+        ),
     )
     embeddedServer(factory = Netty, port = ServerEndpoint.PORT) { module(service = service) }
         .start(wait = true)
