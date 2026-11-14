@@ -1,6 +1,7 @@
 package dev.tonholo.ssrcompose.server.tree
 
 import dev.tonholo.ssrcompose.protocol.ColumnNode
+import dev.tonholo.ssrcompose.protocol.FragmentNode
 import dev.tonholo.ssrcompose.protocol.ReferenceNode
 import dev.tonholo.ssrcompose.protocol.ScreenNode
 import kotlinx.serialization.json.JsonObject
@@ -21,5 +22,9 @@ internal sealed interface MutableNode {
     ) : MutableNode {
         override fun toScreenNode(): ScreenNode =
             ReferenceNode(componentId = componentId, props = props)
+    }
+
+    class Fragment(val document: ByteArray) : MutableNode {
+        override fun toScreenNode(): ScreenNode = FragmentNode(document = document)
     }
 }
