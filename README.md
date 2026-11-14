@@ -31,10 +31,10 @@ One Android screen comes from one server response:
 You need JDK 17 or newer, the Android SDK with platform 37, and an emulator.
 
 1. Start the server: `./gradlew :server:run`. It listens on port 8787 and serves two screens, `home` (rendered once) and `counter` (live).
-2. Start an emulator and install the app: `./gradlew :app:installDebug`.
+2. Connect a phone or start an emulator, run `adb reverse tcp:8787 tcp:8787`, and install the app: `./gradlew :app:installDebug`.
 3. Open "SSR Compose" on the emulator.
 
-The app talks to `10.0.2.2`, which is the host machine as seen from an emulator. A physical phone needs a different host in `MainActivity.kt`.
+The app talks to `127.0.0.1:8787` on the device. Forward that port to your machine with `adb reverse tcp:8787 tcp:8787`. This works for an emulator and for a phone on USB.
 
 Tests: `./gradlew build detekt` runs the JVM tests and detekt. `./gradlew :app:connectedDebugAndroidTest` runs the Compose UI tests on a device.
 

@@ -20,7 +20,7 @@ import dev.tonholo.ssrcompose.protocol.GreetingCard as GreetingCardContract
 import dev.tonholo.ssrcompose.protocol.ServerEndpoint
 import kotlinx.coroutines.Dispatchers
 
-private const val EMULATOR_HOST_LOOPBACK = "10.0.2.2"
+private const val DEVICE_LOOPBACK_HOST = "127.0.0.1"
 
 class MainActivity : ComponentActivity() {
     private val registry = ComponentRegistry().apply {
@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 val viewModel = viewModel {
                     ScreenViewModel(
-                        service = createScreenService(host = EMULATOR_HOST_LOOPBACK),
+                        service = createScreenService(host = DEVICE_LOOPBACK_HOST),
                         screenName = ServerEndpoint.COUNTER_SCREEN,
                         dispatcher = Dispatchers.Default,
                     )
