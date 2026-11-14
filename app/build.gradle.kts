@@ -26,5 +26,7 @@ dependencies {
     implementation(libs.kotlinx.rpc.krpc.ktor.client)
     implementation(libs.remote.core)
     implementation(libs.remote.player.compose)
+    androidTestImplementation(libs.remote.core)
+    androidTestImplementation(libs.remote.creation.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
