@@ -8,6 +8,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
     repositories {
         google()
         mavenCentral()
@@ -15,3 +16,8 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ssr-compose"
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
+include(":protocol")
+include(":server")
+include(":app")
