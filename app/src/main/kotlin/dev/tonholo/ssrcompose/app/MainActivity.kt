@@ -13,7 +13,9 @@ import dev.tonholo.ssrcompose.app.data.createScreenService
 import dev.tonholo.ssrcompose.app.presentation.ScreenRoute
 import dev.tonholo.ssrcompose.app.presentation.ScreenViewModel
 import dev.tonholo.ssrcompose.app.presentation.ui.components.ComponentRegistry
+import dev.tonholo.ssrcompose.app.presentation.ui.components.CounterCard
 import dev.tonholo.ssrcompose.app.presentation.ui.components.GreetingCard
+import dev.tonholo.ssrcompose.protocol.CounterCard as CounterCardContract
 import dev.tonholo.ssrcompose.protocol.GreetingCard as GreetingCardContract
 import dev.tonholo.ssrcompose.protocol.ServerEndpoint
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +24,8 @@ private const val EMULATOR_HOST_LOOPBACK = "10.0.2.2"
 
 class MainActivity : ComponentActivity() {
     private val registry = ComponentRegistry().apply {
-        register(GreetingCardContract) { props -> GreetingCard(props = props) }
+        register(GreetingCardContract) { props, _ -> GreetingCard(props = props) }
+        register(CounterCardContract) { props, onAction -> CounterCard(props = props, onAction = onAction) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 val viewModel = viewModel {
                     ScreenViewModel(
                         service = createScreenService(host = EMULATOR_HOST_LOOPBACK),
-                        screenName = ServerEndpoint.HOME_SCREEN,
+                        screenName = ServerEndpoint.COUNTER_SCREEN,
                         dispatcher = Dispatchers.Default,
                     )
                 }

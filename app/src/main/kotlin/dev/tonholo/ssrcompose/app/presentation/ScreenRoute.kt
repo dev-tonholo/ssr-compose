@@ -23,7 +23,12 @@ fun ScreenRoute(viewModel: ScreenViewModel, registry: ComponentRegistry, modifie
     val state by viewModel.state.collectAsStateWithLifecycle()
     when (val current = state) {
         ScreenUiState.Loading -> Centered(modifier = modifier) { CircularProgressIndicator() }
-        is ScreenUiState.Loaded -> ScreenRenderer(node = current.tree, registry = registry, modifier = modifier)
+        is ScreenUiState.Loaded -> ScreenRenderer(
+            node = current.tree,
+            registry = registry,
+            onAction = { id -> viewModel.onEvent(event = ScreenEvent.Action(id = id)) },
+            modifier = modifier,
+        )
         is ScreenUiState.Failed -> Centered(modifier = modifier) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,

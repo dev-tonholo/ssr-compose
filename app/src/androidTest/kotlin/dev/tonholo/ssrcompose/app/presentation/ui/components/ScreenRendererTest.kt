@@ -3,7 +3,11 @@ package dev.tonholo.ssrcompose.app.presentation.ui.components
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import dev.tonholo.ssrcompose.protocol.ActionId
 import dev.tonholo.ssrcompose.protocol.ColumnNode
+import dev.tonholo.ssrcompose.protocol.CounterCard as CounterCardContract
+import dev.tonholo.ssrcompose.protocol.CounterCardProps
 import dev.tonholo.ssrcompose.protocol.GreetingCard as GreetingCardContract
 import dev.tonholo.ssrcompose.protocol.GreetingCardProps
 import dev.tonholo.ssrcompose.protocol.ReferenceNode
@@ -11,6 +15,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
 
@@ -19,7 +24,8 @@ class ScreenRendererTest {
     val composeRule = createComposeRule()
 
     private val registry = ComponentRegistry().apply {
-        register(GreetingCardContract) { props -> GreetingCard(props = props) }
+        register(GreetingCardContract) { props, _ -> GreetingCard(props = props) }
+        register(CounterCardContract) { props, onAction -> CounterCard(props = props, onAction = onAction) }
     }
 
     private fun greetingReference(props: JsonObject) =
@@ -36,7 +42,7 @@ class ScreenRendererTest {
         val tree = ColumnNode(children = listOf(greetingReference(validProps)))
 
         // Act
-        composeRule.setContent { ScreenRenderer(node = tree, registry = registry) }
+        composeRule.setContent { ScreenRenderer(node = tree, registry = registry, onAction = {}) }
 
         // Assert
         composeRule.onNodeWithText("Hello title").assertIsDisplayed()
@@ -50,7 +56,7 @@ class ScreenRendererTest {
         val tree = ColumnNode(children = listOf(unknown, greetingReference(validProps)))
 
         // Act
-        composeRule.setContent { ScreenRenderer(node = tree, registry = registry) }
+        composeRule.setContent { ScreenRenderer(node = tree, registry = registry, onAction = {}) }
 
         // Assert
         composeRule.onNodeWithText("Unknown component: mystery").assertIsDisplayed()
@@ -64,9 +70,44 @@ class ScreenRendererTest {
         val tree = ColumnNode(children = listOf(greetingReference(brokenProps)))
 
         // Act
-        composeRule.setContent { ScreenRenderer(node = tree, registry = registry) }
+        composeRule.setContent { ScreenRenderer(node = tree, registry = registry, onAction = {}) }
 
         // Assert
         composeRule.onNodeWithText("Unknown component: greeting-card").assertIsDisplayed()
+    }
+
+    private fun counterReference(count: Int): ReferenceNode {
+        val props = Json.encodeToJsonElement(
+            CounterCardProps.serializer(),
+            CounterCardProps(title = "Counter", count = count, onAddOne = ActionId("add-one")),
+        ) as JsonObject
+        return ReferenceNode(componentId = CounterCardContract.id, props = props)
+    }
+
+    @Test
+    fun given_a_counter_card_with_count_3__when_rendered__then_count_3_is_shown() {
+        // Arrange
+        val tree = ColumnNode(children = listOf(counterReference(count = 3)))
+
+        // Act
+        composeRule.setContent { ScreenRenderer(node = tree, registry = registry, onAction = {}) }
+
+        // Assert
+        composeRule.onNodeWithText("Counter").assertIsDisplayed()
+        composeRule.onNodeWithText("Count: 3").assertIsDisplayed()
+    }
+
+    @Test
+    fun given_a_counter_card__when_add_one_is_clicked__then_on_action_gets_its_id() {
+        // Arrange
+        val tree = ColumnNode(children = listOf(counterReference(count = 0)))
+        val received = mutableListOf<ActionId>()
+        composeRule.setContent { ScreenRenderer(node = tree, registry = registry, onAction = { received += it }) }
+
+        // Act
+        composeRule.onNodeWithText("Add one").performClick()
+
+        // Assert
+        assertEquals(expected = listOf(ActionId("add-one")), actual = received)
     }
 }

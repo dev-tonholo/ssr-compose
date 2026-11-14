@@ -62,6 +62,7 @@ remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "r
 remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "remote-compose" }
 remote-creation-jvm = { module = "androidx.compose.remote:remote-creation-jvm", version.ref = "remote-compose" }
 remote-player-compose = { module = "androidx.compose.remote:remote-player-compose", version.ref = "remote-compose" }
+remote-player-core = { module = "androidx.compose.remote:remote-player-core", version.ref = "remote-compose" }
 
 [plugins]
 detekt = { id = "dev.detekt", version.ref = "detekt" }
