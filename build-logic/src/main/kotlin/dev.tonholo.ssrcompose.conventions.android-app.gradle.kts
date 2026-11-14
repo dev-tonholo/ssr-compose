@@ -4,7 +4,7 @@ import org.gradle.api.artifacts.VersionCatalogsExtension
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("org.jetbrains.kotlin.plugin.power-assert")
+    id("dev.tonholo.ssrcompose.conventions.power-assert")
     id("org.jetbrains.kotlinx.rpc.plugin")
     id("dev.tonholo.ssrcompose.conventions.detekt")
 }
@@ -35,16 +35,4 @@ dependencies {
     testImplementation(libs.findLibrary("kotlin-test").get())
     testImplementation(libs.findLibrary("kotlinx-coroutines-test").get())
     testImplementation(libs.findLibrary("turbine").get())
-}
-
-powerAssert {
-    functions.set(
-        listOf(
-            "kotlin.assert",
-            "kotlin.test.assertEquals",
-            "kotlin.test.assertTrue",
-            "kotlin.test.assertFalse",
-            "kotlin.test.assertNotNull",
-        ),
-    )
 }

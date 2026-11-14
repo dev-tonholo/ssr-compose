@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
-    id("org.jetbrains.kotlin.plugin.power-assert")
+    id("dev.tonholo.ssrcompose.conventions.power-assert")
     id("org.jetbrains.kotlinx.rpc.plugin")
     id("dev.tonholo.ssrcompose.conventions.detekt")
 }
@@ -29,16 +29,4 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
-}
-
-powerAssert {
-    functions.set(
-        listOf(
-            "kotlin.assert",
-            "kotlin.test.assertEquals",
-            "kotlin.test.assertTrue",
-            "kotlin.test.assertFalse",
-            "kotlin.test.assertNotNull",
-        ),
-    )
 }
