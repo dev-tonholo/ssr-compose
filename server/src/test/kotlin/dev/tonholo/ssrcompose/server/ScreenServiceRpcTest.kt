@@ -8,6 +8,8 @@ import io.ktor.http.path
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -36,5 +38,27 @@ class ScreenServiceRpcTest {
 
             // Assert
             assertEquals(expected = expected, actual = actual)
+        }
+
+    @Test
+    fun `given a running server, when a client asks for an unknown screen, then the failure names the screen`() =
+        testApplication {
+            // Arrange
+            val service = ScreenServiceImpl(screens = emptyMap())
+            application { module(service = service) }
+            val client = createClient {
+                install(WebSockets)
+                installKrpc()
+            }
+            val remote = client.rpc {
+                url { path(ServerEndpoint.RPC_PATH) }
+                rpcConfig { serialization { json() } }
+            }.withService<ScreenService>()
+
+            // Act
+            val failure = assertFailsWith<Throwable> { remote.screen(name = "nope") }
+
+            // Assert
+            assertTrue(actual = failure.message.orEmpty().contains("Unknown screen: nope"))
         }
 }
