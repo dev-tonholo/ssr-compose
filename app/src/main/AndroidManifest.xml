@@ -5,6 +5,7 @@
 
     <application
         android:label="SSR Compose"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.SsrCompose">
         <activity
             android:name=".MainActivity"
