@@ -3,6 +3,7 @@
 package dev.tonholo.ssrcompose.server.screen
 
 import androidx.compose.remote.creation.dsl.Modifier
+import androidx.compose.remote.creation.dsl.RcActionScope
 import androidx.compose.remote.creation.dsl.RcScope
 import androidx.compose.remote.creation.dsl.RcSp
 import androidx.compose.remote.creation.dsl.background
@@ -21,8 +22,8 @@ const val COUNTER_BANNER_WIDTH_PX = 600
 const val COUNTER_BANNER_HEIGHT_PX = 200
 const val LOCAL_TOGGLE_OFF_TEXT = "Local: off"
 const val LOCAL_TOGGLE_ON_TEXT = "Local: on"
-private const val TOGGLE_STATE_COUNT = 2
-private const val TOGGLE_INITIAL_STATE = 0
+private const val TOGGLE_OFF_STATE = 0
+private const val TOGGLE_ON_STATE = 1
 private const val COUNT_BACKGROUND = 0xFF00695C
 private const val TOGGLE_OFF_BACKGROUND = 0xFF455A64
 private const val TOGGLE_ON_BACKGROUND = 0xFFEF6C00
@@ -40,8 +41,7 @@ fun bannerText(count: Int): String = "Tapped $count times. Tap me."
 @Composable
 fun CounterBanner(count: Int, onTap: ActionId) {
     RemoteFragment(COUNTER_BANNER_WIDTH_PX, COUNTER_BANNER_HEIGHT_PX, count, onTap) {
-        val toggleState = remoteInteger(TOGGLE_INITIAL_STATE)
-        val nextToggleState = (toggleState + 1) % TOGGLE_STATE_COUNT
+        val toggleState = remoteInteger(TOGGLE_OFF_STATE)
         Row(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
@@ -54,28 +54,32 @@ fun CounterBanner(count: Int, onTap: ActionId) {
             ) {
                 Text(text = bannerText(count), color = TEXT_COLOR, fontSize = RcSp(TEXT_SIZE))
             }
-            Box(
-                modifier = Modifier
-                    .horizontalWeight(TOGGLE_WEIGHT)
-                    .fillMaxHeight()
-                    .onClick { setValue(toggleState, nextToggleState) },
-            ) {
+            Box(modifier = Modifier.horizontalWeight(TOGGLE_WEIGHT).fillMaxHeight()) {
                 StateLayout(stateIndex = toggleState, modifier = Modifier.fillMaxSize()) {
-                    toggleBox(text = LOCAL_TOGGLE_OFF_TEXT, backgroundColor = TOGGLE_OFF_BACKGROUND)
-                    toggleBox(text = LOCAL_TOGGLE_ON_TEXT, backgroundColor = TOGGLE_ON_BACKGROUND)
+                    toggleBox(
+                        text = LOCAL_TOGGLE_OFF_TEXT,
+                        backgroundColor = TOGGLE_OFF_BACKGROUND,
+                        onClick = { setValue(toggleState, TOGGLE_ON_STATE) },
+                    )
+                    toggleBox(
+                        text = LOCAL_TOGGLE_ON_TEXT,
+                        backgroundColor = TOGGLE_ON_BACKGROUND,
+                        onClick = { setValue(toggleState, TOGGLE_OFF_STATE) },
+                    )
                 }
             }
         }
     }
 }
 
-private fun RcScope.toggleBox(text: String, backgroundColor: Long) {
+private fun RcScope.toggleBox(text: String, backgroundColor: Long, onClick: RcActionScope.() -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .clip(cornerShape)
             .background(backgroundColor.toInt())
-            .padding(BOX_PADDING),
+            .padding(BOX_PADDING)
+            .onClick(onClick),
     ) {
         Text(text = text, color = TEXT_COLOR, fontSize = RcSp(TEXT_SIZE))
     }

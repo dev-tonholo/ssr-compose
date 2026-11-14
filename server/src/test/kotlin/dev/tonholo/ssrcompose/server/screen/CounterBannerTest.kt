@@ -9,7 +9,7 @@ import androidx.compose.remote.core.operations.layout.Container
 import androidx.compose.remote.core.operations.layout.managers.StateLayout
 import androidx.compose.remote.core.operations.layout.modifiers.ComponentModifiers
 import androidx.compose.remote.core.operations.layout.modifiers.HostNamedActionOperation
-import androidx.compose.remote.core.operations.layout.modifiers.ValueIntegerExpressionChangeActionOperation
+import androidx.compose.remote.core.operations.layout.modifiers.ValueIntegerChangeActionOperation
 import dev.tonholo.ssrcompose.protocol.ActionId
 import dev.tonholo.ssrcompose.protocol.ColumnNode
 import dev.tonholo.ssrcompose.protocol.FragmentNode
@@ -17,6 +17,7 @@ import dev.tonholo.ssrcompose.server.tree.renderTree
 import java.io.ByteArrayInputStream
 import kotlin.reflect.KClass
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -53,13 +54,25 @@ class CounterBannerTest {
     }
 
     @Test
+    fun `given the counter banner, when loaded, then each toggle state has its own change action`() = runTest {
+        // Arrange
+        val operations = bannerOperations()
+
+        // Act
+        val toggleChanges = operations.count { it is ValueIntegerChangeActionOperation }
+
+        // Assert
+        assertEquals(expected = 2, actual = toggleChanges)
+    }
+
+    @Test
     fun `given the counter banner, when loaded, then it has a local toggle on a state layout`() = runTest {
         // Arrange
         val operations = bannerOperations()
 
         // Act
         val hasStateLayout = operations.containsKind(StateLayout::class)
-        val hasToggleChange = operations.containsKind(ValueIntegerExpressionChangeActionOperation::class)
+        val hasToggleChange = operations.containsKind(ValueIntegerChangeActionOperation::class)
 
         // Assert
         assertTrue(actual = hasStateLayout)
