@@ -21,7 +21,6 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
-import okhttp3.OkHttpClient
 
 private const val PING_INTERVAL_MILLIS = 2_000L
 
@@ -57,9 +56,7 @@ private class ReconnectingScreenService(private val host: String) : ScreenServic
 
     private fun newClient(): HttpClient = HttpClient(engineFactory = OkHttp) {
         engine {
-            preconfigured = OkHttpClient.Builder()
-                .pingInterval(PING_INTERVAL_MILLIS, TimeUnit.MILLISECONDS)
-                .build()
+            config { pingInterval(PING_INTERVAL_MILLIS, TimeUnit.MILLISECONDS) }
         }
         install(WebSockets)
         installKrpc()
