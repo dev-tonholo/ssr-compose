@@ -31,7 +31,7 @@ class RenderTreeTest {
             val tree = renderTree(content)
 
             // Assert
-            assertEquals(ColumnNode(children = listOf(expectedReference("a"))), tree)
+            assertEquals(expected = ColumnNode(children = listOf(expectedReference("a"))), actual = tree)
         }
 
     @Test
@@ -47,7 +47,7 @@ class RenderTreeTest {
             val tree = renderTree(content)
 
             // Assert
-            assertEquals(ColumnNode(children = emptyList()), tree)
+            assertEquals(expected = ColumnNode(children = emptyList()), actual = tree)
         }
 
     @Test
@@ -64,7 +64,7 @@ class RenderTreeTest {
 
             // Assert
             val expected = ColumnNode(children = titles.map(::expectedReference))
-            assertEquals(expected, tree)
+            assertEquals(expected = expected, actual = tree)
         }
 
     @Test
@@ -77,7 +77,7 @@ class RenderTreeTest {
             val tree = renderTree(content)
 
             // Assert
-            assertEquals(ColumnNode(children = emptyList()), tree)
+            assertEquals(expected = ColumnNode(children = emptyList()), actual = tree)
         }
 
     @Test
@@ -90,6 +90,6 @@ class RenderTreeTest {
             val failure = assertFailsWith<IllegalStateException> { renderTree(content) }
 
             // Assert
-            assertEquals("boom", failure.message)
+            assertEquals(expected = "boom", actual = failure.message)
         }
 }
