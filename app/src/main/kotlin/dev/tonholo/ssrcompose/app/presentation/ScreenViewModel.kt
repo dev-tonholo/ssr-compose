@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 private const val DEFAULT_ERROR_MESSAGE = "Could not load the screen"
+private const val CLOSED_MESSAGE = "The server closed the connection"
 
 class ScreenViewModel(
     private val service: ScreenService,
@@ -56,5 +57,8 @@ class ScreenViewModel(
                 mutableState.value = ScreenUiState.Failed(message = failure.message ?: DEFAULT_ERROR_MESSAGE)
             }
             .collect { tree -> mutableState.value = ScreenUiState.Loaded(tree = tree) }
+        if (mutableState.value !is ScreenUiState.Failed) {
+            mutableState.value = ScreenUiState.Failed(message = CLOSED_MESSAGE)
+        }
     }
 }

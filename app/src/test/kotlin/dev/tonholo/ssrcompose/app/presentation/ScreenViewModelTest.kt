@@ -100,7 +100,7 @@ class ScreenViewModelTest {
         }
 
     @Test
-    fun `given a session that ends without failing, when it completes, then the last tree stays`() =
+    fun `given a session that ends without failing, when it completes, then state is Failed with the closed message`() =
         runTest {
             // Arrange
             val service = FakeScreenService()
@@ -113,6 +113,9 @@ class ScreenViewModelTest {
             advanceUntilIdle()
 
             // Assert
-            assertEquals(expected = ScreenUiState.Loaded(firstTree), actual = viewModel.state.value)
+            assertEquals(
+                expected = ScreenUiState.Failed("The server closed the connection"),
+                actual = viewModel.state.value,
+            )
         }
 }

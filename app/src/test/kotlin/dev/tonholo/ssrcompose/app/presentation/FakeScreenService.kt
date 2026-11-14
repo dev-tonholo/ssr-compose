@@ -34,8 +34,9 @@ class FakeScreenService : ScreenService {
         val session = Channel<ScreenNode>(Channel.UNLIMITED)
         trees += session
         return channelFlow {
-            launch { events.collect { event -> actions += event.actionId } }
+            val collecting = launch { events.collect { event -> actions += event.actionId } }
             for (node in session) send(node)
+            collecting.cancel()
         }
     }
 }
