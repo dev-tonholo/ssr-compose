@@ -5,8 +5,10 @@ package dev.tonholo.ssrcompose.server.screen
 import androidx.compose.remote.creation.dsl.Modifier
 import androidx.compose.remote.creation.dsl.RcSp
 import androidx.compose.remote.creation.dsl.background
+import androidx.compose.remote.creation.dsl.clip
 import androidx.compose.remote.creation.dsl.fillMaxSize
 import androidx.compose.remote.creation.dsl.padding
+import androidx.compose.remote.creation.modifiers.RoundedRectShape
 import androidx.compose.runtime.Composable
 import dev.tonholo.ssrcompose.server.tree.RemoteFragment
 
@@ -17,6 +19,14 @@ private const val BANNER_BACKGROUND = 0xFF3F51B5
 private const val BANNER_TEXT_COLOR = 0xFFFFFFFF
 private const val BANNER_PADDING = 24f
 private const val BANNER_TEXT_SIZE = 40f
+private const val BANNER_CORNER_RADIUS = 32f
+
+private val bannerShape = RoundedRectShape(
+    BANNER_CORNER_RADIUS,
+    BANNER_CORNER_RADIUS,
+    BANNER_CORNER_RADIUS,
+    BANNER_CORNER_RADIUS,
+)
 
 @Composable
 fun ServerBanner() {
@@ -24,6 +34,7 @@ fun ServerBanner() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .clip(bannerShape)
                 .background(BANNER_BACKGROUND.toInt())
                 .padding(BANNER_PADDING),
         ) {
