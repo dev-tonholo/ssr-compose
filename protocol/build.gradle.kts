@@ -6,5 +6,6 @@ plugins {
 dependencies {
     api(libs.kotlinx.serialization.json)
     api(libs.kotlinx.coroutines.core)
+    api(libs.kotlinx.rpc.core)
     api(libs.kotlinx.rpc.krpc.serialization.json)
 }
