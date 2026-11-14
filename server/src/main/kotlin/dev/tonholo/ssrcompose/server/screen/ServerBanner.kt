@@ -3,6 +3,7 @@
 package dev.tonholo.ssrcompose.server.screen
 
 import androidx.compose.remote.creation.dsl.Modifier
+import androidx.compose.remote.creation.dsl.RcSp
 import androidx.compose.remote.creation.dsl.background
 import androidx.compose.remote.creation.dsl.fillMaxSize
 import androidx.compose.remote.creation.dsl.padding
@@ -15,6 +16,7 @@ const val BANNER_TEXT = "Drawn by the server"
 private const val BANNER_BACKGROUND = 0xFF3F51B5
 private const val BANNER_TEXT_COLOR = 0xFFFFFFFF
 private const val BANNER_PADDING = 24f
+private const val BANNER_TEXT_SIZE = 40f
 
 @Composable
 fun ServerBanner() {
@@ -25,7 +27,7 @@ fun ServerBanner() {
                 .background(BANNER_BACKGROUND.toInt())
                 .padding(BANNER_PADDING),
         ) {
-            Text(text = BANNER_TEXT, color = BANNER_TEXT_COLOR)
+            Text(text = BANNER_TEXT, color = BANNER_TEXT_COLOR, fontSize = RcSp(BANNER_TEXT_SIZE))
         }
     }
 }
