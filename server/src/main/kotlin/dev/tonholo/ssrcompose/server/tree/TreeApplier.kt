@@ -2,7 +2,12 @@ package dev.tonholo.ssrcompose.server.tree
 
 import androidx.compose.runtime.AbstractApplier
 
-internal class TreeApplier(root: MutableNode.Column) : AbstractApplier<MutableNode>(root) {
+internal class TreeApplier(
+    root: MutableNode.Column,
+    private val onChangesApplied: () -> Unit = {},
+) : AbstractApplier<MutableNode>(root) {
+    override fun onEndChanges() = onChangesApplied()
+
     override fun insertTopDown(index: Int, instance: MutableNode) {
         current.asColumn().children.add(index, instance)
     }
