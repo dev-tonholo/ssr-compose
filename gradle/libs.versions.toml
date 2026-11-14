@@ -1,0 +1,61 @@
+[versions]
+kotlin = "2.4.20"
+agp = "9.5.1"
+detekt = "2.0.0-alpha.6"
+ktor = "3.6.1"
+kotlinx-rpc = "0.10.4"
+kotlinx-serialization = "1.13.0"
+kotlinx-coroutines = "1.11.0"
+compose-runtime = "1.12.2"
+compose-bom = "2026.09.00"
+activity-compose = "1.13.0"
+lifecycle = "2.10.0"
+remote-compose = "1.0.0-alpha23"
+turbine = "1.2.1"
+slf4j = "2.0.17"
+
+[libraries]
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+kotlin-serialization-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }
+kotlin-power-assert-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-power-assert", version.ref = "kotlin" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+detekt-gradle-plugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+kotlinx-rpc-gradle-plugin = { module = "org.jetbrains.kotlinx.rpc.plugin:org.jetbrains.kotlinx.rpc.plugin.gradle.plugin", version.ref = "kotlinx-rpc" }
+
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+
+kotlinx-rpc-krpc-client = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-client", version.ref = "kotlinx-rpc" }
+kotlinx-rpc-krpc-server = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-server", version.ref = "kotlinx-rpc" }
+kotlinx-rpc-krpc-ktor-client = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-client", version.ref = "kotlinx-rpc" }
+kotlinx-rpc-krpc-ktor-server = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-ktor-server", version.ref = "kotlinx-rpc" }
+kotlinx-rpc-krpc-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-rpc-krpc-serialization-json", version.ref = "kotlinx-rpc" }
+
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-runtime" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+remote-core = { module = "androidx.compose.remote:remote-core", version.ref = "remote-compose" }
+remote-creation-core = { module = "androidx.compose.remote:remote-creation-core", version.ref = "remote-compose" }
+remote-creation-jvm = { module = "androidx.compose.remote:remote-creation-jvm", version.ref = "remote-compose" }
+remote-player-compose = { module = "androidx.compose.remote:remote-player-compose", version.ref = "remote-compose" }
+
+[plugins]
+detekt = { id = "dev.detekt", version.ref = "detekt" }
