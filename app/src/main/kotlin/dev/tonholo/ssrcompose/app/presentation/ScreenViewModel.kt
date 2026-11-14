@@ -1,9 +1,9 @@
 package dev.tonholo.ssrcompose.app.presentation
 
-import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenEvent
-import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenUiState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenEvent
+import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenUiState
 import dev.tonholo.ssrcompose.protocol.ScreenService
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
