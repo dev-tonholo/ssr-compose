@@ -6,4 +6,5 @@ plugins {
 
 extensions.configure<DetektExtension> {
     buildUponDefaultConfig = true
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
 }
