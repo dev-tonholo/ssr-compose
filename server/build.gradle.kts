@@ -23,4 +23,7 @@ dependencies {
     implementation(libs.slf4j.simple)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.core)
+    testImplementation(libs.ktor.client.websockets)
+    testImplementation(libs.kotlinx.rpc.krpc.client)
+    testImplementation(libs.kotlinx.rpc.krpc.ktor.client)
 }
