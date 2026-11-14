@@ -1,5 +1,7 @@
 package dev.tonholo.ssrcompose.app.presentation
 
+import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenEvent
+import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenUiState
 import app.cash.turbine.test
 import dev.tonholo.ssrcompose.protocol.ColumnNode
 import kotlin.test.Test

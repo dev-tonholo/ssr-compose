@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.app.presentation
+package dev.tonholo.ssrcompose.app.presentation.ui.state
 
 import dev.tonholo.ssrcompose.protocol.ScreenNode
 

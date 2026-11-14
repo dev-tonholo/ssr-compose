@@ -1,5 +1,7 @@
 package dev.tonholo.ssrcompose.app.presentation
 
+import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenEvent
+import dev.tonholo.ssrcompose.app.presentation.ui.state.ScreenUiState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
