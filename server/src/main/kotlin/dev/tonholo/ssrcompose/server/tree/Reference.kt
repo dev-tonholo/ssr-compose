@@ -11,6 +11,9 @@ fun <P> Reference(contract: ComponentContract<P>, props: P) {
     val encodedProps = Json.encodeToJsonElement(contract.propsSerializer, props).jsonObject
     ComposeNode<MutableNode.Reference, TreeApplier>(
         factory = { MutableNode.Reference(componentId = contract.id, props = encodedProps) },
-        update = {},
+        update = {
+            set(contract.id) { this.componentId = it }
+            set(encodedProps) { this.props = it }
+        },
     )
 }

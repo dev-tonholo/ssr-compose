@@ -35,10 +35,10 @@ private fun buildDocument(widthPx: Int, heightPx: Int, content: RcScope.() -> Un
     )
 
 @Composable
-fun RemoteFragment(widthPx: Int, heightPx: Int, content: RcScope.() -> Unit) {
-    val document = remember(widthPx, heightPx) { buildDocument(widthPx, heightPx, content) }
+fun RemoteFragment(widthPx: Int, heightPx: Int, vararg keys: Any?, content: RcScope.() -> Unit) {
+    val document = remember(widthPx, heightPx, *keys) { buildDocument(widthPx, heightPx, content) }
     ComposeNode<MutableNode.Fragment, TreeApplier>(
         factory = { MutableNode.Fragment(document = document) },
-        update = {},
+        update = { set(document) { this.document = it } },
     )
 }

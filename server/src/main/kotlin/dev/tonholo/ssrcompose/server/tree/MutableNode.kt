@@ -17,14 +17,14 @@ internal sealed interface MutableNode {
     }
 
     class Reference(
-        val componentId: String,
-        val props: JsonObject,
+        var componentId: String,
+        var props: JsonObject,
     ) : MutableNode {
         override fun toScreenNode(): ScreenNode =
             ReferenceNode(componentId = componentId, props = props)
     }
 
-    class Fragment(val document: ByteArray) : MutableNode {
+    class Fragment(var document: ByteArray) : MutableNode {
         override fun toScreenNode(): ScreenNode = FragmentNode(document = document)
     }
 }

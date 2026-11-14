@@ -5,6 +5,10 @@ import androidx.compose.remote.core.RemoteComposeBuffer
 import androidx.compose.remote.core.operations.Header
 import androidx.compose.remote.core.operations.layout.RootLayoutComponent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import app.cash.turbine.test
 import dev.tonholo.ssrcompose.protocol.ColumnNode
 import dev.tonholo.ssrcompose.protocol.FragmentNode
 import dev.tonholo.ssrcompose.protocol.GreetingCard
@@ -16,7 +20,9 @@ import dev.tonholo.ssrcompose.server.screen.ServerBanner
 import java.io.ByteArrayInputStream
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -81,5 +87,49 @@ class RemoteFragmentTest {
             assertEquals(expected = 2, actual = children.size)
             assertIs<ReferenceNode>(children[0])
             assertIs<FragmentNode>(children[1])
+        }
+
+    @Test
+    fun `given a fragment whose key changes, when recomposed, then the fragment bytes change`() = runTest {
+        // Arrange
+        var label by mutableStateOf("one")
+        val content: @Composable () -> Unit = {
+            RemoteFragment(100, 50, label) { Text(text = label) }
+        }
+
+        liveTree(content).test {
+            val before = fragmentsOf(assertIs<ColumnNode>(awaitItem())).single().document
+
+            // Act
+            label = "two"
+            val after = fragmentsOf(assertIs<ColumnNode>(awaitItem())).single().document
+
+            // Assert
+            assertFalse(before.contentEquals(after))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `given a fragment whose keys stay the same, when recomposed, then the fragment bytes are the same instance`() =
+        runTest {
+            // Arrange
+            var unrelated by mutableStateOf(0)
+            val content: @Composable () -> Unit = {
+                Reference(GreetingCard, GreetingCardProps(title = "t", message = unrelated.toString()))
+                RemoteFragment(100, 50, "key") { Box() }
+            }
+
+            liveTree(content).test {
+                val before = fragmentsOf(assertIs<ColumnNode>(awaitItem())).single().document
+
+                // Act
+                unrelated = 1
+                val after = fragmentsOf(assertIs<ColumnNode>(awaitItem())).single().document
+
+                // Assert
+                assertSame(expected = before, actual = after)
+                cancelAndIgnoreRemainingEvents()
+            }
         }
 }
