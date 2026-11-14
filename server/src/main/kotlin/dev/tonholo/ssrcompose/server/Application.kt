@@ -1,8 +1,9 @@
 package dev.tonholo.ssrcompose.server
 
-import dev.tonholo.ssrcompose.protocol.ColumnNode
 import dev.tonholo.ssrcompose.protocol.ScreenService
 import dev.tonholo.ssrcompose.protocol.ServerEndpoint
+import dev.tonholo.ssrcompose.server.screen.ServerBanner
+import dev.tonholo.ssrcompose.server.tree.renderTree
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -25,7 +26,7 @@ fun Application.module(service: ScreenService) {
 
 fun main() {
     val service = ScreenServiceImpl(
-        screens = mapOf(ServerEndpoint.HOME_SCREEN to { ColumnNode(children = emptyList()) }),
+        screens = mapOf(ServerEndpoint.HOME_SCREEN to { renderTree { ServerBanner() } }),
     )
     embeddedServer(factory = Netty, port = ServerEndpoint.PORT) { module(service = service) }
         .start(wait = true)
