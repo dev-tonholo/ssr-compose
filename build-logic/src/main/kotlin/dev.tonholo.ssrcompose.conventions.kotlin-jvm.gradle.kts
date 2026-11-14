@@ -30,3 +30,15 @@ dependencies {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
+
+powerAssert {
+    functions.set(
+        listOf(
+            "kotlin.assert",
+            "kotlin.test.assertEquals",
+            "kotlin.test.assertTrue",
+            "kotlin.test.assertFalse",
+            "kotlin.test.assertNotNull",
+        ),
+    )
+}

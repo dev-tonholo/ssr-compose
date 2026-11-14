@@ -36,3 +36,15 @@ dependencies {
     testImplementation(libs.findLibrary("kotlinx-coroutines-test").get())
     testImplementation(libs.findLibrary("turbine").get())
 }
+
+powerAssert {
+    functions.set(
+        listOf(
+            "kotlin.assert",
+            "kotlin.test.assertEquals",
+            "kotlin.test.assertTrue",
+            "kotlin.test.assertFalse",
+            "kotlin.test.assertNotNull",
+        ),
+    )
+}
