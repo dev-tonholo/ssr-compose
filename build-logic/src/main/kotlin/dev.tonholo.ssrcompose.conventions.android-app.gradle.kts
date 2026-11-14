@@ -19,6 +19,7 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -33,6 +34,13 @@ extensions.configure<ApplicationExtension> {
 
 dependencies {
     testImplementation(libs.findLibrary("kotlin-test").get())
+    testImplementation(libs.findLibrary("kotlin-test-junit").get())
     testImplementation(libs.findLibrary("kotlinx-coroutines-test").get())
     testImplementation(libs.findLibrary("turbine").get())
+    androidTestImplementation(platform(libs.findLibrary("androidx-compose-bom").get()))
+    androidTestImplementation(libs.findLibrary("androidx-compose-ui-test-junit4").get())
+    androidTestImplementation(libs.findLibrary("androidx-test-runner").get())
+    androidTestImplementation(libs.findLibrary("kotlin-test").get())
+    debugImplementation(platform(libs.findLibrary("androidx-compose-bom").get()))
+    debugImplementation(libs.findLibrary("androidx-compose-ui-test-manifest").get())
 }
