@@ -237,7 +237,25 @@ Checked again for T001 on 2026-11-15, by downloading each `maven-metadata.xml` a
 
 The metadata check does not prove every artifact exists, so `./gradlew build` resolved what the modules use: Compose runtime, foundation and UI 1.12.2 (`consumer`), `kotlinx-serialization-json` 1.13.0 (`core`), `kotlin-compiler-embeddable` 2.4.21 (`compiler-plugin`), `kotlin-test`, `kotlin-test-junit`, `kotlinx-coroutines-test` and Turbine (the host test classpath of `contract-tests`), and the detekt plugin. The kctfork and Ktor entries are in the catalog but no module uses them yet, so for those only the metadata check was done.
 
-All versions, including the JVM target 17, `minSdk` 23 and `compileSdk` 37, are in `gradle/libs.versions.toml`. The convention plugins are Plugin classes that read them through the generated catalog accessors, and the modules apply them with `alias(libs.plugins.ssrcompose.conventions.<concern>)`, so a `grep -rnE` for the six version numbers over `build-logic`, the seven modules, `gradle/`, and the root build files finds them only in `gradle/libs.versions.toml`. The Gradle wrapper version (9.8.2) is in `gradle/wrapper/gradle-wrapper.properties`, as Gradle requires.
+All versions, including the JVM target 17, `minSdk` 23 and `compileSdk` 37, are in `gradle/libs.versions.toml`. The convention plugins are Plugin classes that read them through the generated catalog accessors, and the modules apply them with `alias(libs.plugins.ssrcompose.conventions.<concern>)`, so a `grep -rnE` for the six version numbers over `build-logic`, the seven modules, `gradle/`, and the root build files finds them only in `gradle/libs.versions.toml`. The Gradle wrapper version (9.9.1) is in `gradle/wrapper/gradle-wrapper.properties`, as Gradle requires.
+
+Rechecked on 2026-11-15 for the latest stable release of every entry in the catalog, not only that it exists. Stable means no alpha, beta, release candidate or snapshot. The sources are the `maven-metadata.xml` files of Maven Central, Google Maven and the Gradle plugin portal, the release pages of the projects, and `https://services.gradle.org/versions/current` for Gradle.
+
+| Entry | In the catalog | Latest stable | Source | Note |
+|---|---|---|---|---|
+| Gradle wrapper | 9.9.1 (was 9.8.2) | 9.9.1 | https://services.gradle.org/versions/current | updated |
+| Kotlin: the plugins, `kotlin-compiler-embeddable`, `kotlin-test`, `kotlin-test-junit` | 2.4.21 | 2.4.21 | Maven Central, https://github.com/JetBrains/kotlin/releases | 2.5.0 is only a release candidate. The Compose compiler plugin follows Kotlin. |
+| Android Gradle Plugin | 9.5.1 | 9.5.1 | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/maven-metadata.xml | 9.6.0 is only an alpha. 9.5 needs Gradle 9.6.0 or newer, JDK 17 and supports API level 37 (https://developer.android.com/build/releases/agp-9-5-0-release-notes), which fits Gradle 9.9.1 and `compileSdk` 37. |
+| Compose Multiplatform (runtime, foundation, UI) | 1.12.2 | 1.12.2 | Maven Central, https://github.com/JetBrains/compose-multiplatform/releases | 1.13.0 is only a beta. |
+| kotlinx.serialization | 1.13.0 | 1.13.0 | Maven Central | |
+| kotlinx.coroutines (core, test) | 1.11.0 | 1.11.0 | Maven Central | |
+| kctfork (`kotlin-compile-testing`) | 0.14.0 | 0.14.0 | Maven Central, https://github.com/ZacSweers/kotlin-compile-testing/releases | Its notes say it was built for Kotlin 2.4.20. It works with 2.4.21, as the experiment above found. |
+| Turbine | 1.2.1 | 1.2.1 | Maven Central | |
+| detekt Gradle plugin | 2.0.0-alpha.6 | none: no stable 2.x exists | Maven Central, https://github.com/detekt/detekt/releases | alpha.6 is the newest release of the 2.0 line. Every release of `dev.detekt` so far is an alpha. |
+| buildconfig plugin | 6.1.2 | 6.1.2 | https://plugins.gradle.org/m2/com/github/gmazzo/buildconfig/com.github.gmazzo.buildconfig.gradle.plugin/maven-metadata.xml | |
+| Ktor (six artifacts, samples only) | 3.6.1 | 3.6.1 | Maven Central | |
+
+Nothing but the Gradle wrapper had to move, so the set stays compatible and no entry held another back. `./gradlew build`, `./gradlew detekt` and `./gradlew :contract-tests:check` pass on Gradle 9.9.1, and the dependency reports of `core`, `consumer` and `producer` are identical to the ones on 9.8.2. `./gradlew build --warning-mode all` shows no new warning: the same two as before, the incubating type-safe project accessors and the `Configuration.setVisible(boolean)` deprecation while Gradle configures `:compiler-plugin`.
 
 Compiler plugin APIs for top-level generation are marked experimental in Kotlin, so each new Kotlin version needs the plugin's tests to pass before it is supported.
 
