@@ -105,7 +105,7 @@ kotlin do ssrCatalogSync
 kotlin build
 ```
 
-Expected: the same saved catalogs and the same bridge as the Gradle sample. Until this runs, the Kotlin toolchain path is not verified.
+Expected: the same saved catalogs and the same bridges as the Gradle sample. Until this runs, the Kotlin toolchain path is not verified.
 
 ## 10. Build performance
 
@@ -115,4 +115,4 @@ Expected: the same saved catalogs and the same bridge as the Gradle sample. Unti
 ./gradlew -p samples/app assembleCurrentDebug
 ```
 
-Expected: the functional tests pass: a build with nothing changed runs no catalog step, a change in one module runs only that module's part step and the bundle step, and a second checkout in another folder takes every catalog output from the build cache. The second sample build reports every catalog step as up to date. The numbers for a catalog of 20,000 components come from T031a and T115, and are written in research.md R16 with the machine and the commands. Until those run, the 2 second figure is a target and not a fact.
+Expected: the functional tests pass: a build with nothing changed runs no catalog step, a change in one module runs only that module's part step and the bundle step, and a second checkout in another folder takes every catalog output from the build cache. The second sample build reports every catalog step as up to date. The numbers for a catalog of 20,000 components are written in research.md R16 with the machine and the commands. T031a measures them first, and the 2 second figure is provisional until it has run. T115 confirms them on the finished build.

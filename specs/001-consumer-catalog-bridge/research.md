@@ -49,7 +49,7 @@ Fallback if it breaks: a class with one constant per choice, created with the ty
 
 Decision: on the app side, the compiler plugin writes one small fragment file per source file that has marked composables. A cacheable step in each module, `ssrCatalogPart`, merges that module's fragments into the module's part. A step in the module that sets the catalog version, `ssrCatalogBundle`, collects the parts of the modules it depends on, checks across parts that every component name is unique and that a choice list used by two parts is the same in both, and writes the manifest with each part's fingerprint. Duplicate names inside a module are caught when the part is made, and across modules when the bundle is made, naming both places.
 
-A part's name comes from the module's path (`:feature:home` gives `feature-home`) and can be set by the developer. Two modules whose parts would get the same name fail the bundle step.
+A part's name comes from the module's path (`:feature:home` gives `feature-home`, and the root module gives `root`; the full rule is in [contracts/catalog-bundle.md](contracts/catalog-bundle.md)) and can be set by the developer. Two modules whose parts would get the same name fail the bundle step.
 
 Checked by experiment, for one module:
 

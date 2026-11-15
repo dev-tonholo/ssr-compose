@@ -43,7 +43,7 @@ A callback parameter lists the kinds of the arguments it carries, none to four. 
 
 ### PartName (`catalog-model`)
 
-Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: `:feature:home` gives `feature-home`. The app developer can set another one. Two modules whose parts get the same name fail the bundle step and both are named.
+Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: lowercased, every run of characters other than `a` to `z` and `0` to `9` turned into one hyphen, hyphens at both ends dropped. `:feature:home` and `:feature_home` give `feature-home`, `:featureHome` gives `featurehome`, and the root module, whose path is `:`, gives `root`. The app developer can set another one. A derived name over 64 characters fails the build and asks for one to be set. Two modules whose parts get the same name fail the bundle step and both are named.
 
 ### CatalogPart (`catalog-model`)
 
@@ -177,6 +177,10 @@ The producer's own node for a placed component. It holds what `PlacedComponent` 
 ### ArgumentKind (`producer`)
 
 The kind of one callback argument, as the bridge declares it: text, whole number, decimal number, flag, choice with its entry names, list of one kind, or bytes. The producer checks each trigger's arguments against these, since it holds no catalog.
+
+### Callback (`producer`)
+
+What a bridge function gives `ConsumerComponent` for one callback parameter: the `RemoteAction` the server developer wrote, and the list of its argument kinds, empty when the callback has none.
 
 ### ActionId (`core`)
 

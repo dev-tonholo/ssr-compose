@@ -100,7 +100,17 @@ A catalog of version 3, from an app with two modules that have marked composable
 
 ## Part names
 
-A part's name comes from the module's path in the build: `:feature:home` gives `feature-home`, and the root module `:app` gives `app`. The app developer can set another name. Two modules that would give the same name fail the app build, and both are named.
+A part's name comes from the module's path in the build. The path is made lowercase, every run of characters other than `a` to `z` and `0` to `9` becomes one hyphen, and hyphens at the start and the end are dropped:
+
+| Module path | Part name |
+|---|---|
+| `:feature:home` | `feature-home` |
+| `:feature_home` | `feature-home` |
+| `:featureHome` | `featurehome` |
+| `:app` | `app` |
+| `:` (the root module of the build) | `root` |
+
+The app developer can set another name with `partName`. A name longer than 64 characters fails the app build and asks for a shorter one to be set. Two modules that would give the same name fail the app build, and both are named.
 
 ## Parameter kinds
 

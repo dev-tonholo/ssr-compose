@@ -132,7 +132,7 @@ producer/                            # Kotlin JVM
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/producer/
     │   ├── Producer.kt, ProducerBuilder.kt, ConsumerComponent.kt
-    │   ├── RemoteAction.kt, ArgumentKind.kt, LocalConsumer.kt
+    │   ├── RemoteAction.kt, ArgumentKind.kt, Callback.kt, LocalConsumer.kt
     │   ├── ProducerLimits.kt, ProducerObserver.kt
     │   └── internal/                # session, screen registry, live composition, actions, guard, validation
     ├── test/
