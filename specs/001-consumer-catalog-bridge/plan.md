@@ -31,7 +31,7 @@ This is the first feature, so it also creates the root build, all four deliverab
 
 **Storage**: none at run time. Catalogs (a manifest and its parts per version) and a lock file are kept in the repositories that use them. The catalog index is a build output and is never committed or shared.
 
-**Testing**: `kotlin.test` with power-assert, Turbine and `kotlinx-coroutines-test`, hand-written fakes. Compile tests for the compiler plugin with `dev.zacsweers.kctfork:core` 0.14.0. Gradle TestKit for the Gradle plugin, including build cache checks. Compose UI tests on a device for the consumer. Contract tests in their own module. Checks on a device or emulator with the `android` CLI.
+**Testing**: `kotlin.test` with power-assert, Turbine and `kotlinx-coroutines-test`, hand-written fakes. Compile tests for the compiler plugin with kotlin-compile-testing (`dev.zacsweers.kctfork:core` 0.14.0), reading their sources from `*.fixture.kt` files under `compiler-plugin/src/test/resources/fixtures/`. Gradle TestKit for the Gradle plugin, including build cache checks. Compose UI tests on a device for the consumer. Contract tests in their own module. Checks on a device or emulator with the `android` CLI.
 
 **Target Platform**: `core` for JVM and Android. `consumer` as a Kotlin Multiplatform library with an Android target only, `minSdk` 23. `producer`, `catalog-model`, the compiler plugin and the tooling for a plain JVM.
 
@@ -98,8 +98,9 @@ specs/001-consumer-catalog-bridge/
 ```text
 settings.gradle.kts
 build.gradle.kts
-gradle/libs.versions.toml
-build-logic/                         # convention plugins dev.tonholo.ssrcompose.conventions.*
+gradle.properties                    # ssrcompose.compiler.plugin.id: the one home of the compiler plugin id
+gradle/libs.versions.toml            # versions, libraries, and every plugin id (convention plugins with no version)
+build-logic/                         # convention plugins as Plugin classes, registered in gradlePlugin { }
 
 core/                                # Kotlin Multiplatform: jvm, android
 └── src/commonMain/kotlin/dev/tonholo/ssrcompose/core/
@@ -115,7 +116,8 @@ catalog-model/                       # Kotlin JVM, build time only
     ├── model/                       # ChoiceList, Parameter, ComponentDescriptor, PartName (kinds from core)
     ├── bundle/                      # CatalogManifest, CatalogPart, reader, writer, fingerprint, size cap
     ├── validation/                  # one part, and the checks across parts
-    └── index/                       # the index the compiler plugin reads, format from T031a
+    ├── index/                       # the index the compiler plugin reads, format from T031a
+    └── options/                     # CompilerPluginOptions: the option names, shared with gradle-plugin
 
 consumer/                            # Kotlin Multiplatform: android
 └── src/
@@ -138,15 +140,17 @@ producer/                            # Kotlin JVM
     ├── test/
     └── loadTest/
 
-compiler-plugin/                     # Kotlin JVM, K2
+compiler-plugin/                     # Kotlin JVM, K2, buildconfig plugin for the generated plugin id
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/compiler/
     │   ├── consumer/                # FIR checker, fragment writer, renderer creation
     │   └── producer/                # FIR declarations and IR bodies for each bridge, order guard
-    └── test/                        # compile tests
+    └── test/
+        ├── kotlin/                  # compile tests with kotlin-compile-testing
+        └── resources/fixtures/      # *.fixture.kt sources, a source folder for the IDE, not compiled
 
 tooling/                             # Kotlin JVM: part, bundle, check, dump, sync, verify, lock file, index step
-gradle-plugin/                       # thin Gradle wrapper over tooling
+gradle-plugin/                       # thin Gradle wrapper over tooling: one KotlinCompilerPluginSupportPlugin
 toolchain-plugin/                    # thin Kotlin toolchain wrapper over tooling
 
 contract-tests/                      # test-only: producer output through the consumer's reader
@@ -169,7 +173,18 @@ Module dependencies:
 | `catalog-model` | `core`, for `CatalogVersion` and `ValueKind` only |
 | `consumer`, `producer` | `core` |
 | `compiler-plugin`, `tooling` | `catalog-model` |
-| `gradle-plugin`, `toolchain-plugin` | `tooling` |
+| `gradle-plugin`, `toolchain-plugin` | `tooling`, and `catalog-model` for the compiler plugin's option names |
+
+How the build is written, following the owner's pattern in the thunderbird repository (its `build-plugin` and the pii-safe compiler plugin):
+
+- Convention plugins in `build-logic` are Plugin classes, each registered in the `gradlePlugin { plugins { } }` block of `build-logic/build.gradle.kts` with an id `dev.tonholo.ssrcompose.conventions.<concern>` and its implementation class. Each id is listed in `gradle/libs.versions.toml` under `[plugins]` with no version, and a module applies it with `alias(libs.plugins...)`. There is no precompiled script plugin, and no module build file writes a plugin id as a string.
+- The compiler plugin id has one home: the `ssrcompose.compiler.plugin.id` property in the root `gradle.properties`. The buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`, listed in the catalog) turns it into a generated constant in `compiler-plugin` and in `gradle-plugin`. It is not a constant in `core`.
+- The option names of the compiler plugin are written once, in `catalog-model` (`options/CompilerPluginOptions.kt`). It is the one module that both `compiler-plugin` and `gradle-plugin` can see without touching `core`: `compiler-plugin` depends on it already, and `gradle-plugin` depends on it for these names, as the module table shows.
+- The Gradle plugin `dev.tonholo.ssrcompose` is one `KotlinCompilerPluginSupportPlugin` class. It adds `core`, which holds `@ConsumerComposable` and `@ProducerComposable`, to each compilation by itself, so a developer applies this one plugin and adds nothing else to mark composables. It is registered in the `gradlePlugin` block of `gradle-plugin/build.gradle.kts` and listed in the catalog as `ssrcompose`.
+- Compile tests use kotlin-compile-testing. Their sources are `*.fixture.kt` files under `compiler-plugin/src/test/resources/fixtures/`. That folder is added as a test source folder, so the IDE reads the fixtures as Kotlin, and `*.fixture.kt` is excluded from test compilation.
+- Our own samples apply the Gradle plugin through the catalog with `alias(libs.plugins.ssrcompose)`. Each sample build reads the root `gradle/libs.versions.toml` as its `libs` catalog.
+
+Not checked: the buildconfig plugin's version against Maven metadata, which T001 checks when it adds it.
 
 **Structure Decision**: four deliverables as modules at the root (`core`, `consumer`, `producer`, `compiler-plugin`), the build-time `catalog-model` library, the tooling library and its two build-tool wrappers, one test-only module, and samples as separate builds that share only a folder of catalogs. `poc/` stays a separate Gradle project and nothing depends on it. The reasons are in [research.md](research.md), sections R5, R11 and R17.
 
