@@ -14,7 +14,7 @@ A server project, which may be in another repository, is given the address of ea
 
 A server developer writes screens per catalog version and registers them under that version. The app connects, introduces itself, and gets the screen registered under the name it asked for, for its own catalog version. It renders what the server placed with its own composables, including content inside slots, and sends callbacks back to run lambdas on the server. A guard stops a screen that places a component from the bridge of another catalog version.
 
-The catalog is build time only. Its model, validation, reader, writer, fingerprint and index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` use. `core`, `consumer` and `producer` never depend on it, and the running producer holds no catalog.
+The catalog is build time only. Its model, validation, reader, writer, fingerprint and index live in a JVM library, `catalog-model`, that `tooling`, `compiler-plugin` and the two build-tool plugins (for the compiler plugin's id and option names only) use. `core`, `consumer` and `producer` never depend on it, and the running producer holds no catalog.
 
 The approach rests on two experiments run before the design, both successful (see [research.md](research.md)):
 
@@ -117,7 +117,7 @@ catalog-model/                       # Kotlin JVM, build time only
     ├── bundle/                      # CatalogManifest, CatalogPart, reader, writer, fingerprint, size cap
     ├── validation/                  # one part, and the checks across parts
     ├── index/                       # the index the compiler plugin reads, format from T031a
-    └── options/                     # CompilerPluginOptions: the option names, shared with gradle-plugin
+    └── options/                     # CompilerPluginOptions and the generated plugin id (buildconfig)
 
 consumer/                            # Kotlin Multiplatform: android
 └── src/
@@ -140,7 +140,7 @@ producer/                            # Kotlin JVM
     ├── test/
     └── loadTest/
 
-compiler-plugin/                     # Kotlin JVM, K2, buildconfig plugin for the generated plugin id
+compiler-plugin/                     # Kotlin JVM, K2
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/compiler/
     │   ├── consumer/                # FIR checker, fragment writer, renderer creation
@@ -156,7 +156,7 @@ toolchain-plugin/                    # thin Kotlin toolchain wrapper over toolin
 contract-tests/                      # test-only: producer output through the consumer's reader
 
 samples/
-├── catalogs/                        # the only thing the two sample builds share: one folder per version
+├── catalogs/                        # the only files the two sample builds share: one folder per version
 ├── app/                             # its own build: Android app with marked composables
 ├── server/                          # its own build: JVM server with a WebSocket connection
 ├── toolchain-probe/                 # the smallest Kotlin toolchain project, for the early experiment
@@ -173,20 +173,20 @@ Module dependencies:
 | `catalog-model` | `core`, for `CatalogVersion` and `ValueKind` only |
 | `consumer`, `producer` | `core` |
 | `compiler-plugin`, `tooling` | `catalog-model` |
-| `gradle-plugin`, `toolchain-plugin` | `tooling`, and `catalog-model` for the compiler plugin's option names |
+| `gradle-plugin`, `toolchain-plugin` | `tooling`, and `catalog-model` for the compiler plugin's id and option names |
 
 How the build is written, following the owner's pattern in the thunderbird repository (its `build-plugin` and the pii-safe compiler plugin):
 
 - Convention plugins in `build-logic` are Plugin classes, each registered in the `gradlePlugin { plugins { } }` block of `build-logic/build.gradle.kts` with an id `dev.tonholo.ssrcompose.conventions.<concern>` and its implementation class. Each id is listed in `gradle/libs.versions.toml` under `[plugins]` with no version, and a module applies it with `alias(libs.plugins...)`. There is no precompiled script plugin, and no module build file writes a plugin id as a string.
-- The compiler plugin id has one home: the `ssrcompose.compiler.plugin.id` property in the root `gradle.properties`. The buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`, listed in the catalog) turns it into a generated constant in `compiler-plugin` and in `gradle-plugin`. It is not a constant in `core`.
-- The option names of the compiler plugin are written once, in `catalog-model` (`options/CompilerPluginOptions.kt`). It is the one module that both `compiler-plugin` and `gradle-plugin` can see without touching `core`: `compiler-plugin` depends on it already, and `gradle-plugin` depends on it for these names, as the module table shows.
-- The Gradle plugin `dev.tonholo.ssrcompose` is one `KotlinCompilerPluginSupportPlugin` class. It adds `core`, which holds `@ConsumerComposable` and `@ProducerComposable`, to each compilation by itself, so a developer applies this one plugin and adds nothing else to mark composables. It is registered in the `gradlePlugin` block of `gradle-plugin/build.gradle.kts` and listed in the catalog as `ssrcompose`.
+- The compiler plugin id has one home: the `ssrcompose.compiler.plugin.id` property in the root `gradle.properties`. The buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`, listed in the catalog) turns it into one generated constant in `catalog-model`, next to the option names. `compiler-plugin`, `gradle-plugin` and `toolchain-plugin` all read that one constant. It is not a constant in `core`, and no literal id appears anywhere else, including the toolchain plugin's yaml files.
+- The option names of the compiler plugin are written once, in `catalog-model` (`options/CompilerPluginOptions.kt`). It is the one module that `compiler-plugin` and both build-tool plugins can see without touching `core`: `compiler-plugin` depends on it already, and `gradle-plugin` and `toolchain-plugin` depend on it for the id and these names, as the module table shows. T113 creates both.
+- The Gradle plugin `dev.tonholo.ssrcompose` is one `KotlinCompilerPluginSupportPlugin` class. It adds `core`, which holds `@ConsumerComposable` and `@ProducerComposable`, to the compile classpath of each compilation by itself, at the plugin's own version, so a developer applies this one plugin and adds nothing else to mark composables. It is registered in the `gradlePlugin` block of `gradle-plugin/build.gradle.kts` and listed in the catalog as `ssrcompose`.
 - Compile tests use kotlin-compile-testing. Their sources are `*.fixture.kt` files under `compiler-plugin/src/test/resources/fixtures/`. That folder is added as a test source folder, so the IDE reads the fixtures as Kotlin, and `*.fixture.kt` is excluded from test compilation.
-- Our own samples apply the Gradle plugin through the catalog with `alias(libs.plugins.ssrcompose)`. Each sample build reads the root `gradle/libs.versions.toml` as its `libs` catalog.
+- Our own samples apply the Gradle plugin through the catalog with `alias(libs.plugins.ssrcompose)`, from the first task that needs it (T056 and T057); T007 creates the sample builds without it, since the plugin exists only after T024. Each sample build reads the root `gradle/libs.versions.toml` as its `libs` catalog.
 
 Not checked: the buildconfig plugin's version against Maven metadata, which T001 checks when it adds it.
 
-**Structure Decision**: four deliverables as modules at the root (`core`, `consumer`, `producer`, `compiler-plugin`), the build-time `catalog-model` library, the tooling library and its two build-tool wrappers, one test-only module, and samples as separate builds that share only a folder of catalogs. `poc/` stays a separate Gradle project and nothing depends on it. The reasons are in [research.md](research.md), sections R5, R11 and R17.
+**Structure Decision**: four deliverables as modules at the root (`core`, `consumer`, `producer`, `compiler-plugin`), the build-time `catalog-model` library, the tooling library and its two build-tool wrappers, one test-only module, and samples as separate builds that share nothing else of their own code: they use the root build and its version catalog, and a folder of catalogs. `poc/` stays a separate Gradle project and nothing depends on it. The reasons are in [research.md](research.md), sections R5, R11 and R17.
 
 How the build handles the catalog:
 
@@ -216,4 +216,4 @@ Decisions that become ADRs when implemented are listed in [research.md](research
 | The consumer side may work from Gradle only, if the experiment in T030 finds that the Kotlin toolchain cannot build an Android library | The constitution asks for every step to work from every supported build tool. The producer side is expected to work from both. | Holding the whole feature until the Kotlin toolchain can build an Android library was turned down by the owner. If T030 finds it can, this row is removed. |
 | Experimental compiler APIs and one workaround in compiler internals for enum entries | The owner's design has a real enum per choice list, and the compiler's typed API cannot create enum entries. Top-level generation is itself marked experimental. | A class with one constant per choice is the fallback if the workaround breaks in the IDE or in a new Kotlin version. It was not chosen first because it does not match the owner's example and loses the exhaustive `when`. |
 | A test-only module, `contract-tests`, and samples as two separate builds | Principle VI asks for the producer's output to run through the consumer's reader, and principle II forbids the two libraries from depending on each other. The spec requires proof that a server builds with none of the app's code. | Tests inside either library would put the other on its build. One shared sample build would not prove that the two sides share only a catalog. |
-| Principle II: an extra library, `catalog-model`, holds the catalog format instead of `core` | The owner decided the catalog is build time only (FR-069). The catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index are used only by `tooling` and `compiler-plugin`. Keeping them in `core` would ship a JSON reader, a hashing step and validation code in every app and every server that never use them. `catalog-model` counts as part of the compiler plugin deliverable, like the tooling library. | Keeping the catalog code in `core`, as principle II's wording asks, was turned down because `core` is a run-time dependency of `consumer` and `producer`. Putting it inside `tooling` was turned down because `compiler-plugin` must not depend on the build-tool library. |
+| Principle II: an extra library, `catalog-model`, holds the catalog format instead of `core` | The owner decided the catalog is build time only (FR-069). The catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index are used only by `tooling`, `compiler-plugin` and the two build-tool plugins, the last two only for the compiler plugin's id and option names. Keeping them in `core` would ship a JSON reader, a hashing step and validation code in every app and every server that never use them. `catalog-model` counts as part of the compiler plugin deliverable, like the tooling library. | Keeping the catalog code in `core`, as principle II's wording asks, was turned down because `core` is a run-time dependency of `consumer` and `producer`. Putting it inside `tooling` was turned down because `compiler-plugin` must not depend on the build-tool library. |
