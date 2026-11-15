@@ -20,3 +20,20 @@ dependencies {
     implementation(plugin(libs.plugins.android.kmp.library))
     implementation(plugin(libs.plugins.detekt))
 }
+
+gradlePlugin {
+    plugins {
+        register("conventionCompose") {
+            id = "dev.tonholo.ssrcompose.conventions.compose"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.ComposeConventionPlugin"
+        }
+        register("conventionSerialization") {
+            id = "dev.tonholo.ssrcompose.conventions.serialization"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.SerializationConventionPlugin"
+        }
+        register("conventionPublishing") {
+            id = "dev.tonholo.ssrcompose.conventions.publishing"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.PublishingConventionPlugin"
+        }
+    }
+}
