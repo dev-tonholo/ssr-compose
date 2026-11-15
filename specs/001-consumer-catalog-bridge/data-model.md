@@ -1,25 +1,29 @@
 # Data Model: Consumer Catalog and Bridge
 
-Entities from the spec with their fields and rules. They live in `core` unless noted. Kotlin names are proposals.
+Entities from the spec with their fields and rules. Kotlin names are proposals. Each section says which module an entity lives in:
+
+- `core`: what the app and the producer use at run time.
+- `catalog-model`: the catalog, used only at build time by `tooling` and `compiler-plugin`. `core`, `consumer` and `producer` never depend on it.
+- `producer`: what only the producer library has.
 
 ## Catalog
 
-### CatalogVersion
+### CatalogVersion (`core`)
 
-A label the app developer sets. At most 64 characters, no control characters. No order: only equal or not equal matters.
+A label the app developer sets. At most 64 characters, no control characters. No order: only equal or not equal matters. It is the only catalog type in `core`, so the handshake can carry it. `catalog-model` uses this same type.
 
-### ValueKind
+### ValueKind (`catalog-model`)
 
 text, whole number, decimal number, yes or no (`flag` in the file), choice (names a `ChoiceList`), list of one value kind. Bytes exists only as a callback argument.
 
-### ChoiceList
+### ChoiceList (`catalog-model`)
 
 | Field | Rule |
 |---|---|
-| `name` | a valid identifier, unique in the catalog |
+| `name` | a valid identifier, unique in its part |
 | `entries` | at least one, valid identifiers, unique, in declaration order |
 
-### Parameter
+### Parameter (`catalog-model`)
 
 | Field | Meaning |
 |---|---|
@@ -30,33 +34,78 @@ text, whole number, decimal number, yes or no (`flag` in the file), choice (name
 
 A callback parameter lists the kinds of the arguments it carries, none to four. A slot parameter says what it accepts (`any`, `consumer`, `producer`) and may list the value kinds it passes to its content.
 
-### ComponentDescriptor
+### ComponentDescriptor (`catalog-model`)
 
 | Field | Rule |
 |---|---|
-| `name` | a valid identifier, unique in the catalog |
-| `parameters` | in declaration order, "at most 50" |
+| `name` | a valid identifier, unique across the whole catalog |
+| `parameters` | in declaration order. No hard limit on how many. |
 
-### Catalog
+### PartName (`catalog-model`)
+
+Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: `:feature:home` gives `feature-home`. The app developer can set another one. Two modules whose parts get the same name fail the bundle step and both are named.
+
+### CatalogPart (`catalog-model`)
+
+The components of one app module.
 
 | Field | Rule |
 |---|---|
-| `format` | the file format version |
+| `format` | the part format version |
+| `part` | its `PartName` |
+| `choices` | every choice list its components use, sorted by name |
+| `components` | sorted by name |
+
+A part stands on its own: it lists every choice list its components use, even when another part lists the same one.
+
+### PartEntry (`catalog-model`)
+
+One line of the manifest.
+
+| Field | Rule |
+|---|---|
+| `name` | a `PartName`, unique in the manifest |
+| `file` | a plain file name: no path separator, no `..`, no scheme. The part is found next to the manifest under this name. |
+| `fingerprint` | lowercase hexadecimal SHA-256 of the part's bytes |
+
+### CatalogManifest (`catalog-model`)
+
+| Field | Rule |
+|---|---|
+| `format` | the manifest format version |
 | `version` | `CatalogVersion` |
-| `choices` | sorted by name |
-| `components` | sorted by name, "at most 1,000" |
+| `parts` | `PartEntry` list, sorted by `name`. Empty when the app has no marked composable. |
 
-A catalog can be read from and written to a catalog file, and has a fingerprint (SHA-256 of the file's bytes). See [contracts/catalog-file.md](contracts/catalog-file.md).
+### Catalog (`catalog-model`)
 
-### CatalogSet (producer)
+A manifest and its parts, read and checked together. Rules across parts:
 
-What the producer is given at start: every catalog it holds, the set of versions it supports (by default, all held), and the one version the bridge was created from. Rules: versions are unique; two held catalogs with the same version must have the same fingerprint; the bridge version is one of the held ones.
+- A component name is unique across all parts.
+- A choice list that appears in two parts is identical in both: same name, same entries in the same order.
+- Every part the manifest lists is present and matches its fingerprint, and no other part is present.
+
+Its fingerprint is the SHA-256 of the manifest's bytes. A reader refuses a manifest or a part larger than its size cap, 16 MiB each by default, before parsing it. See [contracts/catalog-bundle.md](contracts/catalog-bundle.md).
+
+### CatalogIndex (`catalog-model`, internal)
+
+What the compiler plugin reads to create one bridge, produced from one saved catalog by a cacheable build step. Internal, never shared between builds and never committed. Its format is settled by the scale gate, T031a, and is not fixed here.
 
 ### SavedCatalog and lock file (server project)
 
-One catalog file per held version inside the server project, and one lock file that lists, for each: the version, the location it came from, and its fingerprint. See [contracts/build-tooling.md](contracts/build-tooling.md).
+One folder per held catalog version inside the server project, `ssr/catalogs/<version>/`, with `manifest.json` and one file per part. One lock file lists, for each held version: the version, the location of its manifest, and the manifest's fingerprint. See [contracts/build-tooling.md](contracts/build-tooling.md).
 
-## Handshake
+## Registration (`producer`)
+
+What the producer is given at start: for each served catalog version, its screens by name.
+
+| Field | Rule |
+|---|---|
+| catalog version | a `CatalogVersion`, registered once |
+| screens | screen name to the screen's content, each name once per version |
+
+Rules: a version or a screen name inside one version registered twice makes `Producer` fail at once. The producer serves exactly the catalog versions that have at least one screen. It holds no catalog.
+
+## Handshake (`core`)
 
 ### ContractVersion
 
@@ -84,20 +133,33 @@ Fixed for a session. Self-declared and not proven. `version`, `variant`, `flavor
 
 ### Answer
 
-`Accepted` with the contract version, or `Refused` with a `RefusalKind` and a reason for the user.
+A sealed type with two cases: `Accepted` with the contract version, or `Refused` with a `RefusalKind` and a reason for the user.
 
 `RefusalKind`: contract version too old, contract version too new, catalog version not known or no longer supported, introduction not valid.
 
+## Messages and frames (`core`)
+
+### ConsumerMessage and ProducerMessage
+
+The messages of [contracts/messages.md](contracts/messages.md). In code, the producer message that carries an answer, `ProducerMessage.Answered`, wraps an `Answer`. On the wire, the JSON codec shows `Accepted` and `Refused` as messages of their own, at the same level as `Screen` and `ScreenUnavailable`.
+
+### First frame
+
+The consumer's first frame, the one that carries `Introduce`, is a 4-byte big-endian contract version followed by the codec's payload. No other frame has a prefix. The receiver knows which frame is the first from its position in the connection, never from its bytes. The prefix must equal the contract version inside `Introduce`. `MessageFrame` holds this layout.
+
+### MessageCodec
+
+Turns messages into frames and back for one contract version, with its own pair of functions for the first frame. Every decoding failure is one error type, `MessageDecodingException`. The public way to get the JSON codec is `MessageCodec.json()`.
+
 ## Screen
 
-### DataValue
+### DataValue (`core`)
 
 The neutral model for values on the wire: text, whole number, decimal number, flag, choice entry (by name), list, bytes, nothing.
 
-### PlacedComponent
+### PlacedComponent (`core`, on the wire)
 
 A parameter the screen did not give is absent from all three maps, and the app's composable uses its own default for it.
-
 
 | Field | Meaning |
 |---|---|
@@ -106,15 +168,25 @@ A parameter the screen did not give is absent from all three maps, and the app's
 | `callbacks` | callback parameter name to `ActionId` |
 | `slots` | slot parameter name to an ordered list of `PlacedComponent` |
 
-### ActionId
+The wire form has no catalog version: the session's version is known to both sides from the introduction.
+
+### Placed node (`producer`, internal)
+
+The producer's own node for a placed component. It holds what `PlacedComponent` holds, plus the catalog version of the bridge that placed it, taken from the constant in the bridge function, and the declared argument kinds of each callback. The guard reads the version. The actions read the argument kinds.
+
+### ArgumentKind (`producer`)
+
+The kind of one callback argument, as the bridge declares it: text, whole number, decimal number, flag, choice with its entry names, list of one kind, or bytes. The producer checks each trigger's arguments against these, since it holds no catalog.
+
+### ActionId (`core`)
 
 A short text the producer assigns to one callback of one placed component. Unique inside a session.
 
-### ScreenContent
+### ScreenContent (`core`)
 
 An ordered list of `PlacedComponent`.
 
-## Session (producer)
+## Session (`producer`)
 
 One accepted connection between one app and the producer.
 
@@ -125,29 +197,26 @@ Connected -> Accepted -> Open(screen) -> Closed
 
 | From | Event | To | What happens |
 |---|---|---|---|
-| Connected | a valid introduction | Accepted | `Accepted` is sent |
-| Connected | an invalid or unsupported introduction, or any other message | Refused | `Refused` is sent and the session closes |
-| Accepted or Open | the app opens a screen the producer has | Open | the open screen, if any, is disposed; the new one is composed and sent |
-| Accepted or Open | the app opens a name the producer does not have | Accepted | `ScreenUnavailable` is sent and reported |
+| Connected | a valid introduction for a served catalog version and a supported contract version | Accepted | `Accepted` is sent |
+| Connected | an invalid introduction, an unserved catalog version, an unsupported contract version, or any other message | Refused | `Refused` is sent and the session closes |
+| Accepted or Open | the app opens a name registered for its catalog version | Open | the open screen, if any, is disposed; the new one is composed and sent |
+| Accepted or Open | the app opens a name with no screen for its catalog version | Accepted | `ScreenUnavailable` is sent and reported |
 | Open | a device change | Open | the context changes, the screen recomposes, state is kept |
-| Open | a trigger for an action the screen has | Open | the lambda runs; if state changed, the screen recomposes and is sent |
+| Open | a trigger for an action the screen has | Open | the arguments are checked against the declared kinds; the lambda runs; if state changed, the screen recomposes and is sent |
 | Open | a trigger for an action the screen does not have | Open | ignored and reported |
+| Open | a trigger whose arguments do not match the declared kinds or go over the size limit | Open | refused and reported; nothing runs |
 | Open | a trigger whose lambda fails | Open | the changes it made are thrown away, the screen stays as it was, and the failure is reported |
 | Open | triggers arrive over the limit, "100 per second by default" | Open | the extra ones are dropped and reported |
-| Open | a component is missing with no replacement, or the screen's code fails | Accepted | `ScreenUnavailable` is sent and reported |
+| Open | the screen places a component from another catalog version's bridge, or the screen's code fails | Accepted | the screen is not sent, `ScreenUnavailable` is sent and reported |
 | any | the connection ends | Closed | the composition is disposed |
 
-A session holds: its catalog, its contract version, the app identity, the current device context, the live composition of the open screen, and that screen's actions. Nothing in it is shared with another session.
+A session holds: its catalog version, the screens registered for it, its contract version, the app identity, the current device context, the live composition of the open screen, and that screen's actions. Nothing in it is shared with another session.
 
-## Fitting rules
+## The guard
 
-Given what a screen gives a component, and that component's descriptor in the session's catalog:
+Each time a screen is about to be sent, the producer compares the catalog version on every placed node, including those inside slots, with the session's catalog version.
 
-1. The component is not in the catalog: missing.
-2. A parameter the screen gives that the descriptor does not have is left out, and reported. This holds for values, callbacks and slots.
-3. A required parameter of the descriptor that the screen did not give: missing.
-4. A parameter whose kind differs from the descriptor's: missing. Kinds are compared exactly.
-5. A choice value whose entry the descriptor's choice list does not have: missing.
-6. Slot content is fitted the same way, component by component. A missing component inside a slot makes the whole screen follow the replacement rule.
+1. All equal: the screen is sent.
+2. Any different: the screen is not sent, the app gets `ScreenUnavailable`, the session stays accepted, and the observer is told the component, the screen, the session's version and the version of the bridge that placed it.
 
-"Missing" then follows the spec: the replacement is shown if one was defined, otherwise the whole screen is unavailable.
+A screen registered for one version and written with that version's bridge never trips the guard. It catches a screen that mixes bridges by mistake.
