@@ -10,7 +10,7 @@ Commits, branches and what is never committed.
 4. Make small commits, one logical change each. Every commit builds.
 5. Scopes: `core`, `consumer`, `producer`, `plugin`, `poc`, `protocol`, `server`, `app`, `ai`, `spec`, `build-logic`, `compiler-plugin`, `gradle-plugin`, `tooling`, `contract-tests`, `samples`. Leave the scope out for a broad change.
 6. Mark a breaking change with `!` after the type or scope.
-7. Keep history linear. Rebase, and do not create merge commits.
+7. Keep history linear. Rebase, and do not create merge commits. Pull requests are squash merged, so the pull request title becomes the commit on main and must itself be a one-line Conventional Commit.
 8. Commit and push only when the owner asks.
 9. Never commit plans or specs written by the Superpowers skills (`docs/superpowers/`).
 10. Format-only changes go in their own commit.
