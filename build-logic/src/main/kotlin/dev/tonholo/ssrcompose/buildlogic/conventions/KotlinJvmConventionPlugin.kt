@@ -10,7 +10,10 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 /**
  * Sets up a Kotlin JVM module: the Kotlin JVM plugin, the testing and detekt conventions, and the JVM target from the
  * version catalog for both Kotlin and Java.
+ *
+ * Suppressed unused: Gradle creates this plugin from the declaration in `build-logic/build.gradle.kts`.
  */
+@Suppress("unused")
 internal abstract class KotlinJvmConventionPlugin : Plugin<Project> {
     override fun apply(target: Project): Unit = with(target) {
         pluginManager.apply(libs.plugins.kotlin.jvm.get().pluginId)

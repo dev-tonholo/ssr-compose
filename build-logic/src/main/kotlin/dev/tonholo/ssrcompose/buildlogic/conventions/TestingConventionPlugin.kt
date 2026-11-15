@@ -24,7 +24,10 @@ private val POWER_ASSERT_FUNCTIONS = listOf(
 /**
  * Sets up testing: power-assert, and the kotlin.test, coroutines test and Turbine dependencies for Kotlin JVM and
  * Kotlin Multiplatform modules. Android host tests also get `kotlin-test-junit`.
+ *
+ * Suppressed unused: Gradle creates this plugin from the declaration in `build-logic/build.gradle.kts`.
  */
+@Suppress("unused")
 internal abstract class TestingConventionPlugin : Plugin<Project> {
     override fun apply(target: Project): Unit = with(target) {
         pluginManager.apply(libs.plugins.kotlin.power.assert.get().pluginId)

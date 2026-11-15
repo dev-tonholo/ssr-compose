@@ -7,7 +7,10 @@ import org.gradle.kotlin.dsl.configure
 
 /**
  * Applies detekt on top of its default rules.
+ *
+ * Suppressed unused: Gradle creates this plugin from the declaration in `build-logic/build.gradle.kts`.
  */
+@Suppress("unused")
 internal abstract class DetektConventionPlugin : Plugin<Project> {
     override fun apply(target: Project): Unit = with(target) {
         pluginManager.apply(libs.plugins.detekt.get().pluginId)
