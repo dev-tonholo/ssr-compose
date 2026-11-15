@@ -2,7 +2,7 @@
 
 A proof of concept for server-side rendering with Jetpack Compose, where composables are shared in both directions between a server and an app.
 
-The idea came out of a discussion about A2UI and AndroidX Remote Compose. The full discussion is in [docs/session-export.md](docs/session-export.md). The design and the plan for this PoC are in [docs/superpowers](docs/superpowers).
+The idea came out of a discussion about A2UI and AndroidX Remote Compose.
 
 ## The idea
 

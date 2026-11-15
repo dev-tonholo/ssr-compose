@@ -6,3 +6,4 @@ local.properties
 .kotlin/
 .superpowers/
 .DS_Store
+docs/session-export.md
