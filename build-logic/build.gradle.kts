@@ -23,6 +23,14 @@ dependencies {
 
 gradlePlugin {
     plugins {
+        register("conventionKotlinJvm") {
+            id = "dev.tonholo.ssrcompose.conventions.kotlin-jvm"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.KotlinJvmConventionPlugin"
+        }
+        register("conventionKmpLibrary") {
+            id = "dev.tonholo.ssrcompose.conventions.kmp-library"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.KmpLibraryConventionPlugin"
+        }
         register("conventionCompose") {
             id = "dev.tonholo.ssrcompose.conventions.compose"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.ComposeConventionPlugin"
@@ -30,6 +38,14 @@ gradlePlugin {
         register("conventionSerialization") {
             id = "dev.tonholo.ssrcompose.conventions.serialization"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.SerializationConventionPlugin"
+        }
+        register("conventionTesting") {
+            id = "dev.tonholo.ssrcompose.conventions.testing"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.TestingConventionPlugin"
+        }
+        register("conventionDetekt") {
+            id = "dev.tonholo.ssrcompose.conventions.detekt"
+            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.DetektConventionPlugin"
         }
         register("conventionPublishing") {
             id = "dev.tonholo.ssrcompose.conventions.publishing"
