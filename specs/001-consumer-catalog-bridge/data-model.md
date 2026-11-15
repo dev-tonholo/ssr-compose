@@ -10,11 +10,11 @@ Entities from the spec with their fields and rules. Kotlin names are proposals. 
 
 ### CatalogVersion (`core`)
 
-A label the app developer sets. At most 64 characters, no control characters. No order: only equal or not equal matters. It is the only catalog type in `core`, so the handshake can carry it. `catalog-model` uses this same type.
+A label the app developer sets. At most 64 characters, no control characters. No order: only equal or not equal matters. It lives in `core` so the handshake can carry it. `catalog-model` uses this same type.
 
-### ValueKind (`catalog-model`)
+### ValueKind (`core`)
 
-text, whole number, decimal number, yes or no (`flag` in the file), choice (names a `ChoiceList`), list of one value kind. Bytes exists only as a callback argument.
+The one definition of the kinds of values: text, whole number, decimal number, yes or no (`flag` in the file), choice (names a choice list by its `listName`), list of one value kind, and bytes. A list holds a text, a whole number, a decimal number, a flag or a choice, never bytes or another list. It lives in `core`, next to `DataValue`, because both build-time and run-time code need it: `catalog-model` uses it for parameters and callback arguments, and the producer uses it to declare and check callback arguments. Neither defines a list of kinds of its own. Where bytes may appear (only as a callback argument) is a catalog rule, checked in `catalog-model`.
 
 ### ChoiceList (`catalog-model`)
 
@@ -43,7 +43,7 @@ A callback parameter lists the kinds of the arguments it carries, none to four. 
 
 ### PartName (`catalog-model`)
 
-Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: lowercased, every run of characters other than `a` to `z` and `0` to `9` turned into one hyphen, hyphens at both ends dropped. `:feature:home` and `:feature_home` give `feature-home`, `:featureHome` gives `featurehome`, and the root module, whose path is `:`, gives `root`. The app developer can set another one. A derived name over 64 characters fails the build and asks for one to be set. Two modules whose parts get the same name fail the bundle step and both are named.
+Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: lowercased, every run of characters other than ASCII letters and digits (`a` to `z`, `0` to `9` once lowercased) turned into one hyphen, hyphens at both ends dropped. `:feature:home` and `:feature_home` give `feature-home`, `:featureHome` gives `featurehome`, and the root module, whose path is `:`, gives `root`. The app developer can set another one. A derived name over 64 characters fails the build and asks for one to be set. Two modules whose parts get the same name fail the bundle step and both are named.
 
 ### CatalogPart (`catalog-model`)
 
@@ -65,7 +65,7 @@ One line of the manifest.
 | Field | Rule |
 |---|---|
 | `name` | a `PartName`, unique in the manifest |
-| `file` | a plain file name: no path separator, no `..`, no scheme. The part is found next to the manifest under this name. |
+| `file` | always `<name>.part.json`, unique in the manifest, never empty, a dot or `manifest.json`. The part is found next to the manifest under this name. |
 | `fingerprint` | lowercase hexadecimal SHA-256 of the part's bytes |
 
 ### CatalogManifest (`catalog-model`)
@@ -92,18 +92,19 @@ What the compiler plugin reads to create one bridge, produced from one saved cat
 
 ### SavedCatalog and lock file (server project)
 
-One folder per held catalog version inside the server project, `ssr/catalogs/<version>/`, with `manifest.json` and one file per part. One lock file lists, for each held version: the version, the location of its manifest, and the manifest's fingerprint. See [contracts/build-tooling.md](contracts/build-tooling.md).
+One folder per held catalog version inside the server project, `ssr/catalogs/<version>/`, with `manifest.json` and one `<name>.part.json` file per part. One lock file lists, for each held version: the version, the location of its manifest, and the manifest's `fingerprint`. See [contracts/build-tooling.md](contracts/build-tooling.md).
 
 ## Registration (`producer`)
 
-What the producer is given at start: for each served catalog version, its screens by name.
+What the producer is given at start: for each served catalog version, its screens by name, and the contract versions it supports.
 
 | Field | Rule |
 |---|---|
 | catalog version | a `CatalogVersion`, registered once |
 | screens | screen name to the screen's content, each name once per version |
+| `supportedContractVersions` | the contract versions the producer accepts. By default, every version the library has a codec for. A server developer stops a contract version by leaving it out. |
 
-Rules: a version or a screen name inside one version registered twice makes `Producer` fail at once. The producer serves exactly the catalog versions that have at least one screen. It holds no catalog.
+Rules: a version or a screen name inside one version registered twice makes `Producer` fail at once. The producer serves exactly the catalog versions that have at least one screen, and accepts exactly the contract versions in `supportedContractVersions`. It holds no catalog.
 
 ## Handshake (`core`)
 
@@ -174,13 +175,9 @@ The wire form has no catalog version: the session's version is known to both sid
 
 The producer's own node for a placed component. It holds what `PlacedComponent` holds, plus the catalog version of the bridge that placed it, taken from the constant in the bridge function, and the declared argument kinds of each callback. The guard reads the version. The actions read the argument kinds.
 
-### ArgumentKind (`producer`)
-
-The kind of one callback argument, as the bridge declares it: text, whole number, decimal number, flag, choice with its entry names, list of one kind, or bytes. The producer checks each trigger's arguments against these, since it holds no catalog.
-
 ### Callback (`producer`)
 
-What a bridge function gives `ConsumerComponent` for one callback parameter: the `RemoteAction` the server developer wrote, and the list of its argument kinds, empty when the callback has none.
+What a bridge function gives `ConsumerComponent` for one callback parameter: the `RemoteAction` the server developer wrote, and the list of its argument kinds as core's `ValueKind`, empty when the callback has none. The producer checks each trigger's arguments against that list, since it holds no catalog. For a choice argument, the producer checks that the value is a choice entry, and the bridge turns it into its enum; an entry the enum does not have is refused and reported like any other mismatch.
 
 ### ActionId (`core`)
 
@@ -201,8 +198,8 @@ Connected -> Accepted -> Open(screen) -> Closed
 
 | From | Event | To | What happens |
 |---|---|---|---|
-| Connected | a valid introduction for a served catalog version and a supported contract version | Accepted | `Accepted` is sent |
-| Connected | an invalid introduction, an unserved catalog version, an unsupported contract version, or any other message | Refused | `Refused` is sent and the session closes |
+| Connected | a valid introduction for a served catalog version and a contract version in `supportedContractVersions` | Accepted | `Accepted` is sent |
+| Connected | an invalid introduction, an unserved catalog version, a contract version below or above `supportedContractVersions`, or any other message | Refused | `Refused` is sent and the session closes |
 | Accepted or Open | the app opens a name registered for its catalog version | Open | the open screen, if any, is disposed; the new one is composed and sent |
 | Accepted or Open | the app opens a name with no screen for its catalog version | Accepted | `ScreenUnavailable` is sent and reported |
 | Open | a device change | Open | the context changes, the screen recomposes, state is kept |
