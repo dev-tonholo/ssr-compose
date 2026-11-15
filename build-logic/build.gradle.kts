@@ -5,6 +5,19 @@ plugins {
     `kotlin-dsl`
 }
 
+kotlin {
+    compilerOptions {
+        allWarningsAsErrors = true
+    }
+}
+
+tasks {
+    validatePlugins {
+        enableStricterValidation = true
+        failOnWarning = true
+    }
+}
+
 dependencies {
     implementation(files(libs.javaClass.superclass.protectionDomain.codeSource.location))
 
