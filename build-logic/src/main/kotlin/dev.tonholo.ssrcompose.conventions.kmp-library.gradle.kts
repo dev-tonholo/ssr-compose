@@ -22,5 +22,6 @@ kotlin {
         compileSdk = libs.versionOf("compile-sdk").toInt()
         minSdk = libs.versionOf("min-sdk").toInt()
         compilerOptions.jvmTarget.set(jvmTargetVersion)
+        withHostTest {}
     }
 }

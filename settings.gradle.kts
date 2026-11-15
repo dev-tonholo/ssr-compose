@@ -16,3 +16,12 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ssr-compose"
+
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
+include(":core")
+include(":consumer")
+include(":producer")
+include(":compiler-plugin")
+include(":tooling")
+include(":gradle-plugin")
