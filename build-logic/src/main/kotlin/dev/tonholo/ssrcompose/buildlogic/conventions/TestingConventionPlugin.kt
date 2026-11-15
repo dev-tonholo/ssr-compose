@@ -1,6 +1,7 @@
 package dev.tonholo.ssrcompose.buildlogic.conventions
 
-import dev.tonholo.ssrcompose.buildlogic.ANDROID_HOST_TEST_SOURCE_SET
+import com.android.build.api.dsl.KotlinMultiplatformAndroidHostTestCompilation
+import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.testing.Test
@@ -63,9 +64,11 @@ private fun Project.configureMultiplatformTests() {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.turbine)
         }
-        sourceSets.matching { it.name == ANDROID_HOST_TEST_SOURCE_SET }.configureEach {
-            dependencies {
-                implementation(libs.kotlin.test.junit)
+        targets.withType<KotlinMultiplatformAndroidLibraryTarget>().configureEach {
+            compilations.withType<KotlinMultiplatformAndroidHostTestCompilation>().configureEach {
+                defaultSourceSet.dependencies {
+                    implementation(libs.kotlin.test.junit)
+                }
             }
         }
     }
