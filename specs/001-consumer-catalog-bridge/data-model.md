@@ -3,7 +3,7 @@
 Entities from the spec with their fields and rules. Kotlin names are proposals. Each section says which module an entity lives in:
 
 - `core`: what the app and the producer use at run time.
-- `catalog-model`: the catalog, used only at build time by `tooling` and `compiler-plugin`. `core`, `consumer` and `producer` never depend on it.
+- `catalog-model`: the catalog, used only at build time by `tooling`, `compiler-plugin` and the two build-tool plugins (these two only for the compiler plugin's id and option names). `core`, `consumer` and `producer` never depend on it.
 - `producer`: what only the producer library has.
 
 ## Catalog

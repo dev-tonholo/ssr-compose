@@ -78,11 +78,11 @@ Decision: the compiler plugin cannot do everything, so two thin build-tool plugi
 How the build is set up, as the owner asked on the root build pull request and as the owner's thunderbird repository does for its baseline profile plugins and its pii-safe compiler plugin:
 
 - Convention plugins in `build-logic` are Plugin classes registered in the `gradlePlugin` block, with ids `dev.tonholo.ssrcompose.conventions.<concern>`. Each id is listed in the version catalog with no version and applied with `alias(libs.plugins...)`. No precompiled script plugin, and no plugin id written as a string in a module build file.
-- The compiler plugin id lives in one place, the `ssrcompose.compiler.plugin.id` property of the root `gradle.properties`, set to `dev.tonholo.ssrcompose`. The buildconfig Gradle plugin generates a constant from it in `compiler-plugin` and in `gradle-plugin`, as pii-safe does with `tfa.piisafe.compiler.plugin.id`. It is not a constant in `core`.
-- The option names are written once, in `catalog-model`, which both `compiler-plugin` and `gradle-plugin` can see without `core`. pii-safe keeps them in its annotations module; here the annotations are in `core`, which must not hold them, so `catalog-model` takes that place.
-- The Gradle plugin is one `KotlinCompilerPluginSupportPlugin` class. In `applyToCompilation` it adds `core` (the annotations) to each compilation, as pii-safe adds its annotations module, so a developer applies one plugin and nothing else.
+- The compiler plugin id lives in one place, the `ssrcompose.compiler.plugin.id` property of the root `gradle.properties`, set to `dev.tonholo.ssrcompose`. The buildconfig Gradle plugin generates one constant from it, in `catalog-model`, next to the option names, as pii-safe generates its constant from `tfa.piisafe.compiler.plugin.id`. `compiler-plugin`, `gradle-plugin` and `toolchain-plugin` all read that one constant. It is not a constant in `core`, and no literal id appears in the toolchain plugin's yaml files or anywhere else. pii-safe generates its constant in the compiler plugin and reads the property again in its Gradle plugin; one constant in `catalog-model` keeps one home for the id even for the toolchain plugin, which is not built by Gradle and cannot run buildconfig itself.
+- The option names are written once, in `catalog-model`, which `compiler-plugin` and both build-tool plugins can see without `core`. T113 creates them and the generated id. pii-safe keeps them in its annotations module; here the annotations are in `core`, which must not hold them, so `catalog-model` takes that place.
+- The Gradle plugin is one `KotlinCompilerPluginSupportPlugin` class. In `applyToCompilation` it adds `core` (the annotations) to the compile classpath of each compilation, at the plugin's own version, as pii-safe adds its annotations module, so a developer applies one plugin and nothing else.
 - Compile tests use kotlin-compile-testing with sources in `*.fixture.kt` files under `src/test/resources/fixtures`. The folder is a test source folder so the IDE reads the fixtures, and the fixtures are excluded from test compilation.
-- The samples apply the Gradle plugin with `alias(libs.plugins.ssrcompose)`.
+- The samples apply the Gradle plugin with `alias(libs.plugins.ssrcompose)`, from T056 and T057 on; T007 creates the sample builds before the plugin exists.
 
 Rationale: R2 and R4 show the compiler alone is not enough, and the constitution says nothing may work only through Gradle. The owner's ktgd project already has this shape: a compiler plugin, a Gradle plugin and a toolchain plugin with its tasks in a `plugin.yaml`.
 
@@ -109,7 +109,7 @@ Safety: only `https` addresses and file paths are accepted by default. Part file
 
 ## R7. Consumer side: one renderer per marked composable
 
-Decision: on the app side, the compiler plugin creates, for each marked composable, a small renderer that takes a placed component and calls the real composable with decoded values, callbacks that send a trigger, and slots that render their content. Because it is created per composable, incremental compilation is safe. The part step writes each module's entries of name to renderer, and the bundle step writes the app's renderer index as a resource, which the consumer library loads once. The renderer index is not the catalog: it maps names to the app's own code and holds no descriptors. The renderer outputs follow the same per-module rule as the parts (FR-071): a change in one module produces again only that module's renderer entries, and the app's renderer index is written again with the manifest. Where they are written is settled by T055 and not checked yet.
+Decision: on the app side, the compiler plugin creates, for each marked composable, a small renderer that takes a placed component and calls the real composable with decoded values, callbacks that send a trigger, and slots that render their content. Because it is created per composable, incremental compilation is safe. The part step writes each module's entries of name to renderer, and the bundle step writes the app's renderer index as a resource, which the consumer library loads once. The renderer index is not the catalog: it maps names to the app's own code and holds no descriptors. The renderer outputs are not part of the catalog, and they follow the same per-module rule as the parts: a change in one module produces again only that module's renderer entries, and the app's renderer index is written again with the manifest. Where they are written is settled by T055 and not checked yet.
 
 A developer can do the same by hand with `ComponentBindings`.
 
@@ -205,8 +205,8 @@ Decision: a limit per session, 100 per second by default and configurable throug
 | `producer` | Kotlin JVM library | JVM | `core` |
 | `compiler-plugin` | Kotlin JVM | JVM | `catalog-model` |
 | `tooling` | Kotlin JVM library | JVM | `catalog-model` |
-| `gradle-plugin` | Gradle plugin | JVM | `tooling`, `catalog-model` (option names) |
-| `toolchain-plugin` | Kotlin toolchain plugin | JVM | `tooling`, `catalog-model` (option names) |
+| `gradle-plugin` | Gradle plugin | JVM | `tooling`, `catalog-model` (plugin id and option names) |
+| `toolchain-plugin` | Kotlin toolchain plugin | JVM | `tooling`, `catalog-model` (plugin id and option names) |
 | `contract-tests` | test-only | `android` host tests | `core`, `consumer`, `producer` |
 | `samples/app` | its own build | Android | the published `consumer` and plugins |
 | `samples/server` | its own build | JVM | the published `producer` and plugins |
@@ -261,7 +261,7 @@ Not checked: all of it. T031a, the scale gate, measures reading and validating t
 
 ## R17. The catalog is build time only
 
-Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), `ValueKind` (the kinds of values), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion` and `ValueKind` only, so each has one definition. `ValueKind` is in `core` because the producer needs it at run time to declare and check callback arguments, and `catalog-model` needs it for parameters; one list of kinds serves both, and neither module defines its own.
+Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `gradle-plugin` and `toolchain-plugin` depend on it too, only for the compiler plugin's id and option names. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), `ValueKind` (the kinds of values), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion` and `ValueKind` only, so each has one definition. `ValueKind` is in `core` because the producer needs it at run time to declare and check callback arguments, and `catalog-model` needs it for parameters; one list of kinds serves both, and neither module defines its own.
 
 Rationale: principle II asks for one definition of everything both sides agree on. The catalog format still has one definition, in `catalog-model`. Keeping it in `core` would put a JSON reader, hashing and validation in every app and every server at run time, where nothing uses them. The plan records this in Complexity Tracking.
 
