@@ -11,6 +11,8 @@ import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.powerassert.gradle.PowerAssertGradleExtension
 
+private const val TEST_IMPLEMENTATION_CONFIGURATION = "testImplementation"
+
 private val POWER_ASSERT_FUNCTIONS = listOf(
     "kotlin.assert",
     "kotlin.test.assertEquals",
@@ -42,9 +44,9 @@ private fun Project.configurePowerAssert() {
 
 private fun Project.configureJvmTests() {
     dependencies {
-        add("testImplementation", libs.kotlin.test)
-        add("testImplementation", libs.kotlinx.coroutines.test)
-        add("testImplementation", libs.turbine)
+        add(TEST_IMPLEMENTATION_CONFIGURATION, libs.kotlin.test)
+        add(TEST_IMPLEMENTATION_CONFIGURATION, libs.kotlinx.coroutines.test)
+        add(TEST_IMPLEMENTATION_CONFIGURATION, libs.turbine)
     }
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
