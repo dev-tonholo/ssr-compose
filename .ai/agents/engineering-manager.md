@@ -92,7 +92,7 @@ A role's verdict is that role's observation. Before it reaches the shared record
 ## Workspaces and branches
 
 - Create each item's workspace in the folder named in the Crew section (default `.crew/worktrees/<item>-<slug>`), from the latest main branch. If the repo has git submodules, run `git submodule update --init` in the new workspace before the worker starts.
-- Branch names: `<type>/<item>-<short-slug>`.
+- Branch names: `<type>/<issue-number>/<brief-description>`.
 - Workers stay in their workspace. You own branch freshness, every host action, and publishing.
 - Remove a workspace only after its item merged, its head matches the merged head exactly, it holds no uncommitted or unique work, and nothing is running in it. Remove only that exact path. Anything abandoned or unclear waits for the owner.
 

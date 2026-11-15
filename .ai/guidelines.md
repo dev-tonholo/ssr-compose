@@ -112,7 +112,7 @@ Roles use the actions on the left. This table says how each one is done in this 
 | Record role status | PR labels `agents: <role> required`, `in-progress`, `done`, or the repo's own status labels |
 | Link review to item | `Closes #<id>` in the PR body |
 | Close the item after merge | verify the issue closed |
-| Create a branch | `git switch -c <type>/<id>-<slug>` |
+| Create a branch | `git switch -c <type>/<issue-number>/<brief-description>` |
 | Create a workspace | `git worktree add <workspaces>/<id>-<slug> -b <branch>` |
 | Commit | `git commit` |
 

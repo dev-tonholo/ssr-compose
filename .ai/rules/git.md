@@ -14,6 +14,7 @@ Commits, branches and what is never committed.
 8. Commit and push only when the owner asks.
 9. Never commit plans or specs written by the Superpowers skills (`docs/superpowers/`).
 10. Format-only changes go in their own commit.
+11. Name branches `<type>/<issue-number>/<brief-description>`, for example `chore/8/detekt-every-source-set`. The type is a Conventional Commit type, the number is the GitHub issue, and the description is a few lowercase words joined with hyphens. Do not add a user name prefix.
 
 ## Check
 
