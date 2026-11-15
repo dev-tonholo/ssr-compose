@@ -7,6 +7,7 @@ kotlinx-coroutines = "1.11.0"
 kctfork = "0.14.0"
 turbine = "1.2.1"
 detekt = "2.0.0-alpha.6"
+buildconfig = "6.1.2"
 ktor = "3.6.1"
 jvm-target = "17"
 min-sdk = "23"
@@ -20,7 +21,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
-kctfork-core = { module = "dev.zacsweers.kctfork:core", version.ref = "kctfork" }
+kotlin-compile-testing = { module = "dev.zacsweers.kctfork:core", version.ref = "kctfork" }
 
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
@@ -41,6 +42,8 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 kotlin-power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
+buildconfig = { id = "com.github.gmazzo.buildconfig", version.ref = "buildconfig" }
+ssrcompose = { id = "dev.tonholo.ssrcompose" }
 
 ssrcompose-conventions-kotlin-jvm = { id = "dev.tonholo.ssrcompose.conventions.kotlin-jvm" }
 ssrcompose-conventions-kmp-library = { id = "dev.tonholo.ssrcompose.conventions.kmp-library" }
