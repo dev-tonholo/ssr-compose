@@ -1,7 +1,6 @@
-package dev.tonholo.ssrcompose.buildlogic.conventions
+package dev.tonholo.ssrcompose.conventions
 
 import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
-import dev.tonholo.ssrcompose.buildlogic.PROJECT_GROUP
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.ExtensionAware

@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.buildlogic.conventions
+package dev.tonholo.ssrcompose.conventions
 
 import com.android.build.api.dsl.KotlinMultiplatformAndroidHostTestCompilation
 import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget

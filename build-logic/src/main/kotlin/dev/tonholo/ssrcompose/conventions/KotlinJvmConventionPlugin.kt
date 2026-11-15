@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.buildlogic.conventions
+package dev.tonholo.ssrcompose.conventions
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project

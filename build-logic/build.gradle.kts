@@ -34,31 +34,31 @@ gradlePlugin {
     plugins {
         register("conventionKotlinJvm") {
             id = "dev.tonholo.ssrcompose.conventions.kotlin-jvm"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.KotlinJvmConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.KotlinJvmConventionPlugin"
         }
         register("conventionKmpLibrary") {
             id = "dev.tonholo.ssrcompose.conventions.kmp-library"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.KmpLibraryConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.KmpLibraryConventionPlugin"
         }
         register("conventionCompose") {
             id = "dev.tonholo.ssrcompose.conventions.compose"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.ComposeConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.ComposeConventionPlugin"
         }
         register("conventionSerialization") {
             id = "dev.tonholo.ssrcompose.conventions.serialization"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.SerializationConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.SerializationConventionPlugin"
         }
         register("conventionTesting") {
             id = "dev.tonholo.ssrcompose.conventions.testing"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.TestingConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.TestingConventionPlugin"
         }
         register("conventionDetekt") {
             id = "dev.tonholo.ssrcompose.conventions.detekt"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.DetektConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.DetektConventionPlugin"
         }
         register("conventionPublishing") {
             id = "dev.tonholo.ssrcompose.conventions.publishing"
-            implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.PublishingConventionPlugin"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.PublishingConventionPlugin"
         }
     }
 }
