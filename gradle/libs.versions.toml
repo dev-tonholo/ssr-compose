@@ -41,3 +41,11 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 kotlin-power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
+
+ssrcompose-conventions-kotlin-jvm = { id = "dev.tonholo.ssrcompose.conventions.kotlin-jvm" }
+ssrcompose-conventions-kmp-library = { id = "dev.tonholo.ssrcompose.conventions.kmp-library" }
+ssrcompose-conventions-compose = { id = "dev.tonholo.ssrcompose.conventions.compose" }
+ssrcompose-conventions-serialization = { id = "dev.tonholo.ssrcompose.conventions.serialization" }
+ssrcompose-conventions-testing = { id = "dev.tonholo.ssrcompose.conventions.testing" }
+ssrcompose-conventions-detekt = { id = "dev.tonholo.ssrcompose.conventions.detekt" }
+ssrcompose-conventions-publishing = { id = "dev.tonholo.ssrcompose.conventions.publishing" }
