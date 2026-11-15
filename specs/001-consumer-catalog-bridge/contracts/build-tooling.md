@@ -32,10 +32,10 @@ ssrCompose {
 | Step | Where | What it does |
 |---|---|---|
 | compile | every module with the plugin | The compiler plugin checks every `@ConsumerComposable` and writes one fragment per source file. An unsupported parameter, or a marked function that is not `@Composable`, is a compile error at that line. |
-| `ssrCatalogPart` | every module with the plugin | Merges the module's fragments into the module's part. Fails when a name is used twice in the module, or when two fragments disagree about a choice list. Cacheable: its only inputs are the module's fragments and its part name. |
-| `ssrCatalogBundle` | the module that sets `catalogVersion` | Collects its own part and the parts of the modules it depends on, checks across parts (a component name used in two parts, a choice list that differs between two parts, two modules with the same part name, each naming both places), and writes the manifest. Cacheable: its inputs are the parts and the catalog version. |
+| `ssrCatalogPart` | every module with the plugin | Merges the module's fragments into the module's part, `<name>.part.json`, and writes the module's renderer entries (name to renderer). Fails when a name is used twice in the module, or when two fragments disagree about a choice list. Cacheable: its only inputs are the module's fragments and its part name. Where the renderer entries are written is settled by T055 and not checked yet. |
+| `ssrCatalogBundle` | the module that sets `catalogVersion` | Collects its own part and the parts of the modules it depends on, checks across parts (a component name used in two parts, a choice list that differs between two parts, two modules with the same part name, each naming both places), and writes the manifest. It also writes the app's renderer index as a resource, from the renderer entries of every part. Cacheable: its inputs are the parts, the renderer entries and the catalog version. Where the renderer index is written is settled by T055 and not checked yet. |
 | `ssrCatalogCheck` | the module that sets `catalogVersion` | Compares the bundle with the saved one in `ssr/catalogs/<version>/`, byte for byte, and names each file that differs. Fails when any differs, and when no saved bundle exists yet for that version, with a message that says to run `ssrCatalogDump`. It never writes the saved bundle itself. It is part of the normal check and build. |
-| `ssrCatalogDump` | the module that sets `catalogVersion` | Writes the bundle to `ssr/catalogs/<version>/`: `manifest.json` and one file per part, and removes any part file the manifest does not list. Run on purpose, after changing a marked composable and raising the version. The folder is committed. |
+| `ssrCatalogDump` | the module that sets `catalogVersion` | Writes the bundle to `ssr/catalogs/<version>/`: `manifest.json` and one `<name>.part.json` file per part, and removes any part file the manifest does not list. Run on purpose, after changing a marked composable and raising the version. The folder is committed. |
 
 The saved folders are what the app team publishes for server projects, at any location both can reach.
 
@@ -81,24 +81,25 @@ Rules for `ssrCatalogSync`:
 
 1. Only `https` addresses and file paths are accepted, unless the developer opts in to something else.
 2. A manifest or a part larger than the size cap is refused before it is read. The cap is 16 MiB each by default, set with `catalogFileSizeLimit` in `ssrCompose { }`.
-3. Each part's `file` must be a plain file name: no path separator, no `..`, no scheme. A manifest that breaks this is rejected before any part is fetched. Parts are fetched from the manifest's location with that file name.
-4. A manifest whose version differs from the declared version, a part that does not match its fingerprint, a catalog that is not valid, or one that holds a name that cannot be a Kotlin name, is rejected, and nothing of that catalog is saved.
+3. Each part's `file` must be its `name` followed by `.part.json`, and the `file` values must be unique and never empty, a dot or `manifest.json`, as [catalog-bundle.md](catalog-bundle.md) says. A manifest that breaks this is rejected before any part is fetched. Parts are fetched from the manifest's location with that file name.
+4. A manifest whose version differs from the declared version, a part that does not match its fingerprint, a catalog that is not valid, or one that holds a name that cannot be a Kotlin name, is rejected, and nothing of that catalog is saved. The same holds when the manifest loads but one of its parts cannot be fetched: nothing of that catalog is saved, and the saved copy, if there is one, is kept as it was.
 5. When the manifest at a location no longer matches the lock file, the step says so and keeps the saved copy. `--update` replaces it.
 6. When a location cannot be reached and a saved copy exists, the saved copy is used and the developer is told. With no saved copy, the step fails.
-7. `ssr/catalogs/` and `ssr/catalogs.lock` are committed, so the same commit always builds the same way, with or without a network.
+7. Since a catalog is saved whole or not at all, and a changed manifest is kept out until `--update`, fetching only the missing parts happens in two cases: a sync with `--update`, where parts whose fingerprint did not change are kept, and a sync after a saved part file was removed by hand. A first sync of a version fetches every part. In every case each part is checked against the manifest before anything is saved.
+8. `ssr/catalogs/` and `ssr/catalogs.lock` are committed, so the same commit always builds the same way, with or without a network.
 
 ## The lock file
 
 ```json
 {
   "catalogs": [
-    { "version": "2", "location": "https://example.com/app/catalogs/2/manifest.json", "sha256": "..." },
-    { "version": "3", "location": "https://example.com/app/catalogs/3/manifest.json", "sha256": "..." }
+    { "version": "2", "location": "https://example.com/app/catalogs/2/manifest.json", "fingerprint": "..." },
+    { "version": "3", "location": "https://example.com/app/catalogs/3/manifest.json", "fingerprint": "..." }
   ]
 }
 ```
 
-`sha256` is the manifest's fingerprint, which covers every part.
+`fingerprint` is the manifest's fingerprint, the lowercase hexadecimal SHA-256 of its bytes, which covers every part. The field has the same name, and the same kind of value, as each part's `fingerprint` in the manifest.
 
 ## Build performance and the build cache
 
