@@ -25,7 +25,7 @@ fun PaymentSection(
 - A parameter must be a kind the catalog can describe, or the build fails at that parameter. See [catalog-bundle.md](catalog-bundle.md).
 - A modifier parameter is left out of the catalog and gets its default.
 
-The annotations live in `core`, so common code can use them.
+The annotations live in `core`, so common code can use them. The Gradle plugin adds `core` to each compilation by itself, so a module that applies `alias(libs.plugins.ssrcompose)` needs nothing else to mark composables.
 
 ## Showing a screen
 

@@ -2,12 +2,21 @@
 
 What a developer sets up and runs. The same steps exist for Gradle and for the Kotlin toolchain, with the same names and behaviour. Sketches of the shape, not final syntax.
 
+In Gradle the plugin is applied through the version catalog, never by a plugin id written as a string. The catalog line, in `gradle/libs.versions.toml`:
+
+```toml
+[plugins]
+ssrcompose = { id = "dev.tonholo.ssrcompose", version.ref = "ssrcompose" }
+```
+
+Inside this repository (the samples and the TestKit fixtures) the entry has an id and no version, since the plugin comes from the included root build. This one plugin is all a module needs: it adds `core`, which holds `@ConsumerComposable` and `@ProducerComposable`, to each compilation by itself.
+
 ## In the app's project (the consumer)
 
 Setup, Gradle form, in the module that sets the catalog version (usually the application module):
 
 ```kotlin
-plugins { id("dev.tonholo.ssrcompose") }
+plugins { alias(libs.plugins.ssrcompose) }
 
 ssrCompose {
     consumer {
@@ -20,7 +29,7 @@ ssrCompose {
 In any other module that has marked composables:
 
 ```kotlin
-plugins { id("dev.tonholo.ssrcompose") }
+plugins { alias(libs.plugins.ssrcompose) }
 
 ssrCompose {
     consumer {
@@ -52,7 +61,7 @@ Which compilation a part comes from:
 Setup, Gradle form:
 
 ```kotlin
-plugins { id("dev.tonholo.ssrcompose") }
+plugins { alias(libs.plugins.ssrcompose) }
 
 ssrCompose {
     producer {
@@ -112,7 +121,8 @@ Not checked: all of the above. T114 tests it with Gradle TestKit, and T031a and 
 
 ## What the build-tool plugins take care of
 
-- They apply the compiler plugin with its options.
+- They apply the compiler plugin with its options. In Gradle this is one `KotlinCompilerPluginSupportPlugin` class. Its compiler plugin id is a constant generated from the `ssrcompose.compiler.plugin.id` property of this repository's root `gradle.properties`, and its option names come from `catalog-model`, the same names the compiler plugin reads.
+- They add `core` (the annotations) to each Kotlin compilation, so a developer adds no dependency by hand to mark composables.
 - They put the bridge plugin before the Compose compiler. The bridge plugin also stops the build with a clear message if it finds it ran second.
 - They declare each index as a compile input, so a changed saved catalog causes a rebuild.
 
