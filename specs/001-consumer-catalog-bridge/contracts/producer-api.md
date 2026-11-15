@@ -49,7 +49,7 @@ fun CheckoutScreen() {
 - `LocalConsumer.current` gives the session's `device`, `app`, `catalogVersion` and `has("DocumentScanner")`. `device` is state: when the app reports a change, the screen recomposes and what it holds stays.
 - A slot that passes arguments cannot be filled in this feature:
   - When the slot is optional, the bridge function has no parameter for it and the app uses its own default.
-  - When the slot is required, the component cannot be placed. Its bridge function exists, and calling it is a compile error that names the later feature. `CameraScanner` and a `PaymentSection` whose title is a slot with arguments are in this group until remote composables exist.
+  - When the slot is required, the component cannot be placed. Its bridge function exists, and calling it is a compile error that names the component and the slot, and says that slots with arguments are not supported yet. `CameraScanner` and a `PaymentSection` whose title is a slot with arguments are in this group until remote composables exist.
 
 ## What a bridge function is
 

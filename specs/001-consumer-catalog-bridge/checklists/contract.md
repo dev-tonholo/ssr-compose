@@ -10,69 +10,69 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Does the spec say which composables can be marked, for example only top-level functions, and what happens for a member, an extension, a generic or an overloaded one? [Gap, Spec §FR-001, §FR-006]
-- [ ] CHK002 Is it stated that a component's name is its identity, so renaming a marked composable is a catalog change that needs a new version? [Gap, Spec §FR-003, §FR-010]
-- [ ] CHK003 Are the kinds a callback argument can have listed in the spec, including bytes, and not only in the design files? [Gap, Spec §FR-004, §FR-039]
-- [ ] CHK004 Is the rule for a parameter the server leaves out written in the spec for every kind of parameter, and not only for slots? [Gap, Spec §FR-003, §FR-036]
-- [ ] CHK005 Does the spec say how an app with several build variants gets its catalog version, and what must hold between variants? [Gap, Spec §FR-009, §FR-010]
-- [ ] CHK006 Are there requirements for marked composables spread over several modules of one app? [Gap, Spec §FR-002]
-- [ ] CHK007 Is there a requirement for how the top-level composables of a screen are arranged, when the server places more than one? [Gap, Spec §FR-034]
-- [ ] CHK008 Does the "can be written by hand" requirement cover what the build creates on the app side as well as the bridge? [Completeness, Spec §FR-024]
-- [ ] CHK009 Does the spec say what a server developer can do with a composable that exists only in a held catalog other than the bridge catalog? [Gap, Spec §FR-018, §FR-020]
-- [ ] CHK010 Is the package or place where the bridge appears in the server project something the spec leaves to the developer, and does it say so? [Gap, Spec §FR-020]
+- [x] CHK001 Does the spec say which composables can be marked, for example only top-level functions, and what happens for a member, an extension, a generic or an overloaded one? [Gap, Spec §FR-001, §FR-006]
+- [x] CHK002 Is it stated that a component's name is its identity, so renaming a marked composable is a catalog change that needs a new version? [Gap, Spec §FR-003, §FR-010]
+- [x] CHK003 Are the kinds a callback argument can have listed in the spec, including bytes, and not only in the design files? [Gap, Spec §FR-004, §FR-039]
+- [x] CHK004 Is the rule for a parameter the server leaves out written in the spec for every kind of parameter, and not only for slots? [Gap, Spec §FR-003, §FR-036]
+- [x] CHK005 Does the spec say how an app with several build variants gets its catalog version, and what must hold between variants? [Gap, Spec §FR-009, §FR-010]
+- [x] CHK006 Are there requirements for marked composables spread over several modules of one app? [Gap, Spec §FR-002]
+- [x] CHK007 Is there a requirement for how the top-level composables of a screen are arranged, when the server places more than one? [Gap, Spec §FR-034]
+- [x] CHK008 Does the "can be written by hand" requirement cover what the build creates on the app side as well as the bridge? [Completeness, Spec §FR-024]
+- [x] CHK009 Does the spec say what a server developer can do with a composable that exists only in a held catalog other than the bridge catalog? [Gap, Spec §FR-018, §FR-020]
+- [x] CHK010 Is the package or place where the bridge appears in the server project something the spec leaves to the developer, and does it say so? [Gap, Spec §FR-020]
 
 ## Requirement Clarity
 
-- [ ] CHK011 Is "the build tool's sync step" defined in a way that also covers a build server, where no editor sync happens? [Ambiguity, Spec §FR-014, §FR-015]
-- [ ] CHK012 Are "can be left out" and "can be empty" clearly told apart, with what each means for the server and for the app? [Clarity, Spec §FR-003]
-- [ ] CHK013 Is "names that cannot be used as names in code" given a rule a reviewer can apply? [Clarity, Spec §FR-017]
-- [ ] CHK014 Are "holds" and "supports" defined as two different states of a catalog in a server project? [Clarity, Spec §FR-018, §FR-046]
-- [ ] CHK015 Is "the only thing the two builds share" clear about the libraries both builds depend on? [Ambiguity, Spec §FR-012]
-- [ ] CHK016 Is "plain, readable text" in the catalog requirement something that can be checked, or is the stability rule the real requirement? [Measurability, Spec §FR-008]
-- [ ] CHK017 Is "a message that points to the later feature" specific enough to write a test for? [Clarity, Spec §FR-036]
+- [x] CHK011 Is "the build tool's sync step" defined in a way that also covers a build server, where no editor sync happens? [Ambiguity, Spec §FR-014, §FR-015]
+- [x] CHK012 Are "can be left out" and "can be empty" clearly told apart, with what each means for the server and for the app? [Clarity, Spec §FR-003]
+- [x] CHK013 Is "names that cannot be used as names in code" given a rule a reviewer can apply? [Clarity, Spec §FR-017]
+- [x] CHK014 Are "holds" and "supports" defined as two different states of a catalog in a server project? [Clarity, Spec §FR-018, §FR-046]
+- [x] CHK015 Is "the only thing the two builds share" clear about the libraries both builds depend on? [Ambiguity, Spec §FR-012]
+- [x] CHK016 Is "plain, readable text" in the catalog requirement something that can be checked, or is the stability rule the real requirement? [Measurability, Spec §FR-008]
+- [x] CHK017 Is "a message that points to the later feature" specific enough to write a test for? [Clarity, Spec §FR-036]
 
 ## Requirement Consistency
 
-- [ ] CHK018 Do the parameter kinds in the requirements, the key entities and User Stories 2 and 3 name the same set, including callbacks with up to four arguments? [Consistency, Spec §FR-004, §Key Entities]
-- [ ] CHK019 Do the requirements agree on what happens to a required slot with arguments: the scenario, the requirement and the edge case? [Consistency, Spec §FR-036, §User Story 3]
-- [ ] CHK020 Is the first-time case, a version with no saved catalog, consistent between the requirement and the edge cases? [Consistency, Spec §FR-010, §Edge Cases]
-- [ ] CHK021 Do "the bridge comes from one named catalog" and "serve many catalog versions at once" fit together without a case where a screen cannot be written? [Consistency, Spec §FR-020, §FR-045, §FR-048]
-- [ ] CHK022 Is the list of refusal kinds the same in the requirements and in User Story 4, including a catalog the producer holds but does not support? [Consistency, Spec §FR-030, §FR-046]
-- [ ] CHK023 Are "component" and "composable" used the same way across the spec, as the key entities define them? [Consistency, Spec §Key Entities]
+- [x] CHK018 Do the parameter kinds in the requirements, the key entities and User Stories 2 and 3 name the same set, including callbacks with up to four arguments? [Consistency, Spec §FR-004, §Key Entities]
+- [x] CHK019 Do the requirements agree on what happens to a required slot with arguments: the scenario, the requirement and the edge case? [Consistency, Spec §FR-036, §User Story 3]
+- [x] CHK020 Is the first-time case, a version with no saved catalog, consistent between the requirement and the edge cases? [Consistency, Spec §FR-010, §Edge Cases]
+- [x] CHK021 Do "the bridge comes from one named catalog" and "serve many catalog versions at once" fit together without a case where a screen cannot be written? [Consistency, Spec §FR-020, §FR-045, §FR-048]
+- [x] CHK022 Is the list of refusal kinds the same in the requirements and in User Story 4, including a catalog the producer holds but does not support? [Consistency, Spec §FR-030, §FR-046]
+- [x] CHK023 Are "component" and "composable" used the same way across the spec, as the key entities define them? [Consistency, Spec §Key Entities]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK024 Do the timing criteria say on what device and connection they are measured? [Clarity, Spec §SC-005, §SC-006, §SC-007]
-- [ ] CHK025 Is "every case of the test set" a set someone can list? [Measurability, Spec §SC-004]
-- [ ] CHK026 Can "in under 30 minutes by following the documentation" be measured: who does it, and with which documentation? [Measurability, Spec §SC-001]
-- [ ] CHK027 Does every requirement about sharing a catalog trace to an acceptance scenario or a success criterion, in particular a changed location and an unreachable one? [Traceability, Spec §FR-013 to §FR-019]
+- [x] CHK024 Do the timing criteria say on what device and connection they are measured? [Clarity, Spec §SC-005, §SC-006, §SC-007]
+- [x] CHK025 Is "every case of the test set" a set someone can list? [Measurability, Spec §SC-004]
+- [x] CHK026 Can "in under 30 minutes by following the documentation" be measured: who does it, and with which documentation? [Measurability, Spec §SC-001]
+- [x] CHK027 Does every requirement about sharing a catalog trace to an acceptance scenario or a success criterion, in particular a changed location and an unreachable one? [Traceability, Spec §FR-013 to §FR-019]
 
 ## Scenario Coverage
 
-- [ ] CHK028 Are requirements defined for a server lambda that fails while it runs for a callback? [Gap, Exception Flow, Spec §FR-038, §FR-052]
-- [ ] CHK029 Does the spec say what happens to what a screen holds when the connection ends and the app connects again? [Gap, Recovery Flow, Spec §Key Entities]
-- [ ] CHK030 Is it specified what the user sees when a tap cannot reach the server, or is that left on purpose to the connection feature? [Gap, Recovery Flow, Spec §Assumptions]
-- [ ] CHK031 Are requirements defined for a server screen that gives a choice the connected app's older catalog does not have? [Gap, Spec §FR-048, §FR-049]
-- [ ] CHK032 Is the order defined between a callback and a device change that arrive at almost the same moment? [Gap, Alternate Flow, Spec §FR-040, §FR-054]
+- [x] CHK028 Are requirements defined for a server lambda that fails while it runs for a callback? [Gap, Exception Flow, Spec §FR-038, §FR-052]
+- [x] CHK029 Does the spec say what happens to what a screen holds when the connection ends and the app connects again? [Gap, Recovery Flow, Spec §Key Entities]
+- [x] CHK030 Is it specified what the user sees when a tap cannot reach the server, or is that left on purpose to the connection feature? [Gap, Recovery Flow, Spec §Assumptions]
+- [x] CHK031 Are requirements defined for a server screen that gives a choice the connected app's older catalog does not have? [Gap, Spec §FR-048, §FR-049]
+- [x] CHK032 Is the order defined between a callback and a device change that arrive at almost the same moment? [Gap, Alternate Flow, Spec §FR-040, §FR-054]
 
 ## Edge Case Coverage
 
-- [ ] CHK033 Is behaviour defined for an app with no marked composable at all? [Gap, Edge Case]
-- [ ] CHK034 Does the spec say what the app build does past the stated bounds, such as composable 1,001 or parameter 51? [Gap, Spec §Assumptions]
-- [ ] CHK035 Does each listed edge case point to the requirement that covers it? [Traceability, Spec §Edge Cases]
+- [x] CHK033 Is behaviour defined for an app with no marked composable at all? [Gap, Edge Case]
+- [x] CHK034 Does the spec say what the app build does past the stated bounds, such as composable 1,001 or parameter 51? [Gap, Spec §Assumptions]
+- [x] CHK035 Does each listed edge case point to the requirement that covers it? [Traceability, Spec §Edge Cases]
 
 ## Non-Functional Requirements
 
-- [ ] CHK036 Are there requirements for an app that sends valid callbacks far too often, as there are for invalid and oversized ones? [Gap, Security, Spec §FR-043, §FR-057]
-- [ ] CHK037 Is the trust placed in a catalog's location on its first fetch stated, given that later fetches are pinned? [Assumption, Security, Spec §FR-015, §FR-016]
-- [ ] CHK038 Does the spec say that a catalog file shows the names of an app's components to anyone who can read its location? [Gap, Privacy, Spec §Assumptions]
-- [ ] CHK039 Is the choice to leave trust in the app's identity open stated where a server developer will read it? [Assumption, Spec §Clarifications]
+- [x] CHK036 Are there requirements for an app that sends valid callbacks far too often, as there are for invalid and oversized ones? [Gap, Security, Spec §FR-043, §FR-057]
+- [x] CHK037 Is the trust placed in a catalog's location on its first fetch stated, given that later fetches are pinned? [Assumption, Security, Spec §FR-015, §FR-016]
+- [x] CHK038 Does the spec say that a catalog file shows the names of an app's components to anyone who can read its location? [Gap, Privacy, Spec §Assumptions]
+- [x] CHK039 Is the choice to leave trust in the app's identity open stated where a server developer will read it? [Assumption, Spec §Clarifications]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK040 Is the rule "the producer is released before or together with the app" written as something both kinds of developer will find? [Assumption, Spec §Assumptions, §FR-046]
-- [ ] CHK041 Is it stated which versions of the language tools the feature supports, and what a new version needs before it is supported? [Gap, Dependency]
-- [ ] CHK042 Is each later feature this one depends on named, with what this feature leaves for it? [Dependency, Spec §Assumptions, §FR-011, §FR-036]
+- [x] CHK040 Is the rule "the producer is released before or together with the app" written as something both kinds of developer will find? [Assumption, Spec §Assumptions, §FR-046]
+- [x] CHK041 Is it stated which versions of the language tools the feature supports, and what a new version needs before it is supported? [Gap, Dependency]
+- [x] CHK042 Is each later feature this one depends on named, with what this feature leaves for it? [Dependency, Spec §Assumptions, §FR-011, §FR-036]
 
 ## Notes
 

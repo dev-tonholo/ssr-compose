@@ -33,7 +33,7 @@ Three people are served by this feature:
 
 - The app developer, who marks which of the app's composables a server may use.
 - The server developer, who writes screens in a project that may live in another repository.
-- The end user of the app, who must never see a broken or unknown component because the app and the server disagree.
+- The end user of the app, who must never see a broken or unknown composable because the app and the server disagree.
 
 ### User Story 1 - A server screen places an app composable (Priority: P1)
 
@@ -51,6 +51,9 @@ An app developer marks a composable as usable by the server. Building the app pr
 4. **Given** an app and a server built this way, **When** the app connects and asks for the screen, **Then** the app shows the composable, drawn by the app's own code, with the values the server gave.
 5. **Given** a connecting app, **When** it introduces itself, **Then** the producer receives the device density, orientation, screen size, active theme, active language, the app's version, variant and flavor, the catalog version, and the contract version the app speaks, and no catalog.
 6. **Given** an app composable with a parameter the catalog cannot describe, **When** the app is built, **Then** the build fails with a message that names the composable, the parameter and the reason.
+7. **Given** a saved catalog and a location whose file changed since, **When** the server project is synced, **Then** the difference is reported, the saved copy is kept, and the build still uses it.
+8. **Given** a saved catalog and a location that cannot be reached, **When** the server project is synced and built, **Then** the developer is told, and the build gives the same result as before.
+9. **Given** no saved catalog and a location that cannot be reached, **When** the server project is synced, **Then** the sync fails with a message that names the location.
 
 ---
 
@@ -85,7 +88,7 @@ An app composable has a slot: a place where it shows content given to it. The se
 1. **Given** an app composable with a slot, **When** a screen fills the slot with other catalog composables, **Then** the app shows them inside that composable, where it places its slot.
 2. **Given** slots inside slots, **When** the screen is shown, **Then** the nesting in the app matches the nesting written on the server.
 3. **Given** a slot the screen leaves empty, **When** the composable allows that, **Then** the composable is shown with an empty slot.
-4. **Given** an app composable with a required slot that passes arguments to its content, **When** a server developer tries to place that composable, **Then** the server does not build and the message says that slots with arguments need a later feature.
+4. **Given** an app composable with a required slot that passes arguments to its content, **When** a server developer tries to place that composable, **Then** the server does not build, and the message names the composable and the slot and says that slots with arguments are not supported yet.
 
 ---
 
@@ -126,22 +129,22 @@ A server developer writes a screen that reads what the app said about itself: de
 
 ### Edge Cases
 
-- Two composables marked for the server have the same name. The app build fails and names both.
-- A marked composable takes a modifier. Modifiers are out of scope: the parameter is left out of the catalog and the composable gets its default.
-- The catalog file at the given location changed since it was last saved, without the server developer asking for it. The saved copy is still used, and the difference is reported at the next sync.
-- The location cannot be reached during a sync. The saved copy is used and the developer is told. With no saved copy, the sync fails with a clear message.
-- The fetched file is not a catalog, or holds names that cannot be used as names in code. It is rejected and nothing is created from it.
-- The app developer changes a marked composable but does not raise the catalog version. The app build fails and says the catalog changed.
-- The app developer sets a catalog version that has no saved catalog yet. The app build fails and says how to save one.
-- A callback's arguments are far larger than any real ones. The producer refuses them without slowing other connected apps.
-- The app triggers a callback many times in a moment. Each one runs in the order it was triggered.
-- An app introduces itself with a value that makes no sense, or with something far larger than a real introduction. It is refused, and other apps are not affected.
-- The app asks for a screen before it was accepted, or for a name the producer does not have.
-- A device value changes while the introduction is still being answered. The app reports the newest values once it is accepted.
-- An app composable has an optional slot that passes arguments. The server can place the composable and cannot fill that slot.
-- An app has no marked composable. Its catalog is valid and empty, the app is accepted, and every composable is missing for it.
-- A catalog goes over a stated bound, such as composable 1,001 or parameter 51. The app build fails and names the bound.
-- The app receives something it cannot draw, although it should never happen. It does not crash and does not show a developer placeholder.
+- Two composables marked for the server have the same name. The app build fails and names both. (FR-006)
+- A marked composable takes a modifier. Modifiers are out of scope: the parameter is left out of the catalog and the composable gets its default. (FR-007)
+- The catalog file at the given location changed since it was last saved, without the server developer asking for it. The saved copy is still used, and the difference is reported at the next sync. (FR-016)
+- The location cannot be reached during a sync. The saved copy is used and the developer is told. With no saved copy, the sync fails with a clear message. (FR-015)
+- The fetched file is not a catalog, or holds names that cannot be used as names in code. It is rejected and nothing is created from it. (FR-017)
+- The app developer changes a marked composable but does not raise the catalog version. The app build fails and says the catalog changed. (FR-010)
+- The app developer sets a catalog version that has no saved catalog yet. The app build fails and says how to save one. (FR-010)
+- A callback's arguments are far larger than any real ones. The producer refuses them without slowing other connected apps. (FR-043, FR-057)
+- The app triggers a callback many times in a moment. Each one runs in the order it was triggered. (FR-040, FR-061)
+- An app introduces itself with a value that makes no sense, or with something far larger than a real introduction. It is refused, and other apps are not affected. (FR-056, FR-057)
+- The app asks for a screen before it was accepted, or for a name the producer does not have. (FR-031, FR-052)
+- A device value changes while the introduction is still being answered. The app reports the newest values once it is accepted. (FR-054)
+- An app composable has an optional slot that passes arguments. The server can place the composable and cannot fill that slot. (FR-036)
+- An app has no marked composable. Its catalog is valid and empty, the app is accepted, and every composable is missing for it. (FR-002, FR-049)
+- A catalog goes over a stated bound, such as component 1,001 or parameter 51. The app build fails and names the bound. (FR-006)
+- The app receives something it cannot draw, although it should never happen. It does not crash and does not show a developer placeholder. (FR-037)
 
 ## Requirements *(mandatory)*
 
@@ -151,7 +154,7 @@ Marking composables and producing the catalog:
 
 - **FR-001**: An app developer MUST be able to mark a composable in the app as usable by the server, in the place where the composable is written. Only a top-level composable function with no type parameters can be marked.
 - **FR-002**: Building the app MUST produce a catalog file that describes every marked composable. The app developer never writes this file by hand.
-- **FR-003**: The catalog file MUST describe, for each composable: its name, and each parameter's name, kind, and whether it can be left out. A value or choice parameter also says if it can be empty. A component's name is its identity: renaming a marked composable changes the catalog and needs a new catalog version.
+- **FR-003**: The catalog file MUST describe, for each composable: its name, and each parameter's name, kind, and whether it can be left out. A value or choice parameter also says if it can be empty. "Can be left out" means the app's composable has its own default for the parameter, so the server may give nothing. "Can be empty" means the app's composable accepts no value for it, so the server may give "no value" on purpose. The two are independent: a parameter can be one, both or neither. A component's name is its identity: renaming a marked composable changes the catalog and needs a new catalog version.
 - **FR-004**: A parameter MUST be one of these kinds: a plain value (text, whole number, decimal number, yes or no), a choice from a fixed list, a list of one kind, a callback with no arguments, a callback with up to four arguments, a slot, or a slot whose content receives arguments. A marked composable with a callback of more than four arguments MUST fail the app build with a message that says so. A callback argument is a plain value, a choice, or a block of bytes.
 - **FR-005**: The catalog file MUST describe each fixed list of choices that a parameter uses, with its name and its choices.
 - **FR-006**: The app build MUST fail, with a message that names the composable, the parameter and the reason, when a marked composable has a parameter the catalog cannot describe, and when two marked composables share a name. The build MUST fail in the same way when a marked function is a member, an extension or has type parameters, and when a catalog goes over a stated bound.
@@ -169,18 +172,19 @@ Sharing the catalog with the server project:
 - **FR-014**: The catalog MUST be fetched during the build tool's sync step, and MUST NOT be fetched while code is being compiled. The sync step is a step of the build tool that a developer or a build server runs on purpose, and that an editor's sync also triggers where the build tool allows.
 - **FR-015**: A fetched catalog MUST be saved inside the server project with a fingerprint of its content. Builds MUST use the saved copy, MUST work with no network, and MUST give the same result for the same saved copy.
 - **FR-016**: When the catalog at a location no longer matches the saved fingerprint, the sync MUST say so and MUST NOT replace the saved copy unless the developer asks for it.
-- **FR-017**: A fetched catalog MUST be checked before anything is created from it. A file that is not a valid catalog, or that holds names that cannot be used as names in code, MUST be rejected.
+- **FR-017**: A fetched catalog MUST be checked before anything is created from it. A file that is not a valid catalog, or that holds names that cannot be used as names in code, MUST be rejected. A name can be used in code when it starts with a letter or an underscore, holds only letters, digits and underscores, is not a reserved word of the language, and is at most 64 characters long. This holds for every component, parameter, choice list and choice.
 - **FR-018**: A server project MUST be able to hold the catalogs of several app releases at once, to say which ones it supports, and to say which one the bridge is created from.
 - **FR-019**: The same steps MUST be available from every supported build tool. Nothing here may work with only one of them.
 
 The bridge on the server:
 
-- **FR-020**: After a sync, a server developer MUST be able to call each composable of one held catalog by its own name and with its own parameters, as if it were written in the server project. The server developer names which held catalog that is, since catalog versions have no order. The server developer chooses where in the server project the bridge appears. A composable that exists only in another held catalog has no bridge and cannot be named in a screen.
+- **FR-020**: After a sync, a server developer MUST be able to call each composable of one held catalog by its own name and with its own parameters, as if it were written in the server project. The server developer names which held catalog that is, since catalog versions have no order. The server developer chooses where in the server project the bridge appears. A composable that exists only in another held catalog has no bridge and cannot be named in a screen. So a composable that was removed or renamed in the bridge catalog cannot be shown to apps of an older catalog, not even as a replacement, and a screen that needs it cannot be shown to them. An app team that wants older apps to keep a composable keeps it, under the same name, until the catalog versions that need it are no longer supported. The documentation for app developers MUST say so.
 - **FR-021**: The bridge MUST hold none of the app's code. It only stands for the app's composable.
 - **FR-022**: The server MUST NOT build when a screen calls a catalog composable with a wrong name, without a required parameter, or with a value of the wrong kind.
 - **FR-023**: On the server, a callback parameter MUST be given as a lambda the server developer writes, and a slot parameter MUST be given as content the server developer writes.
 - **FR-024**: A server developer MUST be able to do by hand everything the build creates for the bridge, so the libraries can be used and tested without it. The same holds on the app side: an app developer MUST be able to connect each marked composable to what the server sends by hand.
 - **FR-025**: The setup a developer's editor needs to show the bridge MUST be documented.
+- **FR-064**: The documentation for app developers and the documentation for server developers MUST both state the release order: a producer that has synced a new catalog version is released before, or together with, the app that ships it.
 
 Connecting and introducing:
 
@@ -197,7 +201,7 @@ Showing a screen:
 - **FR-033**: A screen MUST have a name the server developer gives it, and the app asks for a screen by that name. A session has at most one open screen, and asking for another replaces it.
 - **FR-034**: The app MUST draw each composable the server placed with the app's own code for it, in the place and order the server put it, with the values the server gave. When a screen places more than one composable at its top level, they are shown top to bottom. This arrangement is provisional until layout has its own feature.
 - **FR-035**: Content the server put in a slot MUST appear where the app's composable places that slot, and slots inside slots MUST keep their nesting.
-- **FR-036**: In this feature, a slot can be filled only with the app's own catalog composables, and a slot whose content receives arguments cannot be filled at all. When such a slot can be left out, the server has no way to give it and the app uses its own default. When it cannot be left out, the composable cannot be placed by the server, and trying to MUST fail the server build with a message that points to the later feature.
+- **FR-036**: In this feature, a slot can be filled only with the app's own catalog composables, and a slot whose content receives arguments cannot be filled at all. When such a slot can be left out, the server has no way to give it and the app uses its own default. When it cannot be left out, the composable cannot be placed by the server, and trying to MUST fail the server build with a message that names the composable and the slot, and says that slots with arguments are not supported yet.
 - **FR-037**: If the app receives something it cannot draw, it MUST NOT crash and MUST NOT show a developer placeholder. It tells the user the screen cannot be shown and reports the mismatch.
 - **FR-062**: When the server does not give a parameter that can be left out, nothing is sent for it and the app's composable uses its own default. This holds for values, callbacks and slots. The catalog never holds the default, since only the app knows it.
 
@@ -227,7 +231,7 @@ Versions and compatibility:
 Device context:
 
 - **FR-053**: A server developer MUST be able to read every value of the introduction inside a screen and build the screen from it.
-- **FR-054**: When density, orientation, screen size, theme or language changes during a session, the app MUST tell the producer without the user doing anything, and the producer MUST update the open screen in the same session, keeping what the screen holds.
+- **FR-054**: When density, orientation, screen size, theme or language changes during a session, the app MUST tell the producer without the user doing anything, and the producer MUST update the open screen in the same session, keeping what the screen holds. Callbacks and device changes from one app are handled one at a time, in the order the producer receives them.
 - **FR-055**: The app's version, variant, flavor, catalog version and contract version MUST NOT change during a session.
 
 Safety and reporting:
@@ -240,7 +244,7 @@ Safety and reporting:
 ### Key Entities
 
 - **Marked composable**: a composable in the app that the app developer made usable by the server.
-- **Component**: a marked composable as it appears in a catalog.
+- **Component**: a marked composable as it appears in a catalog. The word is used only for a catalog entry. What the developer writes and what the user sees is a composable.
 - **Catalog**: the description of every marked composable of one app release, with a version. Produced by the app's build.
 - **Catalog file**: the catalog as plain text. It is the only thing the app's build and the server's build share.
 - **Parameter**: one input of a marked composable. It has a name, a kind, and whether it can be left out.
@@ -249,6 +253,9 @@ Safety and reporting:
 - **Slot**: a parameter that holds content the app's composable shows inside itself. It says what content it accepts.
 - **Catalog location**: where a server project fetches a catalog file from.
 - **Saved catalog**: the copy of a catalog file inside the server project, with a fingerprint of its content.
+- **Held catalog**: a saved catalog in the server project. The producer knows what it describes.
+- **Supported catalog**: a held catalog whose apps the producer accepts. Every held catalog is supported unless the server developer says otherwise. An app with a catalog that is held but not supported is refused.
+- **Bridge catalog**: the one held catalog the bridge is created from.
 - **Bridge**: what stands for an app composable in the server project, so a server developer can call it by name. It holds none of the app's code.
 - **Introduction**: what an app says about itself when it first connects: the device context, the app identity, the catalog version and the contract version.
 - **Device context**: density, orientation, screen size, theme and language. These can change during a session.
@@ -263,17 +270,17 @@ Safety and reporting:
 
 ### Measurable Outcomes
 
-- **SC-001**: A developer who has never used the library can mark one composable, point a separate server project at the produced catalog, write one screen that calls it, and see it on a device in under 30 minutes by following the documentation.
-- **SC-002**: Across every pairing of supported app release and producer release, a user sees an unknown or broken component zero times.
+- **SC-001**: A developer who knows Compose and the build tool, and has never used the library, can mark one composable, point a separate server project at the produced catalog, write one screen that calls it, and see it on a device in under 30 minutes by following the library's quickstart guide and nothing else.
+- **SC-002**: Across every pairing of supported app release and producer release, a user sees an unknown or broken composable zero times.
 - **SC-003**: A sample server builds and runs with none of the sample app's code available to it, sharing only the catalog file.
-- **SC-004**: A wrong name, a missing required parameter and a value of the wrong kind each stop the server from building, in every case of the test set.
-- **SC-005**: With a catalog of 200 composables, an app is accepted and shows its first screen in under 1 second on a local network.
+- **SC-004**: A wrong name, a missing required parameter and a value of the wrong kind each stop the server from building, in every case of the test set. The test set has, for each kind of parameter in FR-004, one screen with a wrong composable name, one that leaves out that parameter when it is required, and one that gives it a value of another kind.
+- **SC-005**: With a catalog of 200 components, an app is accepted and shows its first screen in under 1 second on a local network.
 - **SC-006**: After a tap, the updated screen is visible in under 300 milliseconds on a local network.
 - **SC-007**: When a device rotates or its theme or language changes, the open screen matches within 1 second, and nothing the user did on that screen is lost.
 - **SC-008**: One producer serves at least 3 contract versions and 10 catalog versions at the same time, with every connected app shown a correct screen. Three contract versions is a test target, since only one exists today.
 - **SC-009**: The same saved catalog gives the same build result with and without a network.
 - **SC-010**: While one app sends invalid or oversized introductions and callback arguments, 1,000 other connected apps see no error, and their screens arrive no more than 100 milliseconds later than without it.
-- **SC-011**: A producer holds 10,000 sessions at once, over 10 catalog versions of up to 1,000 composables with up to 50 parameters each, without mixing up any two apps.
+- **SC-011**: A producer holds 10,000 sessions at once, over 10 catalog versions of up to 1,000 components with up to 50 parameters each, without mixing up any two apps.
 - **SC-012**: Every refused app shows the user a reason. No refused app shows a blank screen, a frozen screen or a crash.
 
 ## Assumptions
@@ -287,9 +294,10 @@ Safety and reporting:
 - A catalog file shows the names of an app's components and their parameters to anyone who can read its location. Where it is hosted, and who can read it, is the app team's choice.
 - Each release of the library names the version of the Kotlin language tools it supports. A new version is supported once the compiler plugin's tests pass on it.
 - Timings in the success criteria are measured on an emulator or a mid-range phone connected to a server on the same machine or local network.
+- The first fetch of a catalog trusts its location: nothing proves that the file is the app team's. From then on the saved copy and its fingerprint are part of the server project, so the server developer reviews the first saved file, and every later change to it, like any other change.
 - Where the catalog file is hosted is the app team's choice. This feature fetches from a location and does not provide hosting.
 - A new app release with a new catalog version needs a producer that has synced that catalog before users get the app. So the producer is released first, or together with the app.
-- Upper bounds, confirmed by the owner: 1,000 composables per catalog, 50 parameters per composable, 10,000 sessions on one producer, 10 catalog versions served at once. The size limit for a callback's arguments is an estimate: 1 megabyte by default, and configurable.
+- Upper bounds, confirmed by the owner: 1,000 components per catalog, 50 parameters per component, 10,000 sessions on one producer, 10 catalog versions served at once. The size limit for a callback's arguments is an estimate: 1 megabyte by default, and configurable.
 - How the two sides are connected, how the connection recovers and how it is encrypted belong to the later connection feature. This feature assumes a two-way connection that delivers what is sent in order and without loss, or ends, and uses a simple one for its tests and samples.
 - The library's own messages to the user are in English in this feature. An app developer replaces them to use another language.
 - Who the user is, and whether they may see a screen, is outside this feature. Nothing proves the app identity, and each server developer decides how far to trust it.

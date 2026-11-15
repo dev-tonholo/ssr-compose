@@ -59,7 +59,7 @@ Open the sample screen that fills a container's slot with two other composables.
 
 Expected: both appear inside the container, where the app places its slot, in the order the server wrote them.
 
-Then try to fill a slot that passes arguments in the sample server. Expected: a compile error that names the later feature.
+Then try to fill a slot that passes arguments in the sample server. Expected: a compile error that names the component and the slot, and says that slots with arguments are not supported yet.
 
 ## 5. Story 4: apps that did not update keep working
 
