@@ -22,14 +22,22 @@ Main stack:
 - Features go through Spec Kit: specify, plan, tasks, then checklists.
 - Layout decision for this repo: [ADR 0001](../docs/adr/0001-keep-the-poc-in-a-folder.md).
 
-State of the product: design stage. The library modules do not exist yet. The only code is the proof of concept in `poc/`, which is a reference and is not held to the library's rules.
+State of the product: design stage. The root Gradle build and the library module shapes exist, with one trivial class each and one trivial contract test, and no feature code yet. The only working code is the proof of concept in `poc/`, which is a reference and is not held to the library's rules.
 
 ## Module map
 
-The root has no Gradle build yet. The proof of concept is its own Gradle project in `poc/`. List its modules with `./poc/gradlew -p poc projects`.
+The root is a Gradle build with the library modules and the included build `build-logic`. List the root modules with `./gradlew projects`. The proof of concept is its own, separate Gradle project in `poc/`. List its modules with `./poc/gradlew -p poc projects`.
 
 | Folder | CLI name | Type | Purpose | May depend on |
 |--------|----------|------|---------|---------------|
+| `core` | `:core` | Kotlin Multiplatform library (`jvm`, `android`) | Document format, catalog, handshake and messages shared by both sides | nothing in this repo |
+| `consumer` | `:consumer` | Kotlin Multiplatform library (`android` only) | Consumer library that renders screens | `:core` |
+| `producer` | `:producer` | Kotlin JVM library | Producer library that runs composables | `:core` |
+| `compiler-plugin` | `:compiler-plugin` | Kotlin JVM | Kotlin compiler plugin | `:core` |
+| `tooling` | `:tooling` | Kotlin JVM library | Shared logic for the build-tool plugins | `:core` |
+| `gradle-plugin` | `:gradle-plugin` | Gradle plugin | Thin Gradle wrapper over `:tooling` | `:tooling` |
+| `contract-tests` | `:contract-tests` | Test-only module (Android host tests) | Runs the producer's output through the consumer's reader | `:core`, `:consumer`, `:producer` |
+| `build-logic` | included build | Gradle convention plugins | Shared build setup, named `dev.tonholo.ssrcompose.conventions.<concern>` | nothing in this repo |
 | `poc/protocol` | `:protocol` | Kotlin JVM library | Node tree, service interface and component contracts shared by both sides | nothing in this repo |
 | `poc/server` | `:server` | Kotlin JVM application | Ktor server that runs composables and serves sessions | `:protocol` |
 | `poc/app` | `:app` | Android application | App that renders trees and plays fragments | `:protocol` |
@@ -37,7 +45,7 @@ The root has no Gradle build yet. The proof of concept is its own Gradle project
 
 Dependencies point to the shared contract only: the two sides never depend on each other. Details and known violations are in [rules/architecture.md](rules/architecture.md).
 
-PoC versions live in `poc/gradle/libs.versions.toml`, and its shared build config in `poc/build-logic/src/main/kotlin/`.
+Root versions live in `gradle/libs.versions.toml`, and the shared build config in `build-logic/src/main/kotlin/`. PoC versions live in `poc/gradle/libs.versions.toml`, and its shared build config in `poc/build-logic/src/main/kotlin/`.
 
 ## Commands
 
@@ -45,6 +53,9 @@ Run all commands from the repo root.
 
 | Task | Command |
 |------|---------|
+| Build and test the root modules | `./gradlew build` |
+| List the root modules | `./gradlew projects` |
+| Run the contract tests (Android host tests) | `./gradlew :contract-tests:testAndroidHostTest` |
 | Build and test the PoC, with detekt | `./poc/gradlew -p poc build detekt` |
 | Run one PoC module's tests | `./poc/gradlew -p poc :server:test` |
 | Run the PoC server (port 8787) | `./poc/gradlew -p poc :server:run` |
@@ -77,7 +88,7 @@ More detail: [skills/build-and-verify/SKILL.md](skills/build-and-verify/SKILL.md
 |---|---|---|
 | PoC server | `./poc/gradlew -p poc :server:run`, then `lsof -ti tcp:8787 -sTCP:LISTEN` to confirm it listens | The process ID on port 8787 and the output of `./poc/gradlew -p poc :server:test` |
 | PoC Android app | With the server running: `adb devices`, `adb -s <serial> reverse tcp:8787 tcp:8787`, `./poc/gradlew -p poc :app:assembleDebug`, then `android run --device=<serial> --apks=poc/app/build/outputs/apk/debug/app-debug.apk --activity=dev.tonholo.ssrcompose.app.MainActivity` (Not verified: not run with the `android` CLI when this file was written) | A screenshot from `android screen capture --device=<serial> -o <file>.png` and the session log from `adb -s <serial> logcat -d -s SsrSession:D` |
-| Library modules (consumer, producer, core, compiler plugin) | none found: the modules do not exist yet | - |
+| Library modules (consumer, producer, core, compiler plugin) | `./gradlew build` | Exit status 0, and the contract test result file `contract-tests/build/test-results/testAndroidHostTest/TEST-dev.tonholo.ssrcompose.contracttests.BuildExperimentTest.xml` showing `tests="1"` and `failures="0"` |
 
 A target with no known way to run it is listed with "none found"; QA returns `INCOMPLETE` for it.
 
@@ -143,12 +154,13 @@ The engineering-manager stops and asks the owner before:
 ## Verification before you call work done
 
 1. `./poc/gradlew -p poc build detekt` passes when you touched `poc/`.
-2. Tests pass. New behavior has a test that failed before the change.
-3. `python3 .ai/scripts/sync-agents.py --check` passes.
-4. You checked your diff against every file in `rules/`. Use the [reviewer](agents/reviewer.md) agent for a second look.
-5. Changes to the connection, the handshake, documents or sessions were checked against every rule in [rules/security.md](rules/security.md).
-6. Rendering changes were looked at on a running app, on a device or emulator.
-7. Commits are small and follow [rules/git.md](rules/git.md).
+2. `./gradlew build` passes when you touched anything outside `poc/`.
+3. Tests pass. New behavior has a test that failed before the change.
+4. `python3 .ai/scripts/sync-agents.py --check` passes.
+5. You checked your diff against every file in `rules/`. Use the [reviewer](agents/reviewer.md) agent for a second look.
+6. Changes to the connection, the handshake, documents or sessions were checked against every rule in [rules/security.md](rules/security.md).
+7. Rendering changes were looked at on a running app, on a device or emulator.
+8. Commits are small and follow [rules/git.md](rules/git.md).
 
 If a step cannot run, say so in your report. Do not claim it passed. A command that did not pass when this file was written carries the note `Not verified: <reason>`.
 
