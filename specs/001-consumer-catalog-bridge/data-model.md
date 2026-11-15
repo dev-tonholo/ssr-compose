@@ -169,7 +169,7 @@ A parameter the screen did not give is absent from all three maps, and the app's
 | `callbacks` | callback parameter name to `ActionId` |
 | `slots` | slot parameter name to an ordered list of `PlacedComponent` |
 
-The wire form has no catalog version: the session's version is known to both sides from the introduction.
+The wire form has no catalog version: the session's version is known to both sides from the introduction. The consumer reads a placed component through `PlacedComponentScope`, its own type in `consumer`, which wraps this one with the session. There is no second `PlacedComponent` type.
 
 ### Placed node (`producer`, internal)
 
@@ -193,6 +193,27 @@ A short text the producer assigns to one callback of one placed component. Uniqu
 ### ScreenContent (`core`)
 
 An ordered list of `PlacedComponent`.
+
+## What is public in `core`
+
+This is the one list of public `core` types. The API contracts point here and do not keep their own copy. Everything else in `core` is internal, and T108 checks `core` against this list.
+
+Used by app and server developers:
+
+- `@ConsumerComposable`, `@ProducerComposable`
+- `CatalogVersion`, `ContractVersion`
+- `AppIdentity`, `DeviceContext` (with `Orientation` and `Theme`), `Introduction`, `RefusalKind`
+- `ValueKind`, `DataValue`, `ActionId`
+- `Connection`, `InMemoryConnection`
+
+Public only because `consumer`, `producer` or `catalog-model` use it across the module boundary, since Kotlin's `internal` does not cross modules:
+
+- `Answer` (with `Accepted` and `Refused`)
+- `ConsumerMessage` and `ProducerMessage`, with their cases
+- `MessageFrame`, `MessageCodec`, `MessageDecodingException`
+- `PlacedComponent`, `ScreenContent`
+
+Whether the second group carries an opt-in marker is the owner's call (principle VIII, small public API). The list stays the same either way.
 
 ## Session (`producer`)
 

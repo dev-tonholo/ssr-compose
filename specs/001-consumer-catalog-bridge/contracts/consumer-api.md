@@ -48,7 +48,7 @@ SsrScreen(
 
 ## Doing it by hand
 
-Everything the build creates on this side can be written by hand:
+Everything the build creates on this side can be written by hand. A binding receives a `PlacedComponentScope`, the consumer's own type: it wraps core's `PlacedComponent` with the session, so `callback` can send a trigger and `slot` can render content.
 
 ```kotlin
 val bindings = ComponentBindings {
@@ -81,4 +81,6 @@ sealed interface ScreenProblem {
 
 ## What is public
 
-`SsrScreen`, `ComponentBindings` and its `PlacedComponent` reader, `ScreenProblem`, and in `core`: `@ConsumerComposable`, `@ProducerComposable`, `AppIdentity`, `CatalogVersion`, `RefusalKind`, `Connection`, `InMemoryConnection`. Everything else is internal.
+In `consumer`: `SsrScreen`, `ComponentBindings`, `PlacedComponentScope` and `ScreenProblem`. Everything else in `consumer` is internal.
+
+The `core` types this API uses are in the one list of public `core` types in [data-model.md](../data-model.md#what-is-public-in-core).

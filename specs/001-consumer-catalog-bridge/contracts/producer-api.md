@@ -160,4 +160,6 @@ The default does nothing. The library depends on no logging library.
 
 ## What is public
 
-`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. From `core` its API also uses `ValueKind`, `DataValue`, `CatalogVersion`, `ContractVersion`, `RefusalKind`, `Introduction`, `ActionId` and `Connection`. Everything else is internal.
+In `producer`: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. Everything else in `producer` is internal.
+
+The `core` types this API uses are in the one list of public `core` types in [data-model.md](../data-model.md#what-is-public-in-core).
