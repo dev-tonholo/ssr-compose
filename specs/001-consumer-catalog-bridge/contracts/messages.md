@@ -62,7 +62,7 @@ An action ID is a short text the producer assigns. It is unique inside a session
 3. A `Screen` holds only components, parameters, callbacks and slots of the session's catalog version. Every component of a sent screen was placed by the bridge of that version: the producer checks it before sending, and sends `ScreenUnavailable` instead when a component came from another version's bridge.
 4. A `Trigger` for an action ID the open screen no longer has is ignored and reported. It never ends the session.
 5. Triggers from one session run in the order they arrive.
-6. `Trigger` arguments larger than the limit (1 megabyte in total by default) are refused without being decoded. Arguments whose number or kinds do not match what the bridge declared for that callback are refused and reported.
+6. `Trigger` arguments larger than the limit (1 megabyte in total by default) are refused without being decoded. Arguments whose number or kinds do not match what the bridge declared for that callback, or that the bridge's conversion cannot turn into the lambda's types, are refused and reported. Nothing runs for a refused trigger.
 7. `reason` texts are for the user and carry no internal details.
 7a. A trigger whose lambda fails changes nothing: the screen stays as it was and no message is sent for it.
 7b. Triggers over the session's limit (100 per second by default) are dropped and reported.

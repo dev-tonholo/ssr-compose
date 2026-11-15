@@ -100,7 +100,7 @@ Safety: only `https` addresses and file paths are accepted by default. Part file
 
 ## R7. Consumer side: one renderer per marked composable
 
-Decision: on the app side, the compiler plugin creates, for each marked composable, a small renderer that takes a placed component and calls the real composable with decoded values, callbacks that send a trigger, and slots that render their content. Because it is created per composable, incremental compilation is safe. The part step writes each module's entries of name to renderer, and the bundle step writes the app's renderer index as a resource, which the consumer library loads once. The renderer index is not the catalog: it maps names to the app's own code and holds no descriptors.
+Decision: on the app side, the compiler plugin creates, for each marked composable, a small renderer that takes a placed component and calls the real composable with decoded values, callbacks that send a trigger, and slots that render their content. Because it is created per composable, incremental compilation is safe. The part step writes each module's entries of name to renderer, and the bundle step writes the app's renderer index as a resource, which the consumer library loads once. The renderer index is not the catalog: it maps names to the app's own code and holds no descriptors. The renderer outputs follow the same per-module rule as the parts (FR-071): a change in one module produces again only that module's renderer entries, and the app's renderer index is written again with the manifest. Where they are written is settled by T055 and not checked yet.
 
 A developer can do the same by hand with `ComponentBindings`.
 
@@ -117,7 +117,7 @@ This is the owner's proposal. Two points were agreed with it:
 
 In the catalog a callback lists its `arguments`, the same field a slot uses.
 
-The bridge also declares, for each callback, the kinds of its arguments with core's `ValueKind`, the same type the catalog uses, and the producer checks the arguments of each trigger against them. The running producer holds no catalog, so this declaration is the only thing it checks against.
+The bridge also gives the producer, for each callback, a `Callback` with two things: the kinds of its arguments as core's `ValueKind`, the same type the catalog uses, and a conversion from the received values to the lambda's typed arguments (a choice entry to its enum, a whole number to `Int` or `Long`, a decimal to `Float` or `Double`, a list to a typed list). The producer checks the number and kinds first, then runs the conversion. A failure in either step, such as an unknown choice entry or a number that does not fit, is a refused trigger reported through `onTriggerRefused`, never a failed action. The running producer holds no catalog, so this declaration is the only thing it checks against. Only the bridge knows a choice list's entries, since the enum is generated from the catalog, so the entry check belongs in the conversion.
 
 Not checked: creating a parameter of these types in FIR (the experiment used plain function types, which worked), and how the Compose compiler treats a lambda converted to a function interface compared with a plain function type. The early experiment that covers created types settles both.
 
