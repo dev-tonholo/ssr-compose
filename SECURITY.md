@@ -10,7 +10,7 @@ Please do not report security problems in public issues, discussions or pull req
 
 Report them privately through GitHub:
 
-1. Open the [Security tab](https://github.com/rafaeltonholo/ssr-compose/security) of this repository.
+1. Open the [Security tab](https://github.com/dev-tonholo/ssr-compose/security) of this repository.
 2. Choose "Report a vulnerability".
 3. Describe the problem, how to reproduce it, and what an attacker could do with it.
 

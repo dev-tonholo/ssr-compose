@@ -12,7 +12,7 @@ The rules the project is built by are in the [constitution](.specify/memory/cons
 
 ## I have a question
 
-- Look through the [open issues](https://github.com/rafaeltonholo/ssr-compose/issues) first.
+- Look through the [open issues](https://github.com/dev-tonholo/ssr-compose/issues) first.
 - If nothing answers it, open a new issue and say what you are trying to do.
 
 ## Reporting a bug
@@ -44,7 +44,7 @@ Open an issue with the feature request template. Say what problem you have, not 
 You need JDK 17 or newer. The proof of concept also needs the Android SDK.
 
 ```
-git clone git@github.com:rafaeltonholo/ssr-compose.git
+git clone git@github.com:dev-tonholo/ssr-compose.git
 cd ssr-compose/poc
 ./gradlew build detekt
 ```
