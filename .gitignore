@@ -1,8 +1,51 @@
+# Gradle
 .gradle/
 build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Kotlin
+.kotlin/
+kotlin-js-store/
+*.klib
+
+# Android
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+*.jks
+*.keystore
+google-services.json
+
+# IDE
 .idea/
 *.iml
-local.properties
-.kotlin/
-.superpowers/
+*.ipr
+*.iws
+.vscode/
+.fleet/
+*.swp
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs and crash dumps
+*.log
+hs_err_pid*
+replay_pid*
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+secrets.properties
+
+# Agent scratch
+.superpowers/
+.ai-onboard-timer
