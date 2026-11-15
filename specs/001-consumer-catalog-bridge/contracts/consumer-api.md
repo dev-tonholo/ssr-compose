@@ -22,7 +22,7 @@ fun PaymentSection(
 
 - `@ConsumerComposable` on a function puts it in the consumer catalog. Only a top-level composable function with no type parameters can be marked. A member, an extension or a generic one fails the build at that function.
 - `@ConsumerComposable` or `@ProducerComposable` on a slot's type says what the slot accepts. With neither, it accepts either. This is recorded in the catalog and not checked in this feature.
-- A parameter must be a kind the catalog can describe, or the build fails at that parameter. See [catalog-file.md](catalog-file.md).
+- A parameter must be a kind the catalog can describe, or the build fails at that parameter. See [catalog-bundle.md](catalog-bundle.md).
 - A modifier parameter is left out of the catalog and gets its default.
 
 The annotations live in `core`, so common code can use them.
