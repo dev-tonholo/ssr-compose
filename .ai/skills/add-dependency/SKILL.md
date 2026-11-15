@@ -10,7 +10,7 @@ How to add or update a dependency. The rules are in [architecture](../../rules/a
 ## Steps
 
 1. Check that the need is in a spec. Do not add a library for something no spec asks for.
-2. Look in the version catalog first. For the proof of concept it is `poc/gradle/libs.versions.toml`. The library's own catalog does not exist yet; it is created with the first library module.
+2. Look in the version catalog first. For the library modules it is `gradle/libs.versions.toml` at the root. The proof of concept keeps its own, in `poc/gradle/libs.versions.toml`.
 3. Prefer a well-established library. Check its license fits Apache 2.0.
 4. Check platform support. Anything for the consumer or core library must work in Kotlin Multiplatform common code or have an Android artifact. Anything for the producer or core library must work on a plain JVM with no Android.
 5. Never add AndroidX Remote Compose outside `poc/`.
