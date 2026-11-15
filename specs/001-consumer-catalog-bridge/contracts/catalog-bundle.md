@@ -15,13 +15,13 @@ A catalog of version 3, from an app with two modules that have marked composable
   "format": 1,
   "version": "3",
   "parts": [
-    { "name": "app", "file": "app.json", "fingerprint": "5d2c..." },
-    { "name": "feature-payment", "file": "feature-payment.json", "fingerprint": "a91f..." }
+    { "name": "app", "file": "app.part.json", "fingerprint": "5d2c..." },
+    { "name": "feature-payment", "file": "feature-payment.part.json", "fingerprint": "a91f..." }
   ]
 }
 ```
 
-`app.json`:
+`app.part.json`:
 
 ```json
 {
@@ -42,7 +42,7 @@ A catalog of version 3, from an app with two modules that have marked composable
 }
 ```
 
-`feature-payment.json`:
+`feature-payment.part.json`:
 
 ```json
 {
@@ -78,7 +78,7 @@ A catalog of version 3, from an app with two modules that have marked composable
 | `version` | the catalog version the app developer set | at most 64 characters, no control characters. A label with no order. |
 | `parts` | one entry per part | sorted by `name`. Empty when the app has no marked composable. |
 | `parts[].name` | the part's name | lowercase letters, digits and hyphens, 1 to 64 characters. Unique in the manifest. |
-| `parts[].file` | the part's file name | a plain file name: no `/`, no `\`, no `..`, no scheme such as `https:`. A reader rejects the whole manifest otherwise. |
+| `parts[].file` | the part's file name | always `<name>.part.json`, built from the part's `name`. Unique in the manifest. A reader rejects the whole manifest otherwise. See "Part file names" below. |
 | `parts[].fingerprint` | the fingerprint of the part's bytes | lowercase hexadecimal SHA-256. |
 
 ## Part fields
@@ -112,6 +112,21 @@ A part's name comes from the module's path in the build. The path is made lowerc
 
 The app developer can set another name with `partName`. A name longer than 64 characters fails the app build and asks for a shorter one to be set. Two modules that would give the same name fail the app build, and both are named.
 
+The table shows Gradle module paths. The Kotlin toolchain names its modules in its own way. T030 records how in research.md R5 and maps it to this same rule, so both build tools give the same part names. Not checked yet.
+
+## Part file names
+
+A part's file is always its name followed by `.part.json`: the part `feature-home` is in `feature-home.part.json`. Since a part name holds only lowercase letters, digits and hyphens, the file name never holds a path separator, `..` or a scheme, and it can never be `manifest.json`.
+
+A reader rejects the whole manifest when any `file`:
+
+- is not its entry's `name` followed by `.part.json`,
+- is empty or a dot,
+- is `manifest.json`,
+- or is the same as another entry's `file`.
+
+Nothing is fetched or read for a manifest that breaks one of these.
+
 ## Parameter kinds
 
 | `kind` | Extra fields | Comes from |
@@ -125,6 +140,7 @@ The app developer can set another name with `partName`. A name longer than 64 ch
 | `callback` | `arguments` (optional): up to four value kinds, or `bytes` | `() -> Unit`, `(A) -> Unit`, `(A, B) -> Unit` and so on |
 | `slot` | `accepts`: `any`, `consumer` or `producer`. `arguments` (optional): value kinds the component passes to the content | `@Composable () -> Unit`, `@Composable (A, B) -> Unit` |
 
+- In code, the value kinds (`text`, `whole`, `decimal`, `flag`, `choice`, `list` and `bytes`) are `ValueKind` in `core`. It is the one definition of them: `catalog-model` reads and writes it, and the producer uses it to declare callback arguments.
 - `required` is false when the parameter has a default value in the composable. The catalog does not hold the default itself: only the app knows it.
 - A value or choice parameter may also have `"nullable": true`, when its type in the composable is nullable. The field is left out when false.
 - `bytes` is allowed only as a callback argument.
@@ -153,6 +169,6 @@ The same marked composables always give the same bytes in every file: fixed key 
 
 ## Where the catalog lives
 
-- In the app's repository: one folder per released catalog version, `ssr/catalogs/<version>/`, with `manifest.json` and one file per part, committed. The app build compares what it produces with the saved bundle of the same version and fails when any byte differs. Moving a composable to another module changes two parts and the manifest, so it needs a new version.
+- In the app's repository: one folder per released catalog version, `ssr/catalogs/<version>/`, with `manifest.json` and one `<name>.part.json` file per part, committed. The app build compares what it produces with the saved bundle of the same version and fails when any byte differs. Moving a composable to another module changes two parts and the manifest, so it needs a new version.
 - At a location both teams can reach: the app team publishes each version's folder as it is. A catalog's location is the address of its `manifest.json`. Its parts are found next to it by their `file` names.
 - In the server's repository: one folder per catalog version it holds, the same layout, with the manifest's fingerprint in a lock file. See [build-tooling.md](build-tooling.md).
