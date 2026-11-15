@@ -79,18 +79,18 @@ Rationale: R2 and R4 show the compiler alone is not enough, and the constitution
 
 This adds two artifacts and two libraries (`tooling`, and `catalog-model` from R17) to the constitution's four deliverables. It is recorded in the plan's Complexity Tracking.
 
-Not checked: the toolchain plugin itself, and how the Kotlin toolchain builds an Android library.
+Not checked: the toolchain plugin itself, how the Kotlin toolchain builds an Android library, and how the toolchain names its modules. T030 records that naming here and maps it to the part name rule of [contracts/catalog-bundle.md](contracts/catalog-bundle.md), so both build tools give the same part names.
 
 ## R6. Fetching at sync
 
 Decision: an `ssrCatalogSync` step works on each catalog location, which is the address of a manifest (a web address or a file path):
 
-1. Fetch the manifest, refuse it before reading if it is over the size cap, and validate it. Every part's `file` must be a plain file name: no path separator, no `..`, no scheme.
+1. Fetch the manifest, refuse it before reading if it is over the size cap, and validate it. Every part's `file` must be its `name` followed by `.part.json`, the `file` values must be unique, and none may be empty, a dot or `manifest.json`. That keeps every file a plain file name, with no path separator, no `..` and no scheme.
 2. Fetch only the parts whose fingerprint is not already saved for that version, each from the manifest's location with its `file` name, each refused before reading if it is over the size cap.
 3. Check each part against its fingerprint in the manifest, validate it, and check across parts.
 4. Save the manifest and the parts in `ssr/catalogs/<version>/`, and write the location and the manifest's fingerprint to the lock file.
 
-If any check fails, nothing of that catalog is saved. Builds read only the saved copies. When the manifest at a location no longer matches the lock file, the step reports it and changes nothing unless asked.
+If any check fails, or the manifest loads but one part cannot be fetched, nothing of that catalog is saved and the saved copy, if any, is kept. Since a catalog is saved whole and a changed manifest waits for `--update`, fetching only the missing parts happens on `--update` and after a saved part file was removed by hand. Builds read only the saved copies. When the manifest at a location no longer matches the lock file, the step reports it and changes nothing unless asked.
 
 The step is wired so the IDE's sync triggers it, and it can also be run on its own. A build never fetches.
 
@@ -117,7 +117,7 @@ This is the owner's proposal. Two points were agreed with it:
 
 In the catalog a callback lists its `arguments`, the same field a slot uses.
 
-The bridge also declares, for each callback, the kinds of its arguments with the producer's `ArgumentKind`, and the producer checks the arguments of each trigger against them. The running producer holds no catalog, so this declaration is the only thing it checks against.
+The bridge also declares, for each callback, the kinds of its arguments with core's `ValueKind`, the same type the catalog uses, and the producer checks the arguments of each trigger against them. The running producer holds no catalog, so this declaration is the only thing it checks against.
 
 Not checked: creating a parameter of these types in FIR (the experiment used plain function types, which worked), and how the Compose compiler treats a lambda converted to a function interface compared with a plain function type. The early experiment that covers created types settles both.
 
@@ -191,7 +191,7 @@ Decision: a limit per session, 100 per second by default and configurable throug
 | Module | Kind | Targets | Depends on |
 |---|---|---|---|
 | `core` | Kotlin Multiplatform library | `jvm`, `android` | nothing in this repo |
-| `catalog-model` | Kotlin JVM library, build time only | JVM | `core` (`CatalogVersion` only) |
+| `catalog-model` | Kotlin JVM library, build time only | JVM | `core` (`CatalogVersion` and `ValueKind` only) |
 | `consumer` | Kotlin Multiplatform library | `android` | `core` |
 | `producer` | Kotlin JVM library | JVM | `core` |
 | `compiler-plugin` | Kotlin JVM | JVM | `catalog-model` |
@@ -250,10 +250,10 @@ Not checked: all of it. T031a, the scale gate, measures reading and validating t
 
 ## R17. The catalog is build time only
 
-Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion` only, so the label has one definition.
+Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), `ValueKind` (the kinds of values), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion` and `ValueKind` only, so each has one definition. `ValueKind` is in `core` because the producer needs it at run time to declare and check callback arguments, and `catalog-model` needs it for parameters; one list of kinds serves both, and neither module defines its own.
 
 Rationale: principle II asks for one definition of everything both sides agree on. The catalog format still has one definition, in `catalog-model`. Keeping it in `core` would put a JSON reader, hashing and validation in every app and every server at run time, where nothing uses them. The plan records this in Complexity Tracking.
 
 Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds the bridge declared (R8).
 
-Catalog code written in `core` before this decision is moved into `catalog-model` by T113.
+Catalog code written in `core` before this decision is moved into `catalog-model` by T113, except `ValueKind`, which stays in `core` and moves from `core/catalog/` to `core/data/`.
