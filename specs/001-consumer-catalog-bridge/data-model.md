@@ -102,9 +102,9 @@ What the producer is given at start: for each served catalog version, its screen
 |---|---|
 | catalog version | a `CatalogVersion`, registered once |
 | screens | screen name to the screen's content, each name once per version |
-| `supportedContractVersions` | the contract versions the producer accepts. By default, every version the library has a codec for. A server developer stops a contract version by leaving it out. |
+| `supportedContractVersions` | the contract versions the producer accepts. By default, every version the library has a codec for. A server developer stops a contract version by leaving it out. An app whose version is not in the set is refused as "too old" when its version is below the highest in the set, gaps included, and as "too new" when it is above the highest. |
 
-Rules: a version or a screen name inside one version registered twice makes `Producer` fail at once. The producer serves exactly the catalog versions that have at least one screen, and accepts exactly the contract versions in `supportedContractVersions`. It holds no catalog.
+Rules: a version or a screen name inside one version registered twice, or a `supportedContractVersions` that is empty or holds a version the library has no codec for, makes `Producer` fail at once. The producer serves exactly the catalog versions that have at least one screen, and accepts exactly the contract versions in `supportedContractVersions`. It holds no catalog.
 
 ## Handshake (`core`)
 
@@ -173,11 +173,18 @@ The wire form has no catalog version: the session's version is known to both sid
 
 ### Placed node (`producer`, internal)
 
-The producer's own node for a placed component. It holds what `PlacedComponent` holds, plus the catalog version of the bridge that placed it, taken from the constant in the bridge function, and the declared argument kinds of each callback. The guard reads the version. The actions read the argument kinds.
+The producer's own node for a placed component. It holds what `PlacedComponent` holds, plus the catalog version of the bridge that placed it, taken from the constant in the bridge function, and the `Callback` of each callback parameter. The guard reads the version. The actions use the `Callback`.
 
 ### Callback (`producer`)
 
-What a bridge function gives `ConsumerComponent` for one callback parameter: the `RemoteAction` the server developer wrote, and the list of its argument kinds as core's `ValueKind`, empty when the callback has none. The producer checks each trigger's arguments against that list, since it holds no catalog. For a choice argument, the producer checks that the value is a choice entry, and the bridge turns it into its enum; an entry the enum does not have is refused and reported like any other mismatch.
+What a bridge function gives `ConsumerComponent` for one callback parameter. A sketch of the shape, not final signatures:
+
+| Field | Meaning |
+|---|---|
+| `arguments` | the kinds of the callback's arguments, as core's `ValueKind`. Empty when the callback has none. |
+| `convert` | a conversion from the received `DataValue`s to the lambda's typed arguments, which returns the call to run: a choice entry to its enum, a whole number to `Int` or `Long`, a decimal to `Float` or `Double`, a list to a typed list. It wraps the `RemoteAction` the server developer wrote. |
+
+The producer holds no catalog, so for each trigger it first checks the number and the kinds of the values against `arguments`, then runs `convert`, then runs the returned call. A failure in the check or in the conversion, such as an unknown choice entry, a whole number out of range for `Int`, or a list with one wrong element, is a refused trigger: nothing runs, the session carries on, and `onTriggerRefused` is reported. Only a call that fails while it runs is a failed action, reported as `onActionFailed`. See [contracts/producer-api.md](contracts/producer-api.md).
 
 ### ActionId (`core`)
 
@@ -199,14 +206,14 @@ Connected -> Accepted -> Open(screen) -> Closed
 | From | Event | To | What happens |
 |---|---|---|---|
 | Connected | a valid introduction for a served catalog version and a contract version in `supportedContractVersions` | Accepted | `Accepted` is sent |
-| Connected | an invalid introduction, an unserved catalog version, a contract version below or above `supportedContractVersions`, or any other message | Refused | `Refused` is sent and the session closes |
+| Connected | an invalid introduction, an unserved catalog version, a contract version not in `supportedContractVersions` (too old when below its highest version, gaps included; too new when above it), or any other message | Refused | `Refused` is sent and the session closes |
 | Accepted or Open | the app opens a name registered for its catalog version | Open | the open screen, if any, is disposed; the new one is composed and sent |
 | Accepted or Open | the app opens a name with no screen for its catalog version | Accepted | `ScreenUnavailable` is sent and reported |
 | Open | a device change | Open | the context changes, the screen recomposes, state is kept |
-| Open | a trigger for an action the screen has | Open | the arguments are checked against the declared kinds; the lambda runs; if state changed, the screen recomposes and is sent |
+| Open | a trigger for an action the screen has | Open | the arguments are checked against the `Callback`'s kinds and converted; the returned call runs; if state changed, the screen recomposes and is sent |
 | Open | a trigger for an action the screen does not have | Open | ignored and reported |
-| Open | a trigger whose arguments do not match the declared kinds or go over the size limit | Open | refused and reported; nothing runs |
-| Open | a trigger whose lambda fails | Open | the changes it made are thrown away, the screen stays as it was, and the failure is reported |
+| Open | a trigger whose arguments go over the size limit, do not match the `Callback`'s number or kinds, or cannot be converted | Open | refused and reported through `onTriggerRefused`; nothing runs |
+| Open | a trigger whose call fails while it runs | Open | the changes it made are thrown away, the screen stays as it was, and the failure is reported through `onActionFailed` |
 | Open | triggers arrive over the limit, "100 per second by default" | Open | the extra ones are dropped and reported |
 | Open | the screen places a component from another catalog version's bridge, or the screen's code fails | Accepted | the screen is not sent, `ScreenUnavailable` is sent and reported |
 | any | the connection ends | Closed | the composition is disposed |
