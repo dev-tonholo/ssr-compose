@@ -1,13 +1,9 @@
-import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.provider.Provider
 import org.gradle.plugin.use.PluginDependency
 
 plugins {
     `kotlin-dsl`
 }
-
-fun DependencyHandler.plugin(plugin: Provider<PluginDependency>): Provider<String> =
-    plugin.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version.requiredVersion}" }
 
 dependencies {
     implementation(files(libs.javaClass.superclass.protectionDomain.codeSource.location))
@@ -24,32 +20,36 @@ dependencies {
 gradlePlugin {
     plugins {
         register("conventionKotlinJvm") {
-            id = libs.plugins.ssrcompose.conventions.kotlin.jvm.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.kotlin-jvm"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.KotlinJvmConventionPlugin"
         }
         register("conventionKmpLibrary") {
-            id = libs.plugins.ssrcompose.conventions.kmp.library.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.kmp-library"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.KmpLibraryConventionPlugin"
         }
         register("conventionCompose") {
-            id = libs.plugins.ssrcompose.conventions.compose.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.compose"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.ComposeConventionPlugin"
         }
         register("conventionSerialization") {
-            id = libs.plugins.ssrcompose.conventions.serialization.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.serialization"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.SerializationConventionPlugin"
         }
         register("conventionTesting") {
-            id = libs.plugins.ssrcompose.conventions.testing.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.testing"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.TestingConventionPlugin"
         }
         register("conventionDetekt") {
-            id = libs.plugins.ssrcompose.conventions.detekt.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.detekt"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.DetektConventionPlugin"
         }
         register("conventionPublishing") {
-            id = libs.plugins.ssrcompose.conventions.publishing.get().pluginId
+            id = "dev.tonholo.ssrcompose.conventions.publishing"
             implementationClass = "dev.tonholo.ssrcompose.buildlogic.conventions.PublishingConventionPlugin"
         }
     }
+}
+
+private fun plugin(provider: Provider<PluginDependency>): Provider<String> = provider.map {
+    "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version.requiredVersion}"
 }
