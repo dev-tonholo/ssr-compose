@@ -43,7 +43,7 @@ A callback parameter lists the kinds of the arguments it carries, none to four. 
 
 ### PartName (`catalog-model`)
 
-Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: lowercased, every run of characters other than ASCII letters and digits (`a` to `z`, `0` to `9` once lowercased) turned into one hyphen, hyphens at both ends dropped. `:feature:home` and `:feature_home` give `feature-home`, `:featureHome` gives `featurehome`, and the root module, whose path is `:`, gives `root`. The app developer can set another one. A derived name over 64 characters fails the build and asks for one to be set. Two modules whose parts get the same name fail the bundle step and both are named.
+Lowercase letters, digits and hyphens, 1 to 64 characters. By default it comes from the module's path in the build: lowercased, every run of characters other than ASCII letters and digits (`a` to `z`, `0` to `9` once lowercased) turned into one hyphen, hyphens at both ends dropped. `:feature:home` and `:feature_home` give `feature-home`, `:featureHome` gives `featurehome`, and the root module, whose path is `:`, gives `root`. The app developer can set another one. A derived name over 64 characters, or equal to a Windows device name (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`), fails the build and asks for one to be set. A reader rejects such a name too. Two modules whose parts get the same name fail the bundle step and both are named.
 
 ### CatalogPart (`catalog-model`)
 

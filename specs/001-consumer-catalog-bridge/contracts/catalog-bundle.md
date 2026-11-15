@@ -110,7 +110,7 @@ A part's name comes from the module's path in the build. The path is made lowerc
 | `:app` | `app` |
 | `:` (the root module of the build) | `root` |
 
-The app developer can set another name with `partName`. A name longer than 64 characters fails the app build and asks for a shorter one to be set. Two modules that would give the same name fail the app build, and both are named.
+The app developer can set another name with `partName`. A name longer than 64 characters fails the app build and asks for a shorter one to be set. A name equal to a Windows device name (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`) is rejected too, since its file could not be made on Windows, and the build asks for another one to be set. Two modules that would give the same name fail the app build, and both are named.
 
 The table shows Gradle module paths. The Kotlin toolchain names its modules in its own way. T030 records how in research.md R5 and maps it to this same rule, so both build tools give the same part names. Not checked yet.
 
