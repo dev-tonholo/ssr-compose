@@ -15,6 +15,7 @@ val producer = Producer {
         screen(name = "home") { HomeScreenV3() }
         screen(name = "checkout") { CheckoutScreen() }
     }
+    supportedContractVersions = setOf(ContractVersion(1))
     limits = ProducerLimits(callbacksPerSecond = 100)
     observer = PrintingObserver()
 }
@@ -27,7 +28,8 @@ suspend fun onNewConnection(connection: Connection) = producer.serve(connection)
 - The app asks for a screen by name. The producer serves the screen registered under that name for the session's catalog version. A name with no screen for that version gets "screen unavailable", and the session stays accepted.
 - `Producer { }` fails at once when a version is registered twice, or a screen name twice in one version.
 - `serve` runs one session on one connection and returns when it ends.
-- `limits` and `observer` are optional. The producer speaks every contract version this library has a codec for.
+- `supportedContractVersions` is the set of contract versions the producer accepts. By default it holds every version this library has a codec for. An app whose contract version is below or above that set is refused with the kind "contract version too old" or "contract version too new". To stop a contract version, leave it out of the set.
+- `supportedContractVersions`, `limits` and `observer` are optional.
 
 ## Writing a screen
 
@@ -103,7 +105,7 @@ fun PaymentSection(title: String, onPayClick: RemoteAction0, content: (@Composab
 }
 ```
 
-A callback with arguments lists their kinds with `ArgumentKind`, for example `Callback(action = onScan, arguments = listOf(ArgumentKind.Bytes))`. The producer checks each trigger's arguments against that list.
+A callback with arguments lists their kinds with `ValueKind` from `core`, the same type the catalog uses, for example `Callback(action = onScan, arguments = listOf(ValueKind.Bytes))`. The producer checks each trigger's arguments against that list. For a choice argument the bridge also turns the entry into its enum, and an entry the enum does not have is refused and reported.
 
 Parameters the app can leave out:
 
@@ -132,4 +134,4 @@ The default does nothing. The library depends on no logging library.
 
 ## What is public
 
-`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback`, `ArgumentKind`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. Everything else is internal.
+`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. From `core` it also uses `ValueKind`, `CatalogVersion` and `ContractVersion`. Everything else is internal.
