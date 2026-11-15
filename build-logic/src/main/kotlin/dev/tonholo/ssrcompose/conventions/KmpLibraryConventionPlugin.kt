@@ -3,7 +3,6 @@ package dev.tonholo.ssrcompose.conventions
 import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.plugins.ExtensionAware
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
@@ -30,7 +29,7 @@ internal abstract class KmpLibraryConventionPlugin : Plugin<Project> {
             targets.withType<KotlinJvmTarget>().configureEach {
                 compilerOptions.jvmTarget.set(libs.jvmTarget)
             }
-            (this as ExtensionAware).extensions.configure<KotlinMultiplatformAndroidLibraryTarget> {
+            targets.withType<KotlinMultiplatformAndroidLibraryTarget>().configureEach {
                 namespace = androidNamespace
                 compileSdk = libs.compileSdk
                 minSdk = libs.minSdk
