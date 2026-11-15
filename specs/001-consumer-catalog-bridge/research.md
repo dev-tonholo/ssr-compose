@@ -75,6 +75,15 @@ Decision: the compiler plugin cannot do everything, so two thin build-tool plugi
 - Turn each saved catalog into an index, and declare each index as a compile input. Checked, for a single catalog file: without a declared input, editing the catalog leaves the build stale.
 - Declare every input and output with relative paths and no timestamps, so the build cache works across machines.
 
+How the build is set up, as the owner asked on the root build pull request and as the owner's thunderbird repository does for its baseline profile plugins and its pii-safe compiler plugin:
+
+- Convention plugins in `build-logic` are Plugin classes registered in the `gradlePlugin` block, with ids `dev.tonholo.ssrcompose.conventions.<concern>`. Each id is listed in the version catalog with no version and applied with `alias(libs.plugins...)`. No precompiled script plugin, and no plugin id written as a string in a module build file.
+- The compiler plugin id lives in one place, the `ssrcompose.compiler.plugin.id` property of the root `gradle.properties`, set to `dev.tonholo.ssrcompose`. The buildconfig Gradle plugin generates a constant from it in `compiler-plugin` and in `gradle-plugin`, as pii-safe does with `tfa.piisafe.compiler.plugin.id`. It is not a constant in `core`.
+- The option names are written once, in `catalog-model`, which both `compiler-plugin` and `gradle-plugin` can see without `core`. pii-safe keeps them in its annotations module; here the annotations are in `core`, which must not hold them, so `catalog-model` takes that place.
+- The Gradle plugin is one `KotlinCompilerPluginSupportPlugin` class. In `applyToCompilation` it adds `core` (the annotations) to each compilation, as pii-safe adds its annotations module, so a developer applies one plugin and nothing else.
+- Compile tests use kotlin-compile-testing with sources in `*.fixture.kt` files under `src/test/resources/fixtures`. The folder is a test source folder so the IDE reads the fixtures, and the fixtures are excluded from test compilation.
+- The samples apply the Gradle plugin with `alias(libs.plugins.ssrcompose)`.
+
 Rationale: R2 and R4 show the compiler alone is not enough, and the constitution says nothing may work only through Gradle. The owner's ktgd project already has this shape: a compiler plugin, a Gradle plugin and a toolchain plugin with its tasks in a `plugin.yaml`.
 
 This adds two artifacts and two libraries (`tooling`, and `catalog-model` from R17) to the constitution's four deliverables. It is recorded in the plan's Complexity Tracking.
@@ -196,8 +205,8 @@ Decision: a limit per session, 100 per second by default and configurable throug
 | `producer` | Kotlin JVM library | JVM | `core` |
 | `compiler-plugin` | Kotlin JVM | JVM | `catalog-model` |
 | `tooling` | Kotlin JVM library | JVM | `catalog-model` |
-| `gradle-plugin` | Gradle plugin | JVM | `tooling` |
-| `toolchain-plugin` | Kotlin toolchain plugin | JVM | `tooling` |
+| `gradle-plugin` | Gradle plugin | JVM | `tooling`, `catalog-model` (option names) |
+| `toolchain-plugin` | Kotlin toolchain plugin | JVM | `tooling`, `catalog-model` (option names) |
 | `contract-tests` | test-only | `android` host tests | `core`, `consumer`, `producer` |
 | `samples/app` | its own build | Android | the published `consumer` and plugins |
 | `samples/server` | its own build | JVM | the published `producer` and plugins |
@@ -211,6 +220,8 @@ The owner confirmed earlier that `core` has a JVM target and an Android target, 
 Checked against Maven metadata on 2026-11-15: Kotlin 2.4.21 (2.5.0 is a release candidate), Android Gradle Plugin 9.5.1, Compose Multiplatform 1.12.2, kotlinx.serialization 1.13.0, kotlinx.coroutines 1.11.0. Checked by experiment: `dev.zacsweers.kctfork:core:0.14.0` works with Kotlin 2.4.21 and the Compose compiler. The Kotlin toolchain on the owner's machine is 0.13.0.
 
 Compiler plugin APIs for top-level generation are marked experimental in Kotlin, so each new Kotlin version needs the plugin's tests to pass before it is supported.
+
+Not checked: the version of the buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`). The owner's thunderbird repository uses 6.1.2. T001 checks it against Maven metadata when it adds it to the catalog.
 
 ## R13. The editor
 
