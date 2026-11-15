@@ -1,0 +1,13 @@
+{
+  "tools": [
+    "claude"
+  ],
+  "models": {
+    "claude": {
+      "max": "fable",
+      "top": "opus",
+      "mid": "sonnet",
+      "small": "haiku"
+    }
+  }
+}

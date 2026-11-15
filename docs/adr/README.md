@@ -1,0 +1,19 @@
+# Architecture decision records
+
+This folder holds the decisions that shape <project>. Each file is one decision.
+
+## Rules
+
+- File name: `NNNN-short-title.md` (four digits, next free number, lowercase words with hyphens).
+- Start from [0000-template.md](0000-template.md). Copy it; do not edit the template.
+- Status is one of `Proposed`, `Accepted`, `Rejected`, `Deprecated`, `Superseded by NNNN`.
+- Do not rewrite an accepted ADR. Write a new one and change only the old status line.
+- Add every new ADR to the index below.
+
+How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
+
+## Index
+
+| Number | Title | Status |
+|--------|-------|--------|
+| [0001](0001-keep-the-poc-in-a-folder.md) | Keep the proof of concept in a folder and build the library from a clean root | Accepted |
