@@ -1,7 +1,7 @@
-import dev.tonholo.ssrcompose.buildlogic.PUBLISHING_GROUP
+import dev.tonholo.ssrcompose.buildlogic.PROJECT_GROUP
 
 plugins {
     `maven-publish`
 }
 
-group = PUBLISHING_GROUP
+group = PROJECT_GROUP

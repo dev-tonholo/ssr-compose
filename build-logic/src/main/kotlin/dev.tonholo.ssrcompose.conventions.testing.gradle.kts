@@ -40,7 +40,7 @@ pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
         }
         sourceSets.matching { it.name == ANDROID_HOST_TEST_SOURCE_SET }.configureEach {
             dependencies {
-                implementation(libs.library("kotlin-test-junit"))
+                implementation(libs.library(alias = "kotlin-test-junit"))
             }
         }
     }

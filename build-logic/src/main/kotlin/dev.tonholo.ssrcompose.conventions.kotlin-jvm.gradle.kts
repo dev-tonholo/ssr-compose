@@ -1,6 +1,6 @@
+import dev.tonholo.ssrcompose.buildlogic.javaRelease
+import dev.tonholo.ssrcompose.buildlogic.jvmTarget
 import dev.tonholo.ssrcompose.buildlogic.libs
-import dev.tonholo.ssrcompose.buildlogic.versionOf
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
@@ -9,14 +9,12 @@ plugins {
     id("dev.tonholo.ssrcompose.conventions.detekt")
 }
 
-val jvmTargetVersion = libs.versionOf("jvm-target")
-
 extensions.configure<KotlinJvmProjectExtension> {
     compilerOptions {
-        jvmTarget.set(JvmTarget.fromTarget(jvmTargetVersion))
+        jvmTarget.set(libs.jvmTarget)
     }
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release.set(jvmTargetVersion.toInt())
+    options.release.set(libs.javaRelease)
 }

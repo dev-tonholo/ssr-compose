@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 
 class BuildExperimentTest {
     @Test
-    fun `given the consumer and producer modules, when their names are read, then both are visible to the contract tests`() {
+    fun `given consumer and producer modules, when names are read, then both are visible to contract tests`() {
         // Arrange
         val consumer = ConsumerModule()
         val producer = ProducerModule()

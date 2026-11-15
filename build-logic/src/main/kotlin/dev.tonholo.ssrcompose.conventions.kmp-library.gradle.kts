@@ -1,6 +1,8 @@
+import dev.tonholo.ssrcompose.buildlogic.PROJECT_GROUP
+import dev.tonholo.ssrcompose.buildlogic.compileSdk
+import dev.tonholo.ssrcompose.buildlogic.jvmTarget
 import dev.tonholo.ssrcompose.buildlogic.libs
-import dev.tonholo.ssrcompose.buildlogic.versionOf
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import dev.tonholo.ssrcompose.buildlogic.minSdk
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 
 plugins {
@@ -10,18 +12,17 @@ plugins {
     id("dev.tonholo.ssrcompose.conventions.detekt")
 }
 
-val jvmTargetVersion = JvmTarget.fromTarget(libs.versionOf("jvm-target"))
-val androidNamespace = "dev.tonholo.ssrcompose.${name.replace("-", "")}"
+val androidNamespace = "$PROJECT_GROUP.${name.replace(oldValue = "-", newValue = "")}"
 
 kotlin {
     targets.withType<KotlinJvmTarget>().configureEach {
-        compilerOptions.jvmTarget.set(jvmTargetVersion)
+        compilerOptions.jvmTarget.set(libs.jvmTarget)
     }
     android {
         namespace = androidNamespace
-        compileSdk = libs.versionOf("compile-sdk").toInt()
-        minSdk = libs.versionOf("min-sdk").toInt()
-        compilerOptions.jvmTarget.set(jvmTargetVersion)
+        compileSdk = libs.compileSdk
+        minSdk = libs.minSdk
+        compilerOptions.jvmTarget.set(libs.jvmTarget)
         withHostTest {}
     }
 }
