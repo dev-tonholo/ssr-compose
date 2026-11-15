@@ -28,7 +28,7 @@ suspend fun onNewConnection(connection: Connection) = producer.serve(connection)
 - The app asks for a screen by name. The producer serves the screen registered under that name for the session's catalog version. A name with no screen for that version gets "screen unavailable", and the session stays accepted.
 - `Producer { }` fails at once when a version is registered twice, or a screen name twice in one version.
 - `serve` runs one session on one connection and returns when it ends.
-- `supportedContractVersions` is the set of contract versions the producer accepts. By default it holds every version this library has a codec for. An app whose contract version is below or above that set is refused with the kind "contract version too old" or "contract version too new". To stop a contract version, leave it out of the set.
+- `supportedContractVersions` is the set of contract versions the producer accepts. By default it holds every version this library has a codec for. An app whose contract version is not in the set is refused: with the kind "contract version too old" when its version is below the highest version in the set, including a version in a gap of the set (the set is `{1, 3}` and the app speaks 2), and with "contract version too new" when it is above the highest. To stop a contract version, leave it out of the set. A set that is empty, or that holds a version this library has no codec for, makes `Producer { }` fail at once.
 - `supportedContractVersions`, `limits` and `observer` are optional.
 
 ## Writing a screen
@@ -90,7 +90,7 @@ The guard: every bridge function passes its catalog version to `ConsumerComponen
 
 ## What a bridge function is
 
-Each one has no logic of its own. Its body is one call to a public function of this library, with its catalog version as a constant and the argument kinds of each callback:
+Each one has no logic of its own. Its body is one call to a public function of this library, with its catalog version as a constant and a `Callback` for each callback parameter:
 
 ```kotlin
 @Composable
@@ -99,13 +99,39 @@ fun PaymentSection(title: String, onPayClick: RemoteAction0, content: (@Composab
         catalogVersion = "3",
         name = "PaymentSection",
         values = mapOf("title" to title),
-        callbacks = mapOf("onPayClick" to Callback(action = onPayClick, arguments = emptyList())),
+        callbacks = mapOf("onPayClick" to Callback(arguments = emptyList(), convert = { { onPayClick() } })),
         slots = mapOf("content" to content),
     )
 }
 ```
 
-A callback with arguments lists their kinds with `ValueKind` from `core`, the same type the catalog uses, for example `Callback(action = onScan, arguments = listOf(ValueKind.Bytes))`. The producer checks each trigger's arguments against that list. For a choice argument the bridge also turns the entry into its enum, and an entry the enum does not have is refused and reported.
+### What a bridge gives the producer for one callback
+
+A `Callback` holds two things:
+
+- `arguments`: the kinds of the callback's arguments, as `ValueKind` from `core`, the same type the catalog uses. Empty when the callback has none.
+- `convert`: a conversion from the values the app sent (`DataValue`s) to the lambda's typed arguments. It returns the call to run. This is where a choice entry becomes its enum, a whole number becomes `Int` or `Long`, a decimal becomes `Float` or `Double`, and a list becomes a typed list.
+
+A sketch of the shape, not final signatures. The value readers (`entry`, `whole`, `list`) are helpers this library gives generated and hand-written bridges:
+
+```kotlin
+"onPick" to Callback(
+    arguments = listOf(ValueKind.Choice(listName = "Style"), ValueKind.Whole),
+    convert = { values ->
+        val style = enumValueOf<Style>(values.entry(index = 0))
+        val count = Math.toIntExact(values.whole(index = 1))
+        { onPick(style, count) }
+    },
+)
+```
+
+When a trigger arrives, the producer:
+
+1. Checks the number and the kinds of the values against `arguments`.
+2. Runs `convert`. An unknown choice entry, a number that does not fit its type, or a list with one wrong element makes `convert` fail.
+3. Runs the returned call, inside a snapshot, as research.md R10a says.
+
+A failure in step 1 or step 2 is a refused trigger: nothing runs, the screen stays as it was, the session carries on, and `onTriggerRefused` is called. It is never `onActionFailed`, which is only for a call that fails while it runs in step 3.
 
 Parameters the app can leave out:
 
@@ -134,4 +160,4 @@ The default does nothing. The library depends on no logging library.
 
 ## What is public
 
-`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. From `core` it also uses `ValueKind`, `CatalogVersion` and `ContractVersion`. Everything else is internal.
+`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. From `core` it also uses `ValueKind`, `CatalogVersion` and `ContractVersion`. Everything else is internal.
