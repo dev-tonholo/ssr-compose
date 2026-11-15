@@ -106,13 +106,13 @@ core/                                # Kotlin Multiplatform: jvm, android
     ├── annotation/                  # @ConsumerComposable, @ProducerComposable
     ├── catalog/                     # CatalogVersion only: a label
     ├── handshake/                   # Introduction, DeviceContext, AppIdentity, Answer
-    ├── data/                        # DataValue
+    ├── data/                        # DataValue, ValueKind (the one definition of value kinds)
     ├── message/                     # messages, MessageFrame, MessageCodec, the JSON codec
     └── connection/                  # Connection, InMemoryConnection
 
 catalog-model/                       # Kotlin JVM, build time only
 └── src/main/kotlin/dev/tonholo/ssrcompose/catalog/
-    ├── model/                       # ValueKind, ChoiceList, Parameter, ComponentDescriptor, PartName
+    ├── model/                       # ChoiceList, Parameter, ComponentDescriptor, PartName (kinds from core)
     ├── bundle/                      # CatalogManifest, CatalogPart, reader, writer, fingerprint, size cap
     ├── validation/                  # one part, and the checks across parts
     └── index/                       # the index the compiler plugin reads, format from T031a
@@ -132,7 +132,7 @@ producer/                            # Kotlin JVM
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/producer/
     │   ├── Producer.kt, ProducerBuilder.kt, ConsumerComponent.kt
-    │   ├── RemoteAction.kt, ArgumentKind.kt, Callback.kt, LocalConsumer.kt
+    │   ├── RemoteAction.kt, Callback.kt, LocalConsumer.kt
     │   ├── ProducerLimits.kt, ProducerObserver.kt
     │   └── internal/                # session, screen registry, live composition, actions, guard, validation
     ├── test/
@@ -145,7 +145,7 @@ compiler-plugin/                     # Kotlin JVM, K2
     │   └── producer/                # FIR declarations and IR bodies for each bridge, order guard
     └── test/                        # compile tests
 
-tooling/                             # Kotlin JVM: part, bundle, check, dump, fetch, pin, lock file, index step
+tooling/                             # Kotlin JVM: part, bundle, check, dump, sync, verify, lock file, index step
 gradle-plugin/                       # thin Gradle wrapper over tooling
 toolchain-plugin/                    # thin Kotlin toolchain wrapper over tooling
 
@@ -166,7 +166,7 @@ Module dependencies:
 | Module | Depends on |
 |---|---|
 | `core` | nothing in this repo |
-| `catalog-model` | `core`, for `CatalogVersion` only |
+| `catalog-model` | `core`, for `CatalogVersion` and `ValueKind` only |
 | `consumer`, `producer` | `core` |
 | `compiler-plugin`, `tooling` | `catalog-model` |
 | `gradle-plugin`, `toolchain-plugin` | `tooling` |
@@ -176,7 +176,7 @@ Module dependencies:
 How the build handles the catalog:
 
 - On the app side, the compiler plugin writes one fragment per source file. A cacheable step in each module with marked composables, `ssrCatalogPart`, merges that module's fragments into its part. A step in the module that sets the catalog version, `ssrCatalogBundle`, collects the parts of the modules it depends on, runs the checks across parts, and writes the manifest. `ssrCatalogCheck` compares the bundle with the saved one of the same version, and `ssrCatalogDump` saves it.
-- On the server side, `ssrCatalogSync` fetches and pins. A cacheable step per held catalog, `ssrCatalogIndex`, turns the saved bundle into an index. The compiler plugin reads only the index. The index is internal, is not shared between builds, and its format is settled by the scale gate, T031a. This plan does not fix that format.
+- On the server side, `ssrCatalogSync` fetches and pins, and `ssrCatalogVerify`, part of the normal check, fails when a saved catalog no longer matches its lock file or its manifest. A cacheable step per held catalog, `ssrCatalogIndex`, turns the saved bundle into an index. The compiler plugin reads only the index. The index is internal, is not shared between builds, and its format is settled by the scale gate, T031a. This plan does not fix that format.
 - A bridge declaration should be created only when code names it, so a server module that calls 20 of 20,000 composables does not pay for the rest. This is not checked. T031a proves or disproves it, and reports the cost if it does not hold.
 - Every step declares its inputs and outputs with relative paths and no timestamps, so the build cache can reuse its results across machines.
 
