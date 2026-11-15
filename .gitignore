@@ -49,3 +49,5 @@ secrets.properties
 # Agent scratch
 .superpowers/
 .ai-onboard-timer
+.crew/worktrees/
+.crew/

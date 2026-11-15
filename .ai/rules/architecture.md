@@ -34,4 +34,4 @@ The proof of concept breaks several of these on purpose. It proved the idea and 
 - `grep -rn 'androidx.compose.remote' --include='*.kt' --include='*.kts' --include='*.toml' .` only finds files under `poc/`.
 - Each new library or architecture choice has a file in `docs/adr/` and a row in its index.
 
-Templates: [adr](../blueprints/adr.md). Agent: [security-reviewer](../agents/security-reviewer.md).
+Templates: [adr](../blueprints/adr.md). Agent: [reviewer](../agents/reviewer.md).

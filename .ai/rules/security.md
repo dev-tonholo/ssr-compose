@@ -23,6 +23,6 @@ Rules for the connection, documents, sessions and secrets. The source is princip
 ## Check
 
 - `git diff --cached --name-only` shows no `.jks`, `.keystore`, `.pem`, `.env` or `local.properties` file.
-- A change to the connection, handshake, documents or sessions has a report from the security-reviewer agent.
+- A change to the connection, handshake, documents or sessions has a reviewer report that names each rule in this file.
 
-Agent: [security-reviewer](../agents/security-reviewer.md).
+Agent: [reviewer](../agents/reviewer.md).
