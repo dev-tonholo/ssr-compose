@@ -179,7 +179,7 @@ Consequences:
 
 - Screens for two versions repeat their layout, because the two bridges are different functions. State and logic can be shared as plain Kotlin. This is a known cost, stated in the spec and in the user documentation.
 - `LocalConsumer.current` keeps `device`, `app` and `catalogVersion`. There is nothing to ask about a composable at run time, since a screen only uses the bridge of its own version.
-- The running producer holds no catalog. Callback arguments are checked against the kinds the bridge declared (R8).
+- The running producer holds no catalog. Callback arguments are checked against the kinds in the bridge's `Callback` and turned into the lambda's types by its conversion (R8).
 
 Not checked: the implementation.
 
@@ -208,8 +208,8 @@ Decision: a limit per session, 100 per second by default and configurable throug
 | `gradle-plugin` | Gradle plugin | JVM | `tooling`, `catalog-model` (plugin id and option names) |
 | `toolchain-plugin` | Kotlin toolchain plugin | JVM | `tooling`, `catalog-model` (plugin id and option names) |
 | `contract-tests` | test-only | `android` host tests | `core`, `consumer`, `producer` |
-| `samples/app` | its own build | Android | the published `consumer` and plugins |
-| `samples/server` | its own build | JVM | the published `producer` and plugins |
+| `samples/app` | its own build | Android | `consumer` and the Gradle plugin, from the root build included as a build |
+| `samples/server` | its own build | JVM | `producer` and the Gradle plugin, from the root build included as a build |
 
 The two samples are separate builds on purpose. The spec's success criterion says the sample server must build with none of the sample app's code available, sharing only the catalog.
 
@@ -233,7 +233,7 @@ Not checked: anything in the IDE. Known risks from reading the code: the enum wo
 
 Still valid, and designed the same way: the handshake values and their validation limits, a neutral data model so no wire encoding is baked into the contract, a replaceable codec and connection with no transport in the libraries, one live composition per session with one snapshot observer shared by the process, an observer for reporting, and a load test for the bounds.
 
-Validation limits, all configurable: introduction frame at most 8 KB; density above 0 and at most 10; screen width and height 1 to 100,000 pixels; language tag at most 35 characters; app version, variant, flavor and catalog version at most 64 characters each with no control characters; callback arguments at most 1 megabyte in total; callbacks at most 100 per second per session. On the build side: a manifest and each part at most 16 MiB, checked before reading; part names at most 64 characters, lowercase letters, digits and hyphens.
+Validation limits, all configurable: introduction frame at most 8 KB; density above 0 and at most 10; screen width and height 1 to 100,000 pixels; language tag at most 35 characters; app version, variant, flavor and catalog version at most 64 characters each with no control characters; callback arguments at most 1 megabyte in total; callbacks at most 100 per second per session. On the build side: a manifest and each part at most 16 MiB, checked before reading; part names at most 64 characters, lowercase letters, digits and hyphens, and never a Windows device name.
 
 ## R15. Decisions that become ADRs
 
@@ -265,6 +265,6 @@ Decision: the owner said "We don't need the catalog at the runtime, as we will u
 
 Rationale: principle II asks for one definition of everything both sides agree on. The catalog format still has one definition, in `catalog-model`. Keeping it in `core` would put a JSON reader, hashing and validation in every app and every server at run time, where nothing uses them. The plan records this in Complexity Tracking.
 
-Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds the bridge declared (R8).
+Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds and the conversion in the bridge's `Callback` (R8).
 
 Catalog code written in `core` before this decision is moved into `catalog-model` by T113, except `ValueKind`, which stays in `core` and moves from `core/catalog/` to `core/data/`.

@@ -81,4 +81,4 @@ sealed interface ScreenProblem {
 
 ## What is public
 
-`SsrScreen`, `ComponentBindings` and its `PlacedComponent` reader, `ScreenProblem`, and in `core`: `@ConsumerComposable`, `@ProducerComposable`, `AppIdentity`, `Connection`, `InMemoryConnection`. Everything else is internal.
+`SsrScreen`, `ComponentBindings` and its `PlacedComponent` reader, `ScreenProblem`, and in `core`: `@ConsumerComposable`, `@ProducerComposable`, `AppIdentity`, `CatalogVersion`, `RefusalKind`, `Connection`, `InMemoryConnection`. Everything else is internal.

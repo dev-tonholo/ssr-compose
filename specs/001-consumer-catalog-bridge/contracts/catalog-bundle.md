@@ -77,7 +77,7 @@ A catalog of version 3, from an app with two modules that have marked composable
 | `format` | the version of the manifest format | a whole number. A reader refuses a format it does not know. |
 | `version` | the catalog version the app developer set | at most 64 characters, no control characters. A label with no order. |
 | `parts` | one entry per part | sorted by `name`. Empty when the app has no marked composable. |
-| `parts[].name` | the part's name | lowercase letters, digits and hyphens, 1 to 64 characters. Unique in the manifest. |
+| `parts[].name` | the part's name | lowercase letters, digits and hyphens, 1 to 64 characters, never a Windows device name (see "Part names" below). Unique in the manifest. |
 | `parts[].file` | the part's file name | always `<name>.part.json`, built from the part's `name`. Unique in the manifest. A reader rejects the whole manifest otherwise. See "Part file names" below. |
 | `parts[].fingerprint` | the fingerprint of the part's bytes | lowercase hexadecimal SHA-256. |
 

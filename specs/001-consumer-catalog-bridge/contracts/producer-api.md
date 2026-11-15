@@ -160,4 +160,4 @@ The default does nothing. The library depends on no logging library.
 
 ## What is public
 
-`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. From `core` it also uses `ValueKind`, `CatalogVersion` and `ContractVersion`. Everything else is internal.
+`Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. From `core` its API also uses `ValueKind`, `DataValue`, `CatalogVersion`, `ContractVersion`, `RefusalKind`, `Introduction`, `ActionId` and `Connection`. Everything else is internal.

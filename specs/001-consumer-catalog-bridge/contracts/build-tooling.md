@@ -122,7 +122,7 @@ Not checked: all of the above. T114 tests it with Gradle TestKit, and T031a and 
 ## What the build-tool plugins take care of
 
 - They apply the compiler plugin with its options. In Gradle this is one `KotlinCompilerPluginSupportPlugin` class. Its compiler plugin id is the one constant that `catalog-model` generates from the `ssrcompose.compiler.plugin.id` property of this repository's root `gradle.properties`, and its option names come from `catalog-model` too. The compiler plugin and the toolchain plugin read the same constant and names.
-- They add `core` (the annotations) to each Kotlin compilation, so a developer adds no dependency by hand to mark composables.
+- They add `core` (the annotations) to the compile classpath of each Kotlin compilation, at the plugin's own version, so a developer adds no dependency by hand to mark composables.
 - They put the bridge plugin before the Compose compiler. The bridge plugin also stops the build with a clear message if it finds it ran second.
 - They declare each index as a compile input, so a changed saved catalog causes a rebuild.
 

@@ -15,14 +15,13 @@ Module, task and file names below are the planned ones. They do not exist until 
 
 ```sh
 ./gradlew build detekt
-./gradlew publishToMavenLocal
 ```
 
-Expected: both pass. The first includes the compiler plugin's compile tests, the unit tests and the contract tests.
+Expected: it passes, including the compiler plugin's compile tests, the unit tests and the contract tests. Nothing has to be published first: the samples use the root build as an included build.
 
 ## 2. Story 1: a server screen places an app composable
 
-The two samples are separate builds. They share one folder of catalogs, `samples/catalogs/`, with one subfolder per catalog version, and nothing else.
+The two samples are separate builds that share none of their own code: each uses only the root build, its version catalog and the shared folder of catalogs, `samples/catalogs/`, with one subfolder per catalog version.
 
 ```sh
 ./gradlew -p samples/app ssrCatalogDump
@@ -30,8 +29,8 @@ cp -R samples/app/ssr/catalogs/1 samples/catalogs/1
 ./gradlew -p samples/server ssrCatalogSync
 ./gradlew -p samples/server run
 adb -s <serial> reverse tcp:8788 tcp:8788
-./gradlew -p samples/app assembleDebug
-android run --device=<serial> --apks=samples/app/build/outputs/apk/debug/app-debug.apk --activity=<the sample activity>
+./gradlew -p samples/app assembleCurrentDebug
+android run --device=<serial> --apks=<the APK that assembleCurrentDebug writes under samples/app/build/outputs/apk/current/debug/> --activity=<the sample activity>
 android screen capture --device=<serial> -o story-1.png
 ```
 
