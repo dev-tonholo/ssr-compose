@@ -35,3 +35,4 @@
 - The readers of this spec are developers, since the product is a library. "Non-technical" is read here as: no language, framework or API names, and no code structure. "Composable", "build", "sync" and "editor" are used because they are the feature's own subject.
 - The owner's decision that the compiler does the work is recorded once, under Assumptions, and not in the requirements.
 - This spec replaces an earlier draft, "Component Catalog and Handshake", whose design was left. The clarifications that still apply were carried over.
+- Checked again on 2026-11-15 after the design revision (the catalog as a bundle, screens per catalog version, the catalog used only at build time). No box changed. The build performance requirements say what a build must and must not do, without naming a build tool, and the one figure not measured yet is marked as provisional.
