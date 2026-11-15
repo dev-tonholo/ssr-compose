@@ -241,7 +241,7 @@ All versions, including the JVM target 17, `minSdk` 23 and `compileSdk` 37, are 
 
 Compiler plugin APIs for top-level generation are marked experimental in Kotlin, so each new Kotlin version needs the plugin's tests to pass before it is supported.
 
-Not checked: the version of the buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`). The owner's thunderbird repository uses 6.1.2. T001 checks it against Maven metadata when it adds it to the catalog.
+Checked: the version of the buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`) is 6.1.2, the latest release on the Gradle plugin portal and the version the owner's thunderbird repository uses. T001 added it to the catalog.
 
 ## R13. The editor
 
