@@ -49,7 +49,7 @@ cd ssr-compose/poc
 ./gradlew build detekt
 ```
 
-The library modules do not exist yet. This section will grow when they do.
+The repository root is a Gradle build with the library modules. Build and test them from the root with `./gradlew build`. The commands above are for the proof of concept in `poc/`, which has its own build.
 
 ### How work is done
 

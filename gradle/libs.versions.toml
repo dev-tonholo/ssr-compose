@@ -1,0 +1,54 @@
+[versions]
+kotlin = "2.4.21"
+agp = "9.5.1"
+compose-multiplatform = "1.12.2"
+kotlinx-serialization = "1.13.0"
+kotlinx-coroutines = "1.11.0"
+kctfork = "0.14.0"
+turbine = "1.2.1"
+detekt = "2.0.0-alpha.6"
+buildconfig = "6.1.2"
+ktor = "3.6.1"
+jvm-target = "17"
+min-sdk = "23"
+compile-sdk = "37"
+
+[libraries]
+kotlin-compiler-embeddable = { module = "org.jetbrains.kotlin:kotlin-compiler-embeddable", version.ref = "kotlin" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+kotlin-compile-testing = { module = "dev.zacsweers.kctfork:core", version.ref = "kctfork" }
+
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
+android-kmp-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
+buildconfig = { id = "com.github.gmazzo.buildconfig", version.ref = "buildconfig" }
+ssrcompose = { id = "dev.tonholo.ssrcompose" }
+
+ssrcompose-conventions-kotlin-jvm = { id = "dev.tonholo.ssrcompose.conventions.kotlin-jvm" }
+ssrcompose-conventions-kmp-library = { id = "dev.tonholo.ssrcompose.conventions.kmp-library" }
+ssrcompose-conventions-compose = { id = "dev.tonholo.ssrcompose.conventions.compose" }
+ssrcompose-conventions-serialization = { id = "dev.tonholo.ssrcompose.conventions.serialization" }
+ssrcompose-conventions-testing = { id = "dev.tonholo.ssrcompose.conventions.testing" }
+ssrcompose-conventions-detekt = { id = "dev.tonholo.ssrcompose.conventions.detekt" }
+ssrcompose-conventions-publishing = { id = "dev.tonholo.ssrcompose.conventions.publishing" }

@@ -16,6 +16,10 @@ How tests are written and where they live. The source is principle VI of the [co
 
 | What | Folder | Command |
 |---|---|---|
+| All root modules | each module's test folders | `./gradlew build` |
+| Core, on the JVM | `core/src/commonTest`, `core/src/jvmTest` | `./gradlew :core:jvmTest` (runs, but reports `NO-SOURCE` until `core` has a test) |
+| Core, as Android host tests | `core/src/commonTest`, `core/src/androidHostTest` | `./gradlew :core:testAndroidHostTest` (runs, but reports `NO-SOURCE` until `core` has a test) |
+| Contract tests | `contract-tests/src/androidHostTest` | `./gradlew :contract-tests:testAndroidHostTest` |
 | PoC shared contract | `poc/protocol/src/test` | `./poc/gradlew -p poc :protocol:test` |
 | PoC server | `poc/server/src/test` | `./poc/gradlew -p poc :server:test` |
 | PoC app view model and data | `poc/app/src/test` | `./poc/gradlew -p poc :app:testDebugUnitTest` |

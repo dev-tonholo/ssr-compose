@@ -215,13 +215,51 @@ The two samples are separate builds on purpose. The spec's success criterion say
 
 The owner confirmed earlier that `core` has a JVM target and an Android target, and `minSdk` 23.
 
+Checked by building (T005, 2026-11-15, Gradle 9.8.2, JDK 25 with a Java 17 target): the module shape above builds as planned. `./gradlew clean build --no-build-cache --rerun-tasks` and `./gradlew build` both exit 0 for `build-logic` and all seven modules. What the build showed:
+
+- `core` is a Kotlin Multiplatform library with `jvm` and `android` targets, using the `com.android.kotlin.multiplatform.library` plugin. It compiles for both.
+- `consumer` has only the `android` target, and Compose (runtime, foundation and UI 1.12.2) compiles in `commonMain`. A trivial `@Composable` that calls `BasicText` is in it to prove this.
+- `producer`, `compiler-plugin`, `tooling` and `gradle-plugin` are plain Kotlin JVM modules. `compiler-plugin` has `kotlin-compiler-embeddable` as `compileOnly`. `gradle-plugin` passes `validatePlugins`.
+- `contract-tests` is an Android-only Kotlin Multiplatform module with no main code. Its host tests live in the `androidHostTest` source set and run with `./gradlew :contract-tests:testAndroidHostTest`, which `check` and `build` also run. It depends on `consumer` (Android library) and `producer` (plain JVM library) without trouble. The test result file shows `tests="1" skipped="0" failures="0" errors="0"`.
+- In AGP 9.5.1, the Android block inside `kotlin { }` is `android { }`. The older `androidLibrary { }` block still works but is deprecated. `withHostTest { }` inside it is what creates the `androidHostTest` source set. It is enabled in the `kmp-library` convention, so `consumer` and `core` also get host test tasks. Without it, Kotlin warns that `commonTest` is not connected to any compilation in `consumer`.
+- The Java 17 target holds on this JDK 25 machine. `file` on `ProducerModule.class`, `ConsumerModule.class` (Android output), and `CoreModule.class` (both the `jvm` and `android` outputs) printed "version 61.0" each.
+- A throwaway test in `tooling/src/test` and one in `core/src/jvmTest`, deleted afterwards, each ran under `./gradlew :tooling:test :core:jvmTest` with `tests="1" failures="0"`. So the JUnit Platform branch and the Kotlin Multiplatform `jvm` target of the `testing` convention both run tests.
+- Kotlin `internal` is not visible across modules, so T003's "one trivial internal class" and T004's "a class from `consumer` and a class from `producer`" cannot both hold. `ConsumerModule` and `ProducerModule` are public. The other four trivial classes are internal.
+- `CompilerPluginRegistrar` and `CompilerConfiguration.Internals` need an opt-in in `kotlin-compiler-embeddable` 2.4.21, so the trivial class in `compiler-plugin` uses `FqName` instead.
+- `detekt` is in the `check` chain with its default rules and no config file (T006 adds that). It runs and passes on the four JVM modules. It reports `NO-SOURCE` for `core`, `consumer` and `contract-tests`, although `core` and `consumer` have Kotlin files in `commonMain`. The cause was not looked into. T006 has to make detekt read the Kotlin Multiplatform source folders.
+- Type-safe project accessors (`projects.core`) print "Type-safe project accessors is an incubating feature." The build log also shows one Gradle deprecation, `Configuration.setVisible(boolean)`, while Gradle configures `:compiler-plugin`. What triggers it was not traced.
+
 ## R12. Versions
 
 Checked against Maven metadata on 2026-11-15: Kotlin 2.4.21 (2.5.0 is a release candidate), Android Gradle Plugin 9.5.1, Compose Multiplatform 1.12.2, kotlinx.serialization 1.13.0, kotlinx.coroutines 1.11.0. Checked by experiment: `dev.zacsweers.kctfork:core:0.14.0` works with Kotlin 2.4.21 and the Compose compiler. The Kotlin toolchain on the owner's machine is 0.13.0.
 
+Checked again for T001 on 2026-11-15, by downloading each `maven-metadata.xml` and searching it for the exact version. The commands were `curl -s https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-compiler-embeddable/maven-metadata.xml` and the same for `org/jetbrains/compose/compose-gradle-plugin`, `dev/zacsweers/kctfork/core`, `org/jetbrains/kotlinx/kotlinx-serialization-json`, `org/jetbrains/kotlinx/kotlinx-coroutines-core`, `app/cash/turbine/turbine`, `io/ktor/ktor-server-core` and `dev/detekt/detekt-gradle-plugin`. The Android Gradle Plugin came from `curl -s https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/maven-metadata.xml`, followed by `grep -c "<version>9.5.1</version>"`, which printed 1. Every pinned version is in its metadata file: Kotlin 2.4.21 (`kotlin-compiler-embeddable`, latest tag is 2.5.0-RC), Android Gradle Plugin 9.5.1, `compose-gradle-plugin` 1.12.2, `kotlinx-serialization-json` 1.13.0, `kotlinx-coroutines-core` 1.11.0, `dev.zacsweers.kctfork:core` 0.14.0, Turbine 1.2.1 (latest), Ktor 3.6.1 (latest), detekt Gradle plugin 2.0.0-alpha.6 (latest). No version had to change. The buildconfig plugin `com.github.gmazzo.buildconfig` was checked with `curl -s https://plugins.gradle.org/m2/com/github/gmazzo/buildconfig/com.github.gmazzo.buildconfig.gradle.plugin/maven-metadata.xml`: 6.1.2 is the latest release, and it is the version in the catalog.
+
+The metadata check does not prove every artifact exists, so `./gradlew build` resolved what the modules use: Compose runtime, foundation and UI 1.12.2 (`consumer`), `kotlinx-serialization-json` 1.13.0 (`core`), `kotlin-compiler-embeddable` 2.4.21 (`compiler-plugin`), `kotlin-test`, `kotlin-test-junit`, `kotlinx-coroutines-test` and Turbine (the host test classpath of `contract-tests`), and the detekt plugin. The kctfork and Ktor entries are in the catalog but no module uses them yet, so for those only the metadata check was done.
+
+All versions, including the JVM target 17, `minSdk` 23 and `compileSdk` 37, are in `gradle/libs.versions.toml`. The convention plugins are Plugin classes that read them through the generated catalog accessors, and the modules apply them with `alias(libs.plugins.ssrcompose.conventions.<concern>)`, so a `grep -rnE` for the six version numbers over `build-logic`, the seven modules, `gradle/`, and the root build files finds them only in `gradle/libs.versions.toml`. The Gradle wrapper version (9.9.1) is in `gradle/wrapper/gradle-wrapper.properties`, as Gradle requires.
+
+Rechecked on 2026-11-15 for the latest stable release of every entry in the catalog, not only that it exists. Stable means no alpha, beta, release candidate or snapshot. The sources are the `maven-metadata.xml` files of Maven Central, Google Maven and the Gradle plugin portal, the release pages of the projects, and `https://services.gradle.org/versions/current` for Gradle.
+
+| Entry | In the catalog | Latest stable | Source | Note |
+|---|---|---|---|---|
+| Gradle wrapper | 9.9.1 (was 9.8.2) | 9.9.1 | https://services.gradle.org/versions/current | updated |
+| Kotlin: the plugins, `kotlin-compiler-embeddable`, `kotlin-test`, `kotlin-test-junit` | 2.4.21 | 2.4.21 | Maven Central, https://github.com/JetBrains/kotlin/releases | 2.5.0 is only a release candidate. The Compose compiler plugin follows Kotlin. |
+| Android Gradle Plugin | 9.5.1 | 9.5.1 | https://dl.google.com/dl/android/maven2/com/android/tools/build/gradle/maven-metadata.xml | 9.6.0 is only an alpha. 9.5 needs Gradle 9.6.0 or newer, JDK 17 and supports API level 37 (https://developer.android.com/build/releases/agp-9-5-0-release-notes), which fits Gradle 9.9.1 and `compileSdk` 37. |
+| Compose Multiplatform (runtime, foundation, UI) | 1.12.2 | 1.12.2 | Maven Central, https://github.com/JetBrains/compose-multiplatform/releases | 1.13.0 is only a beta. |
+| kotlinx.serialization | 1.13.0 | 1.13.0 | Maven Central | |
+| kotlinx.coroutines (core, test) | 1.11.0 | 1.11.0 | Maven Central | |
+| kctfork (`kotlin-compile-testing`) | 0.14.0 | 0.14.0 | Maven Central, https://github.com/ZacSweers/kotlin-compile-testing/releases | Its notes say it was built for Kotlin 2.4.20. It works with 2.4.21, as the experiment above found. |
+| Turbine | 1.2.1 | 1.2.1 | Maven Central | |
+| detekt Gradle plugin | 2.0.0-alpha.6 | none: no stable 2.x exists | Maven Central, https://github.com/detekt/detekt/releases | alpha.6 is the newest release of the 2.0 line. Every release of `dev.detekt` so far is an alpha. |
+| buildconfig plugin | 6.1.2 | 6.1.2 | https://plugins.gradle.org/m2/com/github/gmazzo/buildconfig/com.github.gmazzo.buildconfig.gradle.plugin/maven-metadata.xml | |
+| Ktor (six artifacts, samples only) | 3.6.1 | 3.6.1 | Maven Central | |
+
+Nothing but the Gradle wrapper had to move, so the set stays compatible and no entry held another back. `./gradlew build`, `./gradlew detekt` and `./gradlew :contract-tests:check` pass on Gradle 9.9.1, and the dependency reports of `core`, `consumer` and `producer` are identical to the ones on 9.8.2. `./gradlew build --warning-mode all` shows no new warning: the same two as before, the incubating type-safe project accessors and the `Configuration.setVisible(boolean)` deprecation while Gradle configures `:compiler-plugin`.
+
 Compiler plugin APIs for top-level generation are marked experimental in Kotlin, so each new Kotlin version needs the plugin's tests to pass before it is supported.
 
-Not checked: the version of the buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`). The owner's thunderbird repository uses 6.1.2. T001 checks it against Maven metadata when it adds it to the catalog.
+Checked: the version of the buildconfig Gradle plugin (`com.github.gmazzo.buildconfig`) is 6.1.2, the latest release on the Gradle plugin portal and the version the owner's thunderbird repository uses. T001 added it to the catalog.
 
 ## R13. The editor
 
