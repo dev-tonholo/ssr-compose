@@ -227,7 +227,7 @@ Checked by building (T005, 2026-11-15, Gradle 9.8.2, JDK 25 with a Java 17 targe
 - Kotlin `internal` is not visible across modules, so T003's "one trivial internal class" and T004's "a class from `consumer` and a class from `producer`" cannot both hold. `ConsumerModule` and `ProducerModule` are public. The other four trivial classes are internal.
 - `CompilerPluginRegistrar` and `CompilerConfiguration.Internals` need an opt-in in `kotlin-compiler-embeddable` 2.4.21, so the trivial class in `compiler-plugin` uses `FqName` instead.
 - `detekt` is in the `check` chain with its default rules and no config file (T006 adds that). It runs and passes on the four JVM modules. It reports `NO-SOURCE` for `core`, `consumer` and `contract-tests`, although `core` and `consumer` have Kotlin files in `commonMain`. The cause was not looked into. T006 has to make detekt read the Kotlin Multiplatform source folders.
-- Type-safe project accessors (`projects.core`) print "Type-safe project accessors is an incubating feature." The build log also shows one Gradle deprecation, `Configuration.setVisible(boolean)`, from the generated accessors of the precompiled script plugins.
+- Type-safe project accessors (`projects.core`) print "Type-safe project accessors is an incubating feature." The build log also shows one Gradle deprecation, `Configuration.setVisible(boolean)`, while Gradle configures `:compiler-plugin`. What triggers it was not traced.
 
 ## R12. Versions
 
