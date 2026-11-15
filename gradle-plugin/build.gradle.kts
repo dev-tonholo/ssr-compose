@@ -1,6 +1,6 @@
 plugins {
-    id("dev.tonholo.ssrcompose.conventions.kotlin-jvm")
-    id("dev.tonholo.ssrcompose.conventions.publishing")
+    alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
+    alias(libs.plugins.ssrcompose.conventions.publishing)
     `java-gradle-plugin`
 }
 

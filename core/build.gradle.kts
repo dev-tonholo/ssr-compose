@@ -1,7 +1,7 @@
 plugins {
-    id("dev.tonholo.ssrcompose.conventions.kmp-library")
-    id("dev.tonholo.ssrcompose.conventions.serialization")
-    id("dev.tonholo.ssrcompose.conventions.publishing")
+    alias(libs.plugins.ssrcompose.conventions.kmp.library)
+    alias(libs.plugins.ssrcompose.conventions.serialization)
+    alias(libs.plugins.ssrcompose.conventions.publishing)
 }
 
 kotlin {

@@ -1,7 +1,7 @@
 import dev.tonholo.ssrcompose.buildlogic.ANDROID_HOST_TEST_SOURCE_SET
 
 plugins {
-    id("dev.tonholo.ssrcompose.conventions.kmp-library")
+    alias(libs.plugins.ssrcompose.conventions.kmp.library)
 }
 
 kotlin {
