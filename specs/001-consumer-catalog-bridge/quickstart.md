@@ -17,7 +17,7 @@ Module, task and file names below are the planned ones. They do not exist until 
 ./gradlew build detekt
 ```
 
-Expected: it passes, including the compiler plugin's compile tests, the unit tests and the contract tests. Nothing has to be published first: the samples use the root build as an included build.
+Expected: it passes, including the compiler plugin's compile tests, the unit tests and the contract tests. Nothing is published for the Gradle samples: they use the root build as an included build.
 
 ## 2. Story 1: a server screen places an app composable
 
@@ -97,9 +97,10 @@ Expected: a report with 10,000 sessions held at once over 10 served catalog vers
 
 ## 9. The Kotlin toolchain
 
-In `samples/toolchain-server`, a copy of the sample server set up for the Kotlin toolchain:
+In `samples/toolchain-server`, a copy of the sample server set up for the Kotlin toolchain. The Gradle samples use the root build as an included build; the Kotlin toolchain cannot, so it reads the published artifacts. Publish them to the local Maven repository first. How the toolchain finds them there is not checked until T030 runs.
 
 ```sh
+./gradlew publishToMavenLocal
 kotlin do ssrCatalogSync
 kotlin build
 ```
