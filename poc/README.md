@@ -1,4 +1,4 @@
-# ssr-compose
+# ssr-compose proof of concept
 
 A proof of concept for server-side rendering with Jetpack Compose, where composables are shared in both directions between a server and an app.
 
@@ -27,6 +27,8 @@ One Android screen comes from one server response:
 - `app` is the Android app. It has a registry from component ID to composable, a tree renderer and a fragment player.
 
 ## Running it
+
+Run every command below from this `poc` folder.
 
 You need JDK 17 or newer, the Android SDK with platform 37, and an emulator.
 
