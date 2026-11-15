@@ -264,7 +264,7 @@ Build time and build performance:
 
 - **FR-069**: The catalog MUST be needed only while building. The app and the producer MUST NOT need the catalog, or the code that reads it, while they run.
 - **FR-070**: An app build or a server build in which nothing changed MUST do no catalog work.
-- **FR-071**: A change in one app module MUST produce again only that module's part and the manifest. The parts of the other modules are reused as they are.
+- **FR-071**: A change in one app module MUST produce again, of the catalog, only that module's part and the manifest. The parts of the other modules are reused as they are.
 - **FR-072**: What the catalog steps of a build produce MUST hold no absolute path and no timestamp, so a build cache shared between machines and checkouts can reuse it.
 
 ### Key Entities
@@ -308,7 +308,7 @@ Build time and build performance:
 - **SC-011**: A producer holds 10,000 sessions at once, over 10 served catalog versions, without mixing up any two apps.
 - **SC-012**: Every refused app shows the user a reason. No refused app shows a blank screen, a frozen screen or a crash.
 - **SC-013**: With a catalog of 20,000 components and about 80,000 parameters, spread over many app modules, a second build of the app or of the server with nothing changed does no catalog work: no part, manifest or other catalog output is produced again.
-- **SC-014**: With the same catalog, a change to one marked composable in one app module produces again exactly one part and the manifest. Every other part is reused.
+- **SC-014**: With the same catalog, a change to one marked composable in one app module produces again, of the catalog, exactly one part and the manifest. Every other part is reused.
 - **SC-015**: The same commit, built from two checkouts in different folders on two machines that share a build cache, gives catalog outputs that are the same byte for byte, and the second build takes every one of them from the cache.
 - **SC-016**: With the catalog of 20,000 components held, the catalog adds at most 2 seconds to a clean compile of a server module that calls 20 of its composables, compared with the same module without a catalog. This figure is provisional and not checked yet: the scale gate in the plan measures it.
 
