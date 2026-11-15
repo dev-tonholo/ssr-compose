@@ -4,17 +4,21 @@ Decisions for the plan, each with its reason and what was turned down. Facts are
 
 Two experiments were run on 2026-11-15 before any design, on Kotlin 2.4.21, Compose runtime 1.12.2, Gradle 9.8.2 and JDK 25 with a JVM 17 target. Their code is in `.superpowers/spikes/k2-bridge/` and `.superpowers/spikes/k2-catalog/`, which git ignores. They are throwaway and nothing depends on them.
 
-## R1. The compiler creates the bridge from a catalog file
+The design was revised on 2026-11-15 by three owner decisions: the catalog is a bundle split per module, screens are written per catalog version, and the catalog is build time only. The experiments used a single catalog file. What they proved still holds for each part and for each bridge, and what the bundle adds is marked as not checked below.
 
-Decision: on the server side, the compiler plugin reads a saved catalog file and creates top-level declarations: one `@Composable` function per component and one `enum class` per choice list. FIR declares them and IR gives them bodies. Each body is one call to a public function of the producer library.
+## R1. The compiler creates each bridge from a held catalog
 
-Checked by experiment:
+Decision: on the server side, the compiler plugin creates one bridge per held catalog, in the package the server developer names for that catalog. Each bridge is a set of top-level declarations: one `@Composable` function per component and one `enum class` per choice list. FIR declares them and IR gives them bodies. Each body is one call to a public function of the producer library, and passes the catalog version of its bridge as a constant. The compiler plugin reads the catalog through its index (R16), never the catalog's JSON.
+
+Checked by experiment, from a single catalog file:
 
 - FIR declares the enum and the composable functions from a file, and IR fills the bodies.
 - The Compose compiler treats the created functions like hand-written ones. Their compiled signatures match a hand-written twin, and they compose in a real composition on a plain JVM with slot nesting and a working callback.
 - Code in the same module calls them with a normal import and no extra step. Another module sees them through the first module's metadata.
 - A wrong name, a missing parameter, and a `String` given where a choice is expected each fail to compile with the ordinary Kotlin error at the caller's line.
 - Editing one source file recompiles only that file and causes no clash with the created declarations.
+
+Not checked: two bridges with the same function and enum names in two packages of one module (T025 settles it); creating declarations from the index instead of a catalog file, and creating a declaration only when code names it (T031a settles both).
 
 Alternatives considered: a source generator that writes Kotlin files. Turned down by the owner: the compiler creates the definitions.
 
@@ -41,52 +45,62 @@ Risk: the workaround uses an unchecked cast and writes into the class's declarat
 
 Fallback if it breaks: a class with one constant per choice, created with the typed API. It loses the exhaustive `when` on the server, which a server screen rarely needs, since it gives choices and does not receive them.
 
-## R4. The compiler writes fragments, and a build step merges them into the catalog
+## R4. Fragments per source file, one part per module, one manifest per catalog
 
-Decision: on the app side, the compiler plugin writes one small fragment file per source file that has marked composables. A build-tool step merges the fragments into the catalog file. The merge is also where duplicate names are caught.
+Decision: on the app side, the compiler plugin writes one small fragment file per source file that has marked composables. A cacheable step in each module, `ssrCatalogPart`, merges that module's fragments into the module's part. A step in the module that sets the catalog version, `ssrCatalogBundle`, collects the parts of the modules it depends on, checks across parts that every component name is unique and that a choice list used by two parts is the same in both, and writes the manifest with each part's fingerprint. Duplicate names inside a module are caught when the part is made, and across modules when the bundle is made, naming both places.
 
-Checked by experiment:
+A part's name comes from the module's path (`:feature:home` gives `feature-home`) and can be set by the developer. Two modules whose parts would get the same name fail the bundle step.
+
+Checked by experiment, for one module:
 
 - A FIR checker finds `@ConsumerComposable` functions and reads every parameter kind the spec lists, including slots with arguments and callbacks with data. With the Compose compiler present, FIR shows a slot as a composable function type, and a plain lambda as a function type.
 - An unsupported parameter fails the build at the parameter's line and column, with the composable, the parameter and the reason. A marked function that is not `@Composable` also fails.
 - A modifier parameter is left out.
 - Under incremental compilation the plugin sees only the recompiled files, and one build can run several rounds. A catalog written directly by the plugin loses components.
-- With fragments plus a merge, the catalog after incremental builds is byte for byte the same as after a clean build. Removing the annotation deletes the fragment. A renamed or deleted file leaves an old fragment that the merge ignores because its source is gone.
+- With fragments plus a merge, the merged result after incremental builds is byte for byte the same as after a clean build. Removing the annotation deletes the fragment. A renamed or deleted file leaves an old fragment that the merge ignores because its source is gone.
 - Two clean builds give identical bytes.
 - The compiler catches a duplicate name only on a full build. The merge catches it always and names both.
 
-Not checked: a Kotlin Multiplatform module with an Android target (the plugin runs once per compilation, so fragments need a folder per compilation, and a marked `expect` and `actual` pair would look like a duplicate), composables spread over several modules of one app, the build cache and the configuration cache, and the state of fragments after a failed incremental build.
+Not checked: a Kotlin Multiplatform module with an Android target (the plugin runs once per compilation, so fragments need a folder per compilation, and a marked `expect` and `actual` pair would look like a duplicate); one module collecting the parts of the modules it depends on (T105 settles it); the build cache and the configuration cache for the part and bundle steps (T114 settles them); and the state of fragments after a failed incremental build.
 
-Alternatives considered: the compiler writes the whole catalog. Turned down by the experiment.
+Alternatives considered: the compiler writes the whole catalog. Turned down by the experiment. One catalog file for the whole app, merged in one step: turned down by the owner, because one change in any module would produce the whole file again and no module's result could be cached on its own.
 
 ## R5. Build-tool plugins on top of the compiler plugin
 
 Decision: the compiler plugin cannot do everything, so two thin build-tool plugins wrap it, one for Gradle and one for the Kotlin toolchain. Their shared logic lives in one plain library, `tooling`, so neither build tool gets a feature the other lacks. They do these things:
 
 - Apply the compiler plugin with its options and the plugin order.
-- Merge fragments into the catalog and check it against the saved catalog of the same version.
+- Make each module's part, collect the parts into a bundle, and check the bundle against the saved one of the same version.
 - Fetch, validate, save and pin catalogs for a server project.
-- Declare each saved catalog as a build input. Checked: without that, editing the catalog leaves the build stale.
+- Turn each saved catalog into an index, and declare each index as a compile input. Checked, for a single catalog file: without a declared input, editing the catalog leaves the build stale.
+- Declare every input and output with relative paths and no timestamps, so the build cache works across machines.
 
 Rationale: R2 and R4 show the compiler alone is not enough, and the constitution says nothing may work only through Gradle. The owner's ktgd project already has this shape: a compiler plugin, a Gradle plugin and a toolchain plugin with its tasks in a `plugin.yaml`.
 
-This adds two artifacts and one library to the constitution's four deliverables. It is recorded in the plan's Complexity Tracking.
+This adds two artifacts and two libraries (`tooling`, and `catalog-model` from R17) to the constitution's four deliverables. It is recorded in the plan's Complexity Tracking.
 
 Not checked: the toolchain plugin itself, and how the Kotlin toolchain builds an Android library.
 
 ## R6. Fetching at sync
 
-Decision: a `syncCatalogs` step fetches each catalog from its location (a web address or a file path), validates it, saves it in the server project and writes its fingerprint to a lock file. Builds read only the saved copies. When the location's content no longer matches the lock file, the step reports it and changes nothing unless asked.
+Decision: an `ssrCatalogSync` step works on each catalog location, which is the address of a manifest (a web address or a file path):
+
+1. Fetch the manifest, refuse it before reading if it is over the size cap, and validate it. Every part's `file` must be a plain file name: no path separator, no `..`, no scheme.
+2. Fetch only the parts whose fingerprint is not already saved for that version, each from the manifest's location with its `file` name, each refused before reading if it is over the size cap.
+3. Check each part against its fingerprint in the manifest, validate it, and check across parts.
+4. Save the manifest and the parts in `ssr/catalogs/<version>/`, and write the location and the manifest's fingerprint to the lock file.
+
+If any check fails, nothing of that catalog is saved. Builds read only the saved copies. When the manifest at a location no longer matches the lock file, the step reports it and changes nothing unless asked.
 
 The step is wired so the IDE's sync triggers it, and it can also be run on its own. A build never fetches.
 
 Not checked: how to make a Gradle task run on IDE sync. A search found only forum answers, and some say sync does not run tasks. A task settles it. If sync cannot trigger it reliably, the step stays a command the developer runs, and a build fails with a clear message when a saved catalog is missing.
 
-Safety: only `https` addresses and file paths are accepted by default. Names in a catalog are validated before anything is created from them.
+Safety: only `https` addresses and file paths are accepted by default. Part file names are checked before any part is fetched. Names in a catalog are validated before anything is created from them. The size cap is 16 MiB per file by default, and configurable.
 
 ## R7. Consumer side: one renderer per marked composable
 
-Decision: on the app side, the compiler plugin creates, for each marked composable, a small renderer that takes a placed component and calls the real composable with decoded values, callbacks that send a trigger, and slots that render their content. Because it is created per composable, incremental compilation is safe. The merge step writes an index of name to renderer as a resource, and the consumer library loads it once.
+Decision: on the app side, the compiler plugin creates, for each marked composable, a small renderer that takes a placed component and calls the real composable with decoded values, callbacks that send a trigger, and slots that render their content. Because it is created per composable, incremental compilation is safe. The part step writes each module's entries of name to renderer, and the bundle step writes the app's renderer index as a resource, which the consumer library loads once. The renderer index is not the catalog: it maps names to the app's own code and holds no descriptors.
 
 A developer can do the same by hand with `ComponentBindings`.
 
@@ -102,6 +116,8 @@ This is the owner's proposal. Two points were agreed with it:
 - The pattern stops at four arguments. A marked composable with a longer callback is a build error in the app. Raising the limit later breaks nobody.
 
 In the catalog a callback lists its `arguments`, the same field a slot uses.
+
+The bridge also declares, for each callback, the kinds of its arguments with the producer's `ArgumentKind`, and the producer checks the arguments of each trigger against them. The running producer holds no catalog, so this declaration is the only thing it checks against.
 
 Not checked: creating a parameter of these types in FIR (the experiment used plain function types, which worked), and how the Compose compiler treats a lambda converted to a function interface compared with a plain function type. The early experiment that covers created types settles both.
 
@@ -119,23 +135,46 @@ Consequence for the first samples: the owner's `PaymentSection` and `CameraScann
 
 Not checked: how that compile error is produced.
 
-## R8c. Where the catalog comes from in a project with variants
+## R8c. Where a part comes from in a project with variants
 
-Decision: a catalog belongs to one compilation. Each Android variant has a catalog version, the project's by default, and the check compares the variant being built with the saved file of its version. A flavor with different marked composables sets its own version. The compiler plugin writes fragments in a folder per compilation. A marked `expect` and `actual` pair is one component.
+Decision: a part belongs to one compilation. Each Android variant has a catalog version, the project's by default, and the check compares the variant's bundle with the saved bundle of its version. A flavor with different marked composables sets its own version. The compiler plugin writes fragments in a folder per compilation. A marked `expect` and `actual` pair is one component.
 
 Not checked: all of it, since the catalog experiment used a plain JVM module.
 
-## R9. One bridge catalog, many held catalogs
+## R9. One bridge per held catalog
 
-Decision: the server project holds one saved file per catalog version. The developer names one of them as the bridge catalog, and the bridge is created from it. The others are data: the producer loads them at start and uses the one that matches each session. A session whose catalog differs from the bridge catalog gets what it has, by the fitting rules in data-model.md.
+Decision: the server project holds one saved bundle per catalog version, in `ssr/catalogs/<version>/`. Every held catalog gets its own bridge, in a package the server developer names for it in the build setup. There is no single catalog that the only bridge is created from. A composable removed in a newer catalog still exists in the bridges of the older catalogs that have it.
 
-Rationale: versions have no order, so "newest" cannot be worked out. One classpath also cannot hold two bridges with the same names. For the same reason the bridge is created in one module of the server, and other modules depend on it. Not checked: what happens when two modules create the same package.
+Rationale: versions have no order, so "newest" cannot be worked out, and the owner chose screens per catalog version (R10), which needs every version's composables to be callable. Two bridges with the same names cannot share a package, so each gets its own. The bridges are created in one module of the server, and other modules depend on it.
 
-## R10. Replacements
+Not checked: two packages with the same names in one module (T025), the compile time and memory of 10 bridges of up to 20,000 components each (T031a), and what happens when two modules create the same package.
 
-Decision: the producer library has `OrElse`, a composable that takes content and a replacement. If a component inside the content is missing for the session, the replacement is shown in its place. Without an enclosing `OrElse`, a missing component stops the screen. A screen can also ask `LocalConsumer.current.has("Name")`.
+Alternatives considered: one bridge from one chosen catalog, with screens adapted automatically to older catalogs. Turned down by the owner on 2026-11-15, in favour of versioned screens.
 
-Not checked: the implementation. `has` by a text name is not checked at build time. The compiler plugin can also create a constant per component name to fix that; it is optional and left for the tasks.
+## R10. Screens per catalog version, and the guard
+
+Decision: a server developer registers screens per catalog version:
+
+```kotlin
+val producer = Producer {
+    catalog(version = "1") { screen(name = "home") { HomeScreenV1() } }
+    catalog(version = "2") { screen(name = "home") { HomeScreenV2() } }
+}
+```
+
+The producer serves a catalog version while screens are registered for it. An app of any other catalog version is refused at the introduction with the kind "catalog version not known or no longer supported". An app that asks for a name with no screen for its version is told the screen cannot be shown, and its session stays accepted. A server developer stops serving a version by removing its registration. `Producer` fails at once when a version or a screen name in one version is registered twice.
+
+The guard keeps the promise that an app never receives a component its catalog does not have. Every placed component carries the catalog version its bridge was created with, as a constant in the bridge function's body. Before a screen is sent, the producer compares that version with the session's. On a mismatch it does not send the screen, tells the app the screen cannot be shown, and calls the observer with the composable, the screen and both versions. The version stays inside the producer and is not part of the message on the wire.
+
+Consequences:
+
+- Screens for two versions repeat their layout, because the two bridges are different functions. State and logic can be shared as plain Kotlin. This is a known cost, stated in the spec and in the user documentation.
+- `LocalConsumer.current` keeps `device`, `app` and `catalogVersion`. There is nothing to ask about a composable at run time, since a screen only uses the bridge of its own version.
+- The running producer holds no catalog. Callback arguments are checked against the kinds the bridge declared (R8).
+
+Not checked: the implementation.
+
+Alternatives considered: one bridge, automatic adaptation of a screen to an older catalog, replacements for missing composables and a run-time `has` check. Turned down by the owner on 2026-11-15: "the server would choose when to stop serving each version".
 
 ## R10a. A callback whose lambda fails
 
@@ -152,17 +191,18 @@ Decision: a limit per session, 100 per second by default and configurable throug
 | Module | Kind | Targets | Depends on |
 |---|---|---|---|
 | `core` | Kotlin Multiplatform library | `jvm`, `android` | nothing in this repo |
+| `catalog-model` | Kotlin JVM library, build time only | JVM | `core` (`CatalogVersion` only) |
 | `consumer` | Kotlin Multiplatform library | `android` | `core` |
 | `producer` | Kotlin JVM library | JVM | `core` |
-| `compiler-plugin` | Kotlin JVM | JVM | `core` (catalog model only) |
-| `tooling` | Kotlin JVM library | JVM | `core` |
+| `compiler-plugin` | Kotlin JVM | JVM | `catalog-model` |
+| `tooling` | Kotlin JVM library | JVM | `catalog-model` |
 | `gradle-plugin` | Gradle plugin | JVM | `tooling` |
 | `toolchain-plugin` | Kotlin toolchain plugin | JVM | `tooling` |
 | `contract-tests` | test-only | `android` host tests | `core`, `consumer`, `producer` |
 | `samples/app` | its own build | Android | the published `consumer` and plugins |
 | `samples/server` | its own build | JVM | the published `producer` and plugins |
 
-The two samples are separate builds on purpose. The spec's success criterion says the sample server must build with none of the sample app's code available, sharing only the catalog file.
+The two samples are separate builds on purpose. The spec's success criterion says the sample server must build with none of the sample app's code available, sharing only the catalog.
 
 The owner confirmed earlier that `core` has a JVM target and an Android target, and `minSdk` 23.
 
@@ -176,18 +216,44 @@ Compiler plugin APIs for top-level generation are marked experimental in Kotlin,
 
 Developers must turn off `kotlin.k2.only.bundled.compiler.plugins.enabled` in the IDE registry to see created declarations, as the owner said. It is a documented setup step.
 
-Not checked: anything in the IDE. Known risks from reading the code: the enum workaround (R3), the catalog being read once per plugin load so an edit is not seen until reload, and created declarations having no source to navigate to.
+Not checked: anything in the IDE. Known risks from reading the code: the enum workaround (R3), the index being read once per plugin load so a catalog change is not seen until reload, and created declarations having no source to navigate to.
 
 ## R14. What carries over from the earlier draft
 
 Still valid, and designed the same way: the handshake values and their validation limits, a neutral data model so no wire encoding is baked into the contract, a replaceable codec and connection with no transport in the libraries, one live composition per session with one snapshot observer shared by the process, an observer for reporting, and a load test for the bounds.
 
-Validation limits, all configurable: introduction frame at most 8 KB; density above 0 and at most 10; screen width and height 1 to 100,000 pixels; language tag at most 35 characters; app version, variant, flavor and catalog version at most 64 characters each with no control characters; callback arguments at most 1 megabyte in total; callbacks at most 100 per second per session.
+Validation limits, all configurable: introduction frame at most 8 KB; density above 0 and at most 10; screen width and height 1 to 100,000 pixels; language tag at most 35 characters; app version, variant, flavor and catalog version at most 64 characters each with no control characters; callback arguments at most 1 megabyte in total; callbacks at most 100 per second per session. On the build side: a manifest and each part at most 16 MiB, checked before reading; part names at most 64 characters, lowercase letters, digits and hyphens.
 
 ## R15. Decisions that become ADRs
 
-- The compiler creates the bridge from a catalog file, with the plugin order rule (R1, R2).
-- Fragments plus a merge step for producing the catalog (R4).
+- The compiler creates one bridge per held catalog, with the plugin order rule (R1, R2, R9).
+- The catalog is a bundle: fragments per source file, a part per module and a manifest (R4).
 - Build-tool plugins over one shared tooling library (R5).
 - Catalogs are fetched at sync and pinned (R6).
-- Module layout and targets (R11).
+- Module layout and targets, with the build-time `catalog-model` library (R11, R17).
+- Screens per catalog version, and the guard (R10).
+
+## R16. Scale and build performance
+
+Decision: there is no hard limit on components or parameters. The library is tested at 20,000 components with about 80,000 parameters, with the mix real apps have (most components with 2 to 4 parameters, a few with 15 or more). The owner measured three real apps with 621, 751 and 1,085 composables, the last one an MVP. The reader is protected by a size cap on the manifest and on each part, 16 MiB each by default, checked before parsing.
+
+The compiler never parses the catalog's JSON. A cacheable build step, `ssrCatalogIndex`, turns each saved catalog into an index that the compiler plugin reads. The index is internal and is never shared between builds or committed. Its format is settled by T031a and is not fixed here.
+
+Build performance targets, with the 20,000 component catalog:
+
+- A build with nothing changed does no catalog work.
+- A change in one app module produces again only that module's part and the manifest.
+- Build outputs hold no absolute path and no timestamp, so the build cache works across machines.
+- The catalog adds at most 2 seconds to a clean compile of a server module that calls 20 of its composables. This figure is provisional.
+
+Not checked: all of it. T031a, the scale gate, measures reading and validating the bundle, building the index, compiling a server module against one and against several held catalogs of that size, whether a bridge declaration can be created only when code names it, and what is recompiled or taken from the build cache when one component in one part changes. It writes the numbers, the machine and the commands here. T115 measures the same targets again on the finished build.
+
+## R17. The catalog is build time only
+
+Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion` only, so the label has one definition.
+
+Rationale: principle II asks for one definition of everything both sides agree on. The catalog format still has one definition, in `catalog-model`. Keeping it in `core` would put a JSON reader, hashing and validation in every app and every server at run time, where nothing uses them. The plan records this in Complexity Tracking.
+
+Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds the bridge declared (R8).
+
+Catalog code written in `core` before this decision is moved into `catalog-model` by T113.
