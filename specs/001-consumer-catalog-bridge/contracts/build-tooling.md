@@ -4,7 +4,7 @@ What a developer sets up and runs. The same steps exist for Gradle and for the K
 
 ## In the app's project (the consumer)
 
-Setup, Gradle form:
+Setup, Gradle form, in the module that sets the catalog version (usually the application module):
 
 ```kotlin
 plugins { id("dev.tonholo.ssrcompose") }
@@ -17,19 +17,33 @@ ssrCompose {
 }
 ```
 
-| Step | What it does |
-|---|---|
-| compile | The compiler plugin checks every `@ConsumerComposable` and writes one fragment per source file. An unsupported parameter, or a marked function that is not `@Composable`, is a compile error at that line. |
-| `ssrCatalogCheck` | Merges the fragments into a catalog and compares it with the saved file `ssr/catalogs/<version>.json`. Fails when a name is used twice, when the result differs from the saved file, and when no saved file exists yet for that version, with a message that says to run `ssrCatalogDump`. It never writes the saved file itself. It is part of the normal check and build. |
-| `ssrCatalogDump` | Writes the merged catalog to `ssr/catalogs/<version>.json`. Run on purpose, after changing a marked composable and raising the version. The file is committed. |
+In any other module that has marked composables:
 
-The saved files are what the app team publishes for server projects, at any location both can reach.
+```kotlin
+plugins { id("dev.tonholo.ssrcompose") }
 
-Which compilation the catalog comes from:
+ssrCompose {
+    consumer {
+        partName = "payment" // optional; by default it comes from the module's path
+    }
+}
+```
 
-- A catalog belongs to one compilation of the app: one Android variant, or one target's compilation in a Kotlin Multiplatform module. The compiler plugin writes its fragments in a folder per compilation.
+| Step | Where | What it does |
+|---|---|---|
+| compile | every module with the plugin | The compiler plugin checks every `@ConsumerComposable` and writes one fragment per source file. An unsupported parameter, or a marked function that is not `@Composable`, is a compile error at that line. |
+| `ssrCatalogPart` | every module with the plugin | Merges the module's fragments into the module's part. Fails when a name is used twice in the module, or when two fragments disagree about a choice list. Cacheable: its only inputs are the module's fragments and its part name. |
+| `ssrCatalogBundle` | the module that sets `catalogVersion` | Collects its own part and the parts of the modules it depends on, checks across parts (a component name used in two parts, a choice list that differs between two parts, two modules with the same part name, each naming both places), and writes the manifest. Cacheable: its inputs are the parts and the catalog version. |
+| `ssrCatalogCheck` | the module that sets `catalogVersion` | Compares the bundle with the saved one in `ssr/catalogs/<version>/`, byte for byte, and names each file that differs. Fails when any differs, and when no saved bundle exists yet for that version, with a message that says to run `ssrCatalogDump`. It never writes the saved bundle itself. It is part of the normal check and build. |
+| `ssrCatalogDump` | the module that sets `catalogVersion` | Writes the bundle to `ssr/catalogs/<version>/`: `manifest.json` and one file per part, and removes any part file the manifest does not list. Run on purpose, after changing a marked composable and raising the version. The folder is committed. |
+
+The saved folders are what the app team publishes for server projects, at any location both can reach.
+
+Which compilation a part comes from:
+
+- A part belongs to one compilation of its module: one Android variant, or one target's compilation in a Kotlin Multiplatform module. The compiler plugin writes its fragments in a folder per compilation.
 - Every variant has a catalog version. By default it is the project's `catalogVersion`. A variant or flavor whose marked composables differ sets its own, for example `variant("catalogV1") { catalogVersion = "1" }`.
-- `ssrCatalogCheck` runs for the variant being built and compares that variant's catalog with the saved file of its version. So two variants that share a version must have the same marked composables, or the check fails.
+- `ssrCatalogCheck` runs for the variant being built and compares that variant's bundle with the saved bundle of its version. So two variants that share a version must have the same marked composables, or the check fails.
 - The app sends, at the handshake, the catalog version of the variant it was built as.
 - A marked `expect` and `actual` pair counts as one component.
 
@@ -42,47 +56,64 @@ plugins { id("dev.tonholo.ssrcompose") }
 
 ssrCompose {
     producer {
-        catalogs {
-            from("https://example.com/app/catalogs/2.json")
-            from("https://example.com/app/catalogs/3.json")
+        catalog(version = "2") {
+            location = "https://example.com/app/catalogs/2/manifest.json"
+            bridgePackage = "com.example.app.bridge.v2"
         }
-        bridgeCatalog = "3"
-        supportedCatalogs = setOf("2", "3")
-        bridgePackage = "com.example.app.bridge"
+        catalog(version = "3") {
+            location = "https://example.com/app/catalogs/3/manifest.json"
+            bridgePackage = "com.example.app.bridge.v3"
+        }
     }
 }
 ```
 
+Each `catalog` block declares one held catalog: its version, the address of its manifest, and the package its bridge is created in. Versions and packages are each unique. Which versions the running producer serves is not set here: it serves the versions it has screens registered for. See [producer-api.md](producer-api.md).
+
 | Step | What it does |
 |---|---|
-| `ssrCatalogSync` | Fetches each catalog, validates it, saves it as `ssr/catalogs/<version>.json` and records its location and fingerprint in `ssr/catalogs.lock`. The IDE's sync triggers it where the build tool allows, and a developer can run it directly. |
-| compile | The compiler plugin reads the saved bridge catalog and creates one `@Composable` function per component and one `enum class` per choice list, in `bridgePackage`. It never uses the network. The bridge is created in one module. Other modules of the server depend on that module and do not apply the producer setup themselves. |
-| `ssrCatalogVerify` | Fails when a saved catalog does not match its fingerprint in the lock file, when the bridge catalog or a supported catalog is not saved, or when two saved catalogs share a version. It is part of the normal check and build. |
+| `ssrCatalogSync` | For each held catalog, fetches the manifest, checks it, fetches only the parts not already saved for that version, checks each part against its fingerprint in the manifest, and saves them in `ssr/catalogs/<version>/`. Records the location and the manifest's fingerprint in `ssr/catalogs.lock`. The IDE's sync triggers it where the build tool allows, and a developer can run it directly. |
+| `ssrCatalogIndex` | One per held catalog. Turns the saved bundle into an index the compiler plugin reads, in the build folder. Cacheable, internal, never committed and never shared between builds. Its format is settled by the scale gate, T031a. It runs before compile and is not meant to be run by hand. |
+| compile | The compiler plugin reads each index and creates one bridge per held catalog in its `bridgePackage`: one `@Composable` function per component and one `enum class` per choice list, each body carrying the catalog version as a constant. It never uses the network and never parses a catalog's JSON. The bridges are created in one module. Other modules of the server depend on that module and do not apply the producer setup themselves. |
+| `ssrCatalogVerify` | Fails when a saved manifest does not match its fingerprint in the lock file, when a saved part does not match its fingerprint in the manifest, when a declared catalog has no saved bundle, when a saved manifest's version differs from its declared version, or when the saved folder holds a part file the manifest does not list. It is part of the normal check and build. |
 
 Rules for `ssrCatalogSync`:
 
 1. Only `https` addresses and file paths are accepted, unless the developer opts in to something else.
-2. A catalog that is not valid, or that holds a name that cannot be a Kotlin name, is rejected and nothing is saved.
-3. When a location's content no longer matches the lock file, the step says so and keeps the saved copy. `--update` replaces it.
-4. When a location cannot be reached and a saved copy exists, the saved copy is used and the developer is told. With no saved copy, the step fails.
-5. `ssr/catalogs/` and `ssr/catalogs.lock` are committed, so the same commit always builds the same way, with or without a network.
+2. A manifest or a part larger than the size cap is refused before it is read. The cap is 16 MiB each by default, set with `catalogFileSizeLimit` in `ssrCompose { }`.
+3. Each part's `file` must be a plain file name: no path separator, no `..`, no scheme. A manifest that breaks this is rejected before any part is fetched. Parts are fetched from the manifest's location with that file name.
+4. A manifest whose version differs from the declared version, a part that does not match its fingerprint, a catalog that is not valid, or one that holds a name that cannot be a Kotlin name, is rejected, and nothing of that catalog is saved.
+5. When the manifest at a location no longer matches the lock file, the step says so and keeps the saved copy. `--update` replaces it.
+6. When a location cannot be reached and a saved copy exists, the saved copy is used and the developer is told. With no saved copy, the step fails.
+7. `ssr/catalogs/` and `ssr/catalogs.lock` are committed, so the same commit always builds the same way, with or without a network.
 
 ## The lock file
 
 ```json
 {
   "catalogs": [
-    { "version": "2", "location": "https://example.com/app/catalogs/2.json", "sha256": "..." },
-    { "version": "3", "location": "https://example.com/app/catalogs/3.json", "sha256": "..." }
+    { "version": "2", "location": "https://example.com/app/catalogs/2/manifest.json", "sha256": "..." },
+    { "version": "3", "location": "https://example.com/app/catalogs/3/manifest.json", "sha256": "..." }
   ]
 }
 ```
+
+`sha256` is the manifest's fingerprint, which covers every part.
+
+## Build performance and the build cache
+
+- Every catalog step (`ssrCatalogPart`, `ssrCatalogBundle`, `ssrCatalogIndex`) declares its inputs and outputs, and can be taken from the build cache.
+- Inputs are tracked by relative path, and outputs hold no absolute path and no timestamp, so a cache entry made on one machine is reused on another and in another checkout folder.
+- A build with nothing changed runs no catalog step. A change in one app module runs that module's `ssrCatalogPart` and the `ssrCatalogBundle`, and nothing else.
+- The compile step of a server module has the indexes as inputs, not the catalogs' JSON.
+
+Not checked: all of the above. T114 tests it with Gradle TestKit, and T031a and T115 measure it with a catalog of 20,000 components.
 
 ## What the build-tool plugins take care of
 
 - They apply the compiler plugin with its options.
 - They put the bridge plugin before the Compose compiler. The bridge plugin also stops the build with a clear message if it finds it ran second.
-- They declare each saved catalog as a build input, so an edited catalog causes a rebuild.
+- They declare each index as a compile input, so a changed saved catalog causes a rebuild.
 
 ## The editor
 
