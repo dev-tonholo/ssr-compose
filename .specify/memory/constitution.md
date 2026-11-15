@@ -22,17 +22,30 @@ concept in `poc/` showed that both directions can live in one screen.
 
 The project ships four things: a library for the consumer app, a library for the producer server,
 a core library with the code both of them share, and a Kotlin (K2) compiler plugin that lets the
-two sides talk to each other.
+two sides talk to each other. The compiler plugin comes with a thin plugin for each supported
+build tool, over one shared tooling library. They count as part of the compiler plugin
+deliverable.
 
-- Everything both sides must agree on (document format, catalog, handshake, messages, action
-  bindings) MUST have exactly one definition, and it lives in the core library.
+- Everything both sides must agree on (document format, catalog format, handshake, messages,
+  action bindings) MUST have exactly one definition, and it lives in the core library.
 - The consumer library MUST NOT depend on the producer library, and the producer library MUST NOT
   depend on the consumer library. Both depend on the core library only.
 - The core library MUST NOT depend on Android, on a server framework, or on a transport.
-- The compiler plugin MUST generate the bindings between producer and consumer whenever they can be
-  generated, action IDs first of all. Users MUST NOT have to write or keep IDs in sync by hand.
-- Anything the plugin generates MUST also be possible to write by hand, so the libraries stay
-  usable and testable without the plugin.
+- The build MUST produce each catalog from annotated composables: the compiler plugin reads them,
+  and a build step puts the catalog together. The compiler plugin MUST create, from a catalog
+  file, the bridge that lets one side call the other side's composables by their own names and
+  parameters. Users MUST NOT have to write or keep names, parameters or IDs in sync by hand.
+- Every build-tool plugin MUST offer the same steps with the same behaviour. Their logic lives in
+  the shared tooling library, so no build tool gets a feature the others lack.
+- A bridge MUST hold none of the other side's code. It only stands for it.
+- Anything the plugin creates MUST also be possible to write by hand, so the libraries stay usable
+  and testable without the plugin.
+- The two sides are named consumer and producer everywhere, in code, annotations and documents
+  (for example `@ConsumerComposable` and `@ProducerComposable`). "Local" and "remote" are not used
+  for this, because their meaning changes with the repository a person is reading.
+- "Remote" may be used in a name for something that runs across the connection, such as a remote
+  action. That is true on whichever side the name is read: the action runs remotely no matter
+  where it is called from.
 
 Rationale: in the PoC the server-side stub for each shared component and its ID were written by
 hand, and a mismatch only showed up at run time as a placeholder on the screen.
@@ -56,12 +69,21 @@ Rationale: the PoC leaned on an alpha, restricted API as a stand-in. It proved t
 also showed the costs: names that change between releases, raw pixel sizes, and behaviour we could
 not explain.
 
-### IV. Catalog and Handshake Before Rendering
+### IV. Catalogs and Handshake Before Rendering
 
-The consumer tells the producer what it is and what it has before any screen is produced.
+Each side tells the other what it has, and the consumer tells the producer what it is, before any
+screen is produced.
 
-- The consumer project MUST have a catalog of its components that the producer may use, with a
-  catalog version.
+- There are two catalogs. The consumer catalog describes the app's composables that server-built UI
+  may use. The producer catalog describes the server's composables that the app may use.
+- A catalog MUST be produced from annotated composables. It is never written by hand. It is a plain
+  descriptor file, not code, and it has a version.
+- The app's code and the server's code MUST be able to live in different repositories. A catalog
+  file MUST be the only thing the two builds share.
+- A catalog file from the other side MUST be fetched in the build tool's sync step, never during
+  compilation, and MUST be saved and pinned so the same commit always builds the same way.
+- The producer MUST always know the catalog of every consumer it serves. The consumer sends its
+  catalog version, never the catalog.
 - At first connection the consumer MUST send: device density, device orientation, screen size,
   active theme (dark or light), active language, the app's version, variant and flavor, and the
   catalog version.
@@ -195,4 +217,4 @@ versions, a server release breaks every app that has not updated.
 - Day-to-day guidance for people and agents lives in `README.md` and the agent instruction files.
   They follow this constitution and never override it.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-15
+**Version**: 1.2.0 | **Ratified**: 2026-11-14 | **Last Amended**: 2026-11-15
