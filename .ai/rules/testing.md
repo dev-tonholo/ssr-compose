@@ -17,8 +17,10 @@ How tests are written and where they live. The source is principle VI of the [co
 | What | Folder | Command |
 |---|---|---|
 | All root modules | each module's test folders | `./gradlew build` |
-| Core, on the JVM | `core/src/commonTest`, `core/src/jvmTest` | `./gradlew :core:jvmTest` (runs, but reports `NO-SOURCE` until `core` has a test) |
-| Core, as Android host tests | `core/src/commonTest`, `core/src/androidHostTest` | `./gradlew :core:testAndroidHostTest` (runs, but reports `NO-SOURCE` until `core` has a test) |
+| Core, on the JVM | `core/src/commonTest`, `core/src/jvmTest` | `./gradlew :core:jvmTest` |
+| Core, as Android host tests | `core/src/commonTest`, `core/src/androidHostTest` | `./gradlew :core:testAndroidHostTest` |
+| Core-testing, on the JVM | `core-testing/src/commonTest`, `core-testing/src/jvmTest` | `./gradlew :core-testing:jvmTest` |
+| Core-testing, as Android host tests | `core-testing/src/commonTest`, `core-testing/src/androidHostTest` | `./gradlew :core-testing:testAndroidHostTest` |
 | Contract tests | `contract-tests/src/androidHostTest` | `./gradlew :contract-tests:testAndroidHostTest` |
 | PoC shared contract | `poc/protocol/src/test` | `./poc/gradlew -p poc :protocol:test` |
 | PoC server | `poc/server/src/test` | `./poc/gradlew -p poc :server:test` |

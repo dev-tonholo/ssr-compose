@@ -7,7 +7,7 @@ description: Build, test and run this repository, and read the common failures. 
 
 How to build and check this repository. The rules are in [testing](../../rules/testing.md) and [ui-compose](../../rules/ui-compose.md).
 
-The root is a Gradle build with the modules `:core`, `:consumer`, `:producer`, `:compiler-plugin`, `:tooling`, `:gradle-plugin` and `:contract-tests`. The proof of concept in `poc/` is a separate Gradle project with the modules `:protocol`, `:server` and `:app`. Run every command from the repo root.
+The root is a Gradle build with the modules `:core`, `:core-testing`, `:consumer`, `:producer`, `:compiler-plugin`, `:tooling`, `:gradle-plugin` and `:contract-tests`. The proof of concept in `poc/` is a separate Gradle project with the modules `:protocol`, `:server` and `:app`. Run every command from the repo root.
 
 ## Steps
 
