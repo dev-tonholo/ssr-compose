@@ -40,6 +40,6 @@ class SsrComposeBuildCacheTest {
             .addFile(relativePath = FixtureSources.indexPath(), text = INDEX_CONTENT)
 
     private companion object {
-        const val INDEX_CONTENT = "index content"
+        const val INDEX_CONTENT = "# index content"
     }
 }
