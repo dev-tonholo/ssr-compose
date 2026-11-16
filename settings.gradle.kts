@@ -20,6 +20,7 @@ rootProject.name = "ssr-compose"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 include(":core")
+include(":core-testing")
 include(":consumer")
 include(":producer")
 include(":compiler-plugin")
