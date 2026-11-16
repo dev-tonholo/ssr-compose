@@ -1,2 +1,5 @@
 component Greeting
 param title text required
+param onSelect action-of-text required
+param subtitle text optional
+param content slot optional

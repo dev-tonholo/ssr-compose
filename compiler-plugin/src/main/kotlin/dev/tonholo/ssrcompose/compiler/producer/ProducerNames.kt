@@ -6,6 +6,8 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
 internal object ProducerNames {
+    const val COMPOSE_PLUGIN_ID = "androidx.compose.compiler.plugins.kotlin"
+
     private val producerPackage = FqName("dev.tonholo.ssrcompose.producer")
     private val composePackage = FqName("androidx.compose.runtime")
     private val composeInternalPackage = FqName("androidx.compose.runtime.internal")
