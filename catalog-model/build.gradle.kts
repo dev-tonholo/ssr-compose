@@ -14,10 +14,13 @@ val worstShapeTests = "*WorstShapeMemoryTest"
 val worstManifestHeap = "144m"
 val worstPartHeap = "320m"
 val worstWriterHeap = "72m"
+val contractDocument = rootProject.file("specs/001-consumer-catalog-bridge/contracts/catalog-bundle.md")
 
 tasks.test {
     maxHeapSize = "256m"
     filter { excludeTestsMatching(worstShapeTests) }
+    inputs.file(contractDocument).withPropertyName("contractDocument")
+    systemProperty("ssrcompose.contract.document", contractDocument.relativeTo(projectDir).path)
 }
 
 fun registerMemoryTest(taskName: String, taskDescription: String, testClass: String, heap: String) =
