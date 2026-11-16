@@ -70,4 +70,15 @@ End with `DONE` or `BLOCKED`, then:
 
 ## Project notes
 
-<!-- Role rules for this project that the template does not cover. Kept on update. -->
+These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templates. When it lands and the role files are updated, remove these notes.
+
+### Before you report DONE
+
+- Run the gate commands from your brief before you make each commit, so every commit builds. Do not check out or rebase earlier commits to test them.
+- Search the docs, specs and `.ai/` for every name, path or command you changed, and update each stale mention.
+- Self-review the whole change against the checklist in section 2 of `reviewer.md`. List in your report what you checked.
+
+### Repairs
+
+- Fix every finding in the repair brief, at every severity, in one go.
+- Then self-review the whole change again, not only the reported cases.

@@ -153,4 +153,28 @@ Send short updates at discovery, item creation, worker completion, review verdic
 
 ## Project notes
 
-<!-- Role rules for this project that the template does not cover. Kept on update. -->
+These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templates. When it lands and the role files are updated, remove these notes.
+
+### Briefs
+
+- Before each dispatch, search the owner's knowledge base (the clarividente tools, when this session has them) and the owner's earlier review comments on related pull requests for the area the item touches. Put every matching pattern, rule and check into the brief.
+- A brief is accurate when the role needs nothing outside it to pass review. A finding that the brief could have prevented is your miss; note it for the retrospective.
+- Every reviewer brief asks for one deep pass over the whole change, with every finding reported together, as the reviewer's Project notes describe.
+
+### Review rounds
+
+- A review round is one reviewer verdict on the item, including a review after a QA `NO-GO` repair.
+- Send every finding of a review, at every severity, to the worker in one repair brief.
+- This replaces "a full re-review" in Gates. After `CHANGES REQUESTED`, the re-review is the one in the reviewer's Project notes: it checks the earlier findings and the fix commits, and the reviewer still runs every gate on the whole `<base>..<head>` range.
+- A third review round on the same item is a stop point, in addition to the guideline stop points: stop and report to the owner with the findings of each round.
+
+### Retrospectives
+
+- Also run the retrospective on every resume, for each item delivered since the last lesson, and for each item stopped at the third-round stop point.
+- A resume is not done until `.crew/lessons.md` is current.
+- In each retrospective, count the review rounds and repairs per item from the shared record and put the numbers in the lesson.
+
+### Stacked branches
+
+- Branch each item from main. When an item depends on another open item, branch from that item's branch instead.
+- Restack the dependents once, after the base is final or merged. Do not restack after every change to the base.
