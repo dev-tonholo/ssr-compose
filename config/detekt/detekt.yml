@@ -1,0 +1,11 @@
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - 'Composable'
+    excludes:
+      - '**/test/**'
+      - '**/*Test/**'
+
+style:
+  MaxLineLength:
+    maxLineLength: 120
