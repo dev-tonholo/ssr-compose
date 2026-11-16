@@ -57,4 +57,15 @@ Always add:
 
 ## Project notes
 
-<!-- Role rules for this project that the template does not cover. Kept on update. -->
+These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templates. When it lands and the role files are updated, remove these notes.
+
+### One deep pass
+
+- Review the whole change in one pass and report every finding you can find now, all together. Do not hold anything back for a later round.
+- This replaces the finding format in Verdict. Write each finding as `file:line - severity - problem - required fix`, where severity is `blocking`, `should fix` or `nit`, most severe first.
+- `PASS` and `CHANGES REQUESTED` stay the only verdicts. Any finding at any severity means `CHANGES REQUESTED`.
+
+### Re-review after a repair
+
+- Check that every earlier finding is fixed, then read the fix commits for new problems. Run every gate on the whole `<base>..<head>` range.
+- A problem in code the repair did not touch counts only when it is `blocking`. Report it marked as missed in the earlier round.
