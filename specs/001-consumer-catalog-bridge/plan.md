@@ -48,7 +48,7 @@ Checked and not checked, as principle VII asks:
 - Checked by experiment: the compiler creating the bridge, the plugin order rule and its guard, the enum workaround, reading marked composables with every parameter kind, precise compile errors, fragments plus merge under incremental compilation, byte-identical output, and the compile-testing library on this Kotlin version.
 - Checked against Maven metadata: every version above.
 - Checked in the code already written for T011 and T019: the first frame's 4-byte contract version prefix, `Answer` wrapped by `ProducerMessage.Answered`, `MessageDecodingException`, and `MessageCodec.json()`.
-- Not checked: anything in the IDE; a Kotlin Multiplatform module with an Android target for producing a part, with variants; one module collecting the parts of the modules it depends on; the build cache and the configuration cache for the catalog steps; the index format; creating a bridge declaration only when code names it; several bridges with the same function names in different packages of one module; the time and memory to compile against a 20,000 component catalog, and the 2 second figure; running the fetch on IDE sync; the Kotlin toolchain plugin itself; the effect of the plugin order flag and the default plugin order in the Kotlin toolchain; creating the consumer-side renderers in the compiler; the `RemoteAction` types as created parameter types, and a lambda converted to one; defaults and nullable parameters in created functions; the compile error for a component that cannot be placed; an annotation on a slot's type; recomposition through a bridge function; the 10,000 session target. Each has a task that settles it, and the riskiest come first. T031a, the scale gate, settles the index format, bridge declarations on demand and the 2 second figure. T030 checked that the Kotlin toolchain accepts the plugin order flag and can compile an Android library with the plugin (research.md [R2](research.md#r2-the-order-of-the-two-compiler-plugins-is-a-correctness-matter) and [R5](research.md#the-kotlin-toolchain-probe-t030)); the effect of the flag and the default order wait for the IR step.
+- Not checked: anything in the IDE; a Kotlin Multiplatform module with an Android target for producing a part, with variants; one module collecting the parts of the modules it depends on; the build cache and the configuration cache for the catalog steps; the index format; creating a bridge declaration only when code names it; the time and memory to compile against a 20,000 component catalog, and the 2 second figure; running the fetch on IDE sync; the Kotlin toolchain plugin itself; the effect of the plugin order flag and the default plugin order in the Kotlin toolchain; creating the consumer-side renderers in the compiler; `RemoteAction0` and `RemoteAction2` to `RemoteAction4` as created parameter types; a required nullable parameter and an optional callback in created functions; the compile error for a component that cannot be placed; an annotation on a slot's type; the 10,000 session target. Each has a task that settles it, and the riskiest come first. T031a, the scale gate, settles the index format, bridge declarations on demand and the 2 second figure. T030 checked that the Kotlin toolchain accepts the plugin order flag and can compile an Android library with the plugin (research.md [R2](research.md#r2-the-order-of-the-two-compiler-plugins-is-a-correctness-matter) and [R5](research.md#the-kotlin-toolchain-probe-t030)); the effect of the flag and the default order wait for the IR step.
 
 ## Constitution Check
 
@@ -139,9 +139,9 @@ producer/                            # Kotlin JVM
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/producer/
     │   ├── Producer.kt, ProducerBuilder.kt, ConsumerComponent.kt
-    │   ├── RemoteAction.kt, Callback.kt, LocalConsumer.kt
+    │   ├── RemoteAction1.kt, Callback.kt, LocalConsumer.kt   # T065 folds RemoteAction1 into RemoteAction.kt with the other four
     │   ├── ProducerLimits.kt, ProducerObserver.kt
-    │   └── internal/                # session, screen registry, live composition, actions, guard, validation
+    │   └── internal/                # PlacedNode and ScreenApplier (stand-ins from T025), session, screen registry, live composition, actions, guard, validation
     ├── test/
     └── loadTest/
 
@@ -149,7 +149,11 @@ compiler-plugin/                     # Kotlin JVM, K2
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/compiler/
     │   ├── consumer/                # FIR checker, fragment writer, renderer creation
-    │   └── producer/                # FIR declarations and IR bodies for each bridge, order guard
+    │   └── producer/                # BridgeCatalog, BridgeKey, ProducerNames, BridgeExtensionRegistration
+    │       ├── fir/                 # BridgeDeclarationGenerator, BridgeFirExtensionRegistrar
+    │       ├── ir/                  # BridgeBodyGenerator, BridgeIrGenerationExtension, PluginOrderGuard
+    │       ├── diagnostic/          # the compile error of the order guard
+    │       └── throwaway/           # the index format of T025, until T031a replaces it
     └── test/
         ├── kotlin/                  # compile tests with kotlin-compile-testing
         └── resources/fixtures/      # *.fixture.kt sources, a source folder for the IDE, not compiled
@@ -177,8 +181,8 @@ Module dependencies:
 | `core` | nothing in this repo |
 | `core-testing` | `core`. Published, and added by other modules and by library users as a test dependency only. `core` never depends on it |
 | `catalog-model` | `core`, for `CatalogVersion` and `ValueKind` only |
-| `consumer`, `producer` | `core` |
-| `compiler-plugin`, `tooling` | `catalog-model` |
+| `consumer`, `producer` | `core`. Until T031a removes the wiring of T025, the test compilation of `producer` also applies `compiler-plugin` |
+| `compiler-plugin`, `tooling` | `catalog-model`. The tests of `compiler-plugin` also use `producer`, as a test dependency only, because the compile tests of the bridges need `ConsumerComponent` and `RemoteAction1` on their classpath |
 | `gradle-plugin`, `toolchain-plugin` | `tooling`, and `catalog-model` for the compiler plugin's id and option names |
 
 How the build is written, following the owner's pattern in the thunderbird repository (its `build-plugin` and the pii-safe compiler plugin):
