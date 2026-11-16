@@ -26,6 +26,7 @@ Kotlin style for every module in this repository. The constitution's principle V
 
 - `grep -rn '!!' --include='*.kt' .` finds nothing in new code.
 - `grep -rnE '^import .*\.\*$' --include='*.kt' .` finds nothing.
+- `./gradlew detekt` passes when you touched anything outside `poc/`.
 - `./poc/gradlew -p poc detekt` passes when you touched `poc/`.
 
 Templates: [unit-test](../blueprints/unit-test.md).
