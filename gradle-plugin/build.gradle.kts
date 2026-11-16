@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
     implementation(projects.tooling)
+    implementation(projects.catalogModel)
 }
 
 gradlePlugin {
