@@ -1,0 +1,2 @@
+component Greeting
+param title text required

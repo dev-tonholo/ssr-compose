@@ -6,6 +6,7 @@ import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginOptions
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
+import dev.tonholo.ssrcompose.compiler.testing.ThrowawayIndexFiles
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -34,8 +35,9 @@ class SsrCompilerPluginTest {
     @Test
     fun `given producer options with two catalogs, when a fixture is compiled, then the plugin reports both`() {
         // Arrange
-        val first = CatalogOptionValue(version = "2", indexPath = "/index/2", bridgePackage = "app.bridge.v2")
-        val second = CatalogOptionValue(version = "3", indexPath = "/index/3", bridgePackage = "app.bridge.v3")
+        val indexPath = ThrowawayIndexFiles.path(indexName = "first-catalog.throwaway-index")
+        val first = CatalogOptionValue(version = "2", indexPath = indexPath, bridgePackage = "app.bridge.v2")
+        val second = CatalogOptionValue(version = "3", indexPath = indexPath, bridgePackage = "app.bridge.v3")
         val options = listOf(
             CompilerPluginOptions.MODE to CompilerPluginMode.Producer.optionValue,
             CompilerPluginOptions.CATALOG to first.encode(),
