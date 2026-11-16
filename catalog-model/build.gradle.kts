@@ -10,6 +10,26 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 }
 
+val worstShapeTests = "*CatalogFileWorstShapeMemoryTest"
+
+tasks.test {
+    maxHeapSize = "256m"
+    filter { excludeTestsMatching(worstShapeTests) }
+}
+
+val worstShapeMemoryTest = tasks.register<Test>("worstShapeMemoryTest") {
+    description = "Reads the worst 16 MiB catalog under a 512 MiB heap."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    maxHeapSize = "512m"
+    filter { includeTestsMatching(worstShapeTests) }
+}
+
+tasks.check {
+    dependsOn(worstShapeMemoryTest)
+}
+
 buildConfig {
     packageName("dev.tonholo.ssrcompose.catalog.options")
     className("CompilerPluginBuildConfig")
