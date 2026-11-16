@@ -284,7 +284,7 @@ Validation limits, all configurable: introduction frame at most 8 KB; density ab
 
 ## R16. Scale and build performance
 
-Decision: there is no hard limit on components or parameters. The library is tested at 20,000 components with about 80,000 parameters, with the mix real apps have (most components with 2 to 4 parameters, a few with 15 or more). The owner measured three real apps with 621, 751 and 1,085 composables, the last one an MVP. The reader is protected by a size cap on the manifest and on each part, 16 MiB each by default, checked before parsing.
+Decision: there is no hard limit on components or parameters. The library is tested at 20,000 components with about 80,000 parameters, with the mix real apps have (most components with 2 to 4 parameters, a few with 15 or more). The owner measured three real apps with 621, 751 and 1,085 composables, the last one an MVP. The reader is protected by a size cap on the manifest and on each part, 16 MiB each by default, checked before parsing. A 16 MiB catalog may need up to 320 MiB of heap in the worst shape (one list of one-letter choice entries: it fails at 256 MiB and works at 320 MiB), so a reader with less heap sets a smaller cap.
 
 The compiler never parses the catalog's JSON. A cacheable build step, `ssrCatalogIndex`, turns each saved catalog into an index that the compiler plugin reads. The index is internal and is never shared between builds or committed. Its format is settled by T031a and is not fixed here.
 

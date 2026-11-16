@@ -53,9 +53,9 @@ A catalog of version 3, from an app with two modules that have marked composable
     {
       "name": "CameraScanner",
       "parameters": [
-        { "name": "cancel", "kind": "slot", "arguments": ["text"], "accepts": "any", "required": true },
+        { "name": "cancel", "kind": "slot", "arguments": [{ "kind": "text" }], "accepts": "any", "required": true },
         { "name": "onCancelClick", "kind": "callback", "required": true },
-        { "name": "onScan", "kind": "callback", "arguments": ["bytes"], "required": true }
+        { "name": "onScan", "kind": "callback", "arguments": [{ "kind": "bytes" }], "required": true }
       ]
     },
     {
@@ -136,13 +136,14 @@ Nothing is fetched or read for a manifest that breaks one of these.
 | `decimal` | | `Float`, `Double` |
 | `flag` | | `Boolean` |
 | `choice` | `choice`: the name of an entry in the part's `choices` | an `enum class` |
-| `list` | `of`: one of the value kinds above | `List<T>` |
-| `callback` | `arguments` (optional): up to four value kinds, or `bytes` | `() -> Unit`, `(A) -> Unit`, `(A, B) -> Unit` and so on |
-| `slot` | `accepts`: `any`, `consumer` or `producer`. `arguments` (optional): value kinds the component passes to the content | `@Composable () -> Unit`, `@Composable (A, B) -> Unit` |
+| `list` | `of`: a value kind written as an object, such as `{ "kind": "text" }`. It is never a list or `bytes` | `List<T>` |
+| `callback` | `arguments` (optional): up to four kinds written as objects, or `bytes` | `() -> Unit`, `(A) -> Unit`, `(A, B) -> Unit` and so on |
+| `slot` | `accepts`: `any`, `consumer` or `producer`. `arguments` (optional): value kinds, written as objects, that the component passes to the content | `@Composable () -> Unit`, `@Composable (A, B) -> Unit` |
 
 - In code, the value kinds (`text`, `whole`, `decimal`, `flag`, `choice`, `list` and `bytes`) are `ValueKind` in `core`. It is the one definition of them: `catalog-model` reads and writes it, and the producer uses it to declare callback arguments.
 - `required` is false when the parameter has a default value in the composable. The catalog does not hold the default itself: only the app knows it.
 - A value or choice parameter may also have `"nullable": true`, when its type in the composable is nullable. The field is left out when false.
+- A kind is always written as an object with a `kind` field, never as a bare name: `{ "kind": "text" }`, `{ "kind": "choice", "choice": "Style" }`, `{ "kind": "list", "of": { "kind": "text" } }`. This holds for `arguments` and for `of`. A parameter's own `kind` is a plain field of the parameter.
 - `bytes` is allowed only as a callback argument.
 - A callback and a slot use the same field, `arguments`, for what they pass along.
 - A callback has no result. A callback with more than four arguments is a build error in the app.
