@@ -54,6 +54,7 @@ Run all commands from the repo root.
 | Task | Command |
 |------|---------|
 | Build and test the root modules | `./gradlew build` |
+| Run detekt on the root modules (config in `config/detekt/detekt.yml`; `./gradlew build` runs it too) | `./gradlew detekt` |
 | List the root modules | `./gradlew projects` |
 | Run the contract tests (Android host tests) | `./gradlew :contract-tests:testAndroidHostTest` |
 | Build and test the PoC, with detekt | `./poc/gradlew -p poc build detekt` |
