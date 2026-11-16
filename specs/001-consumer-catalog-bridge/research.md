@@ -376,9 +376,37 @@ Decision: an `ssrCatalogSync` step works on each catalog location, which is the 
 
 If any check fails, or the manifest loads but one part cannot be fetched, nothing of that catalog is saved and the saved copy, if any, is kept. Since a catalog is saved whole and a changed manifest waits for `--update`, fetching only the missing parts happens on `--update` and after a saved part file was removed by hand. Builds read only the saved copies. When the manifest at a location no longer matches the lock file, the step reports it and changes nothing unless asked.
 
-The step is wired so the IDE's sync triggers it, and it can also be run on its own. A build never fetches.
+Decision: `gradle-plugin` depends on JetBrains `org.jetbrains.gradle.plugin.idea-ext` (`1.4.1`, from the Gradle Plugin Portal) and applies it to the root project when `producer { }` is configured, wiring `ssrCatalogSync` into `idea.project.settings.taskTriggers.afterSync` with no extra user plugin step. A developer can also run `ssrCatalogSync` directly.
 
-Not checked: how to make a Gradle task run on IDE sync. A search found only forum answers, and some say sync does not run tasks. A task settles it. If sync cannot trigger it reliably, the step stays a command the developer runs, and a build fails with a clear message when a saved catalog is missing.
+Known limits of this wiring:
+
+- `gradle-idea-ext` is published only on the Gradle Plugin Portal and not on Maven Central, so the server's plugin repositories (`pluginManagement { repositories { ... } }`) must include `gradlePluginPortal()`. A plugin's own dependencies resolve from `pluginManagement`, not from `dependencyResolutionManagement`.
+- `idea-ext` project settings live on the root project, so a subproject with `producer { }` reaches into `project.rootProject`, which Gradle's Isolated Projects mode forbids (unverified against this repo's `build-logic`; noted for T047).
+- A user who applies a different `idea-ext` version next to ours is not checked. The plugin applies its own `1.4.1` on the root project and warns when it cannot find the trigger API; a version clash is left to T047.
+- Android Studio running `idea-ext` task triggers is unverified: the `idea-ext` wiki (https://github.com/JetBrains/gradle-idea-ext-plugin/wiki) names only IntelliJ IDEA, and AGP's sync-time source generation is for Android projects rather than a plain Kotlin JVM server.
+- Gradle 9 has no built-in public IDE sync hook (checked against Gradle 9 documentation and the Gradle forum thread https://discuss.gradle.org/t/how-to-trigger-a-task-during-idea-sync/48253, not an official Gradle 9 sync API page).
+
+Checked by `SyncHookTest` in `gradle-plugin/src/functionalTest/kotlin/dev/tonholo/ssrcompose/gradle/SyncHookTest.kt` on Gradle 9.9.1:
+
+- A single-project server with `producer { }` and no `idea-ext` in its build script exports `taskPath` equal to `ssrCatalogSync` in `TaskTriggersConfig.toMap()["afterSync"]`, and running `:ssrCatalogSync` succeeds.
+- A multi-module server where only `:server` sets `producer { }` exports `taskPath` equal to `ssrCatalogSync` with `projectPath` pointing to `:server` on the root project's `afterSync` triggers, and running `:server:ssrCatalogSync` succeeds.
+- A consumer project (`consumer { }`) leaves `afterSync` empty.
+- Running `:inspectSyncTriggers` and `:ssrCatalogSync` twice with `--configuration-cache` succeeds on both runs, confirming configuration-cache compatibility for `ssrCatalogSync` and reading the trigger map.
+
+Alternatives checked and rejected or kept as manual fallback:
+
+- `prepareKotlinBuildScriptModel` (exposed in Gradle's Tooling API javadoc as `KotlinDslModelsParameters.PREPARATION_TASK_NAME`): not documented as a user sync hook (https://docs.gradle.org/current/javadoc/org/gradle/tooling/model/kotlin/dsl/KotlinDslModelsParameters.html); the Gradle forum thread https://discuss.gradle.org/t/how-to-trigger-a-task-during-idea-sync/48253 calls the Kotlin DSL sync task an implementation detail of the IDE's Gradle support that can change at any time.
+- `idea.sync.active` system property set by IntelliJ-based IDEs during sync: undocumented, shown only as a workaround on the Gradle forum (https://discuss.gradle.org/t/how-to-trigger-a-task-during-idea-sync/48253), and acts as a sync detector rather than a task hook.
+- Per-user "Execute After Sync" in the Gradle tool window (Tasks Activation): needs no dependency and works as a zero-dependency manual fallback, but is stored in `.idea/workspace.xml` and is not shared with the team.
+
+Still needs a person in IntelliJ IDEA and in Android Studio separately (TestKit does not launch an IDE's Gradle importer):
+
+1. Open a Kotlin JVM server project (single-module or multi-module where `:server` applies `alias(libs.plugins.ssrcompose)` and `ssrCompose { producer { catalog(...) { ... } } }`, with `gradlePluginPortal()` in `pluginManagement` repositories and no `idea-ext` in the build script).
+2. Run Gradle sync in IntelliJ IDEA (click "Reload All Gradle Projects" in the Gradle tool window) and separately in Android Studio (click "Sync Project with Gradle Files"), noting the exact IDE name and version.
+3. Right-click `:ssrCatalogSync` (or `:server:ssrCatalogSync`) in the Gradle tool window and select "Tasks Activation" (or inspect `.idea/workspace.xml` under `<component name="ExternalProjectsManager">` for `AFTER_SYNC`) to confirm `ssrCatalogSync` appears under "After Sync".
+4. Confirm in the Sync / Build output window that `ssrCatalogSync stand-in executed` prints automatically when sync finishes.
+5. Remove the `producer { }` block and re-sync, then separately remove the trigger in Tasks Activation and re-sync, and check whether `.idea/workspace.xml` keeps a stale activation entry (reported on the Gradle forum at https://discuss.gradle.org/t/how-to-trigger-a-task-during-idea-sync/48253).
+6. Record the IDE name, version, and pass/fail result for both IntelliJ IDEA and Android Studio here in R6.
 
 Safety: only `https` addresses and file paths are accepted by default. Part file names are checked before any part is fetched. Names in a catalog are validated before anything is created from them. The size cap is 16 MiB per file by default, and configurable.
 
@@ -560,6 +588,7 @@ Rechecked on 2026-11-15 for the latest stable release of every entry in the cata
 | kctfork (`kotlin-compile-testing`) | 0.14.0 | 0.14.0 | Maven Central, https://github.com/ZacSweers/kotlin-compile-testing/releases | Its notes say it was built for Kotlin 2.4.20. It works with 2.4.21, as the experiment above found. |
 | Turbine | 1.2.1 | 1.2.1 | Maven Central | |
 | detekt Gradle plugin | 2.0.0-alpha.6 | none: no stable 2.x exists | Maven Central, https://github.com/detekt/detekt/releases | alpha.6 is the newest release of the 2.0 line. Every release of `dev.detekt` so far is an alpha. |
+| gradle-idea-ext (`org.jetbrains.gradle.plugin.idea-ext`) | 1.4.1 | 1.4.1 | https://plugins.gradle.org/m2/gradle/plugin/org/jetbrains/gradle/plugin/idea-ext/gradle-idea-ext/maven-metadata.xml | Published only on the Gradle Plugin Portal. |
 | buildconfig plugin | 6.1.2 | 6.1.2 | https://plugins.gradle.org/m2/com/github/gmazzo/buildconfig/com.github.gmazzo.buildconfig.gradle.plugin/maven-metadata.xml | |
 | Ktor (six artifacts, samples only) | 3.6.1 | 3.6.1 | Maven Central | |
 
