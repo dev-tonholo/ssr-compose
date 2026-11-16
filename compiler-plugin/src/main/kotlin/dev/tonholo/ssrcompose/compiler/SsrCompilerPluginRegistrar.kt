@@ -1,6 +1,8 @@
 package dev.tonholo.ssrcompose.compiler
 
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginBuildConfig
+import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
+import dev.tonholo.ssrcompose.compiler.producer.registerBridgeExtensions
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.report
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
@@ -20,5 +22,6 @@ internal class SsrCompilerPluginRegistrar : CompilerPluginRegistrar() {
             severity = CompilerMessageSeverity.INFO,
             message = "SSR Compose compiler plugin received $options",
         )
+        if (options.mode == CompilerPluginMode.Producer) registerBridgeExtensions(options.catalogs)
     }
 }

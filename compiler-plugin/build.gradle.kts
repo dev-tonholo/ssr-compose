@@ -26,4 +26,5 @@ dependencies {
     testImplementation(libs.kotlin.compose.compiler.plugin.embeddable)
     testImplementation(libs.compose.runtime)
     testImplementation(libs.kotlin.compile.testing)
+    testImplementation(projects.producer)
 }
