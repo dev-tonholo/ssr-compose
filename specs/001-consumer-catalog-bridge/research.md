@@ -4,6 +4,8 @@ Decisions for the plan, each with its reason and what was turned down. Facts are
 
 Two experiments were run on 2026-11-15 before any design, on Kotlin 2.4.21, Compose runtime 1.12.2, Gradle 9.8.2 and JDK 25 with a JVM 17 target. Their code is in `.superpowers/spikes/k2-bridge/` and `.superpowers/spikes/k2-catalog/`, which git ignores. They are throwaway and nothing depends on them.
 
+A third experiment, T025, ran on 2026-11-16 inside the real modules. Its results are in R1, R2, R8, R8a and R9.
+
 The design was revised on 2026-11-15 by three owner decisions: the catalog is a bundle split per module, screens are written per catalog version, and the catalog is build time only. The experiments used a single catalog file. What they proved still holds for each part and for each bridge, and what the bundle adds is marked as not checked below.
 
 ## R1. The compiler creates each bridge from a held catalog
@@ -18,7 +20,16 @@ Checked by experiment, from a single catalog file:
 - A wrong name, a missing parameter, and a `String` given where a choice is expected each fail to compile with the ordinary Kotlin error at the caller's line.
 - Editing one source file recompiles only that file and causes no clash with the created declarations.
 
-Not checked: two bridges with the same function and enum names in two packages of one module (T025 settles it); creating declarations from the index instead of a catalog file, and creating a declaration only when code names it (T031a settles both).
+Checked by T025 on 2026-11-16, inside the real modules, on Kotlin 2.4.21 and Compose runtime 1.12.2, from a one-component index in a throwaway format of its own (the package `compiler-plugin/src/main/kotlin/dev/tonholo/ssrcompose/compiler/producer/throwaway/`; T031a lists everything that goes with it):
+
+- The plugin creates the function from the index and gives it a body that is one call to `ConsumerComponent` with the catalog version as a constant. The bytecode of the created function holds the constant `"1"`, the component name and the parameter names, and the Compose compiler gave it the signature `Greeting(String, RemoteAction1<String>, String, Function2<Composer, Integer, Unit>, Composer, int, int)`.
+- A real Gradle compile of the producer's test sources, with `mode=producer`, two `catalog` options and the order flag, composes the created function in a real composition. The 5 composition tests in `producer/src/test/kotlin/dev/tonholo/ssrcompose/producer/BridgeExperimentTest.kt` pass.
+- Recomposition through a created bridge works. One of those tests changes a state that the bridge call reads, sends the snapshot apply notification and one frame, and the placed node then holds the new text (`Updated` where it held `Welcome`). When the node took its values only when it was created, that test failed.
+- Two bridges with the same component name in two packages of one module compile side by side. Each has its own facade class, `<package>.__GENERATED__CALLABLES__Kt`, and each placed node carries the version of its own bridge (`"1"` and `"2"`). The two components had different parameters, and giving the first bridge the second one's parameter fails with `No parameter with name 'badge' found.`
+- Each catalog needs its own generation key that carries its version. The IR step reads the key of a created function to pick the catalog and the version. When the IR step used the first catalog for every function, the two-bridge tests failed.
+- A test that only compiles is not enough. A caller that leaves out an optional parameter compiled while the function would still throw at run time (see R8a). The compile tests in `compiler-plugin/src/test/kotlin/dev/tonholo/ssrcompose/compiler/producer/BridgeExperimentTest.kt` (7 tests) cover the compile errors, and the producer tests cover what runs.
+
+Not checked: two modules creating the same package; creating declarations from the final index, and creating a declaration only when code names it (T031a settles both); a readable file name for the created functions (`createTopLevelFunction` takes one, T048 passes it).
 
 Alternatives considered: a source generator that writes Kotlin files. Turned down by the owner: the compiler creates the definitions.
 
@@ -58,7 +69,15 @@ ERROR: Task ':app:compileJvm' failed: Kotlin compilation failed with 1 errors (s
 - The same flag with an id that no plugin has, `no.such.plugin>androidx.compose.compiler.plugins.kotlin`, builds without a message. A misspelled plugin id in the flag is not caught, so the flag text needs its own check.
 - The Android library module passes the same flag with `mode: consumer`, and the toolchain gives it the same kind of `-Xplugin=`, `-P` and order arguments.
 
-Not checked: that a Gradle compiler plugin integration can add the flag cleanly, and that the Android Gradle Plugin keeps it. Also not checked in the toolchain: the effect of the flag (this plugin has no IR step yet, so no run can show the order), and the order the compiler uses when the flag is absent (only the order of the jars in the argument was seen). Both wait for the IR step. Also not checked: that the toolchain plugin of T101 can add the flag itself (see [Open risk for T101](#open-risk-for-t101) in R5).
+Checked by T025 on 2026-11-16:
+
+- With the Compose registrar listed before the bridge registrar and no guard, the compile test failed because the build exited with `OK`. That is the silent miscompile again.
+- The guard reports the problem through the compiler's diagnostic reporter (`pluginContext.diagnosticReporter`) with a diagnostic that the plugin owns, so it is a normal compile error and not an internal error with a stack trace. The message did not change. The plugin id comes from the generated constant. The message is: `The bridge plugin 'dev.tonholo.ssrcompose' must run before the Compose compiler plugin. Pass -Xcompiler-plugin-order=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin`
+- The guard fires when a created function already has a `$composer` parameter, which only happens when the Compose compiler ran first.
+- In a real Gradle compile of the producer's test sources, `-Xcompiler-plugin-order=<bridge>><compose>` passes and `-Xcompiler-plugin-order=<compose>><bridge>` fails with the message above, so the flag is honored both ways. With no flag the same compile also passed, as in the spike. That is the order of the plugin classpath, so it is not proof.
+- The flag was added with `compilerOptions.freeCompilerArgs` in the producer's `build.gradle.kts`.
+
+Not checked: adding the flag from a `KotlinCompilerPluginSupportPlugin` (T025 passed it from a plain `build.gradle.kts`), and that the Android Gradle Plugin keeps it. Also not checked in the toolchain: the effect of the flag (the plugin in that probe had no IR step yet, so no run could show the order), and the order the compiler uses when the flag is absent (only the order of the jars in the argument was seen). Both wait for a probe with the IR step. Also not checked: that the toolchain plugin of T101 can add the flag itself (see [Open risk for T101](#open-risk-for-t101) in R5).
 
 ## R3. A real enum for a choice list needs a workaround
 
@@ -355,13 +374,29 @@ In the catalog a callback lists its `arguments`, the same field a slot uses.
 
 The bridge also gives the producer, for each callback, a `Callback` with two things: the kinds of its arguments as core's `ValueKind`, the same type the catalog uses, and a conversion from the received values to the lambda's typed arguments (a choice entry to its enum, a whole number to `Int` or `Long`, a decimal to `Float` or `Double`, a list to a typed list). The producer checks the number and kinds first, then runs the conversion. A failure in either step, such as an unknown choice entry or a number that does not fit, is a refused trigger reported through `onTriggerRefused`, never a failed action. The running producer holds no catalog, so this declaration is the only thing it checks against. Only the bridge knows a choice list's entries, since the enum is generated from the catalog, so the entry check belongs in the conversion.
 
-Not checked: creating a parameter of these types in FIR (the experiment used plain function types, which worked), and how the Compose compiler treats a lambda converted to a function interface compared with a plain function type. The early experiment that covers created types settles both.
+Checked by T025 on 2026-11-16, for `RemoteAction1<String>` only:
+
+- FIR can create a parameter of this type. The caller passes a lambda, `onSelect = { selected -> ... }`, it converts to the function interface, and the type of `selected` is inferred as `String`.
+- The Compose compiler keeps the type: the compiled signature holds `RemoteAction1` as a plain parameter type, and a required one gets the usual `checkNotNullParameter`.
+- The placed node holds the action, and running it with `"clicked"` runs the caller's lambda with that text.
+- The experiment's `ConsumerComponent` takes the actions as an array of `RemoteAction1<String>`. That is a stand-in. T050 and T065 replace it with `Callback`. `PlacedNode` and `ScreenApplier` in `producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/internal/` are stand-ins too, for T049 and T077.
+
+An optional callback parameter is not supported yet. A probe made while the throwaway index still accepted `action-of-text optional` showed that a caller that left the optional action out placed the actions `{onSelect=..., onCancel=null}`: the bridge passes the `null` on, and `ConsumerComponent` took a non-null array, so `null` did not mean "not given" as R8a says. The throwaway reader now refuses `optional` on an `action-of-text`, with a test. T065 and T066 reopen it.
+
+Not checked: `RemoteAction0` and `RemoteAction2` to `RemoteAction4`, `Callback` and its conversion (T060, T065 and T066 settle them).
 
 ## R8a. Optional and nullable parameters
 
 Decision: the catalog says if a parameter can be left out, never what its default is, because only the app knows. In the bridge, a parameter that can be left out is nullable with `null` as its default, and `null` means "not given": nothing is sent and the app's own default applies. A value or choice parameter whose type is nullable in the app is marked `nullable` in the catalog and stays nullable in the bridge.
 
-Not checked: defaults in created functions (the bridge experiment created none), and nullable types in the catalog (the catalog experiment rejected them, by its own choice).
+Checked by T025 on 2026-11-16, for a nullable optional text and a nullable optional slot, both with `null` as the default:
+
+- Both are created, callers can leave them out, and the result compiles and composes. A node placed with them left out holds only the required value and has no slot node.
+- The default value of a created parameter is not `null` by itself. FIR gives it a placeholder, and a caller that leaves the parameter out gets `java.lang.Throwable: Stub for declaration generated by Plugin[BridgeKey(catalogVersion=1)]` at run time. The compile still succeeds. All 5 composition tests failed with that message until the IR step set each optional parameter's default to `null`.
+- Because of that, a compile-only test cannot guard defaults. A test for them has to run the created function.
+- The nullable slot type is `ComposableFunction0<Unit>?` with the `@Composable` type attribute. Removing the attribute changed no test result, so the experiment does not show whether it is needed, and T048 decides. A slot created as a plain `() -> Unit` with the attribute also passes all the tests. A plain `() -> Unit` without the attribute fails the caller that puts a bridge call in the trailing lambda: `GreetingAllParametersCaller.fixture.kt:14:9 @Composable invocations can only happen from the context of a @Composable function`.
+
+Not checked: a required parameter whose type is nullable in the app, sent as an explicit nothing; nullable types in the catalog (the catalog experiment rejected them, by its own choice).
 
 ## R8b. Slots that pass arguments
 
@@ -383,7 +418,9 @@ Decision: the server project holds one saved bundle per catalog version, in `ssr
 
 Rationale: versions have no order, so "newest" cannot be worked out, and the owner chose screens per catalog version (R10), which needs every version's composables to be callable. Two bridges with the same names cannot share a package, so each gets its own. The bridges are created in one module of the server, and other modules depend on it.
 
-Not checked: two packages with the same names in one module (T025), the compile time and memory of 10 bridges of up to 20,000 components each (T031a), and what happens when two modules create the same package.
+Checked by T025 on 2026-11-16: two packages with the same component name in one module, created from two held catalogs (versions `1` and `2`), compile side by side and compose. Each bridge passes its own version, and a call that mixes the parameters of the two fails to compile. See R1 for the details.
+
+Not checked: the compile time and memory of 10 bridges of up to 20,000 components each (T031a), and what happens when two modules create the same package.
 
 Alternatives considered: one bridge from one chosen catalog, with screens adapted automatically to older catalogs. Turned down by the owner on 2026-11-15, in favour of versioned screens.
 
