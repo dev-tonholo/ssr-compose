@@ -82,7 +82,9 @@ A manifest and its parts, read and checked together. Rules across parts:
 
 - A component name is unique across all parts.
 - A choice list that appears in two parts is identical in both: same name, same entries in the same order.
-- Every part the manifest lists is present and matches its fingerprint, and no other part is present.
+- Every part the manifest lists is present and matches its fingerprint.
+
+A `Catalog` has no folder, so it cannot check that no other part file is present. The verify step, T035, checks that the saved folder holds no part file the manifest does not list.
 
 Its fingerprint is the SHA-256 of the manifest's bytes. A reader refuses a manifest or a part larger than its size cap, 16 MiB each by default, before parsing it. See [contracts/catalog-bundle.md](contracts/catalog-bundle.md).
 
