@@ -13,6 +13,7 @@ How tests are written and where they live. The source is principle VI of the [co
 7. Anything both sides agree on has a contract test that runs the producer's output through the consumer's reader.
 8. Test the compiler plugin with unit tests that compile sample sources.
 9. Check rendering on a device or emulator while you work. A passing build is not proof that a screen is right.
+10. Test behaviour, never pin code. Each test checks a result a caller relies on: an input and its observable output, an error for bad input, or a limit at its edge. A change that keeps that behaviour must not break the test. Do not write tests only for coverage, tests that check a definition against itself, tests that repeat a constant or list from the source, tests that pin a library's toString, configuration or defaults, or tests for what the compiler, the type system or the build already guarantees. Put invariants in types. One behaviour, one test. Golden files are allowed only where the exact bytes are the behaviour. Before claiming a test guards something or is redundant, break the code and show which tests fail.
 
 | What | Folder | Command |
 |---|---|---|
