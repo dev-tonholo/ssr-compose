@@ -1,0 +1,22 @@
+product:
+  type: kmp/lib
+  platforms: [android]
+
+repositories:
+  - mavenLocal
+
+settings:
+  kotlin:
+    version: 2.4.21
+    compilerPlugins:
+      - id: dev.tonholo.ssrcompose
+        dependency: dev.tonholo.ssrcompose:compiler-plugin:unspecified
+        options:
+          mode: consumer
+    freeCompilerArgs:
+      - -Xcompiler-plugin-order=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin
+  compose:
+    enabled: true
+  android:
+    compileSdk: 37
+    minSdk: 23
