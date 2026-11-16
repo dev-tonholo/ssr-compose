@@ -21,6 +21,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 include(":core")
 include(":core-testing")
+include(":catalog-model")
 include(":consumer")
 include(":producer")
 include(":compiler-plugin")

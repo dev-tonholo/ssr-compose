@@ -4,5 +4,5 @@ plugins {
 }
 
 dependencies {
-    api(projects.core)
+    api(projects.catalogModel)
 }

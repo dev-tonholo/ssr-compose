@@ -4,6 +4,6 @@ plugins {
 }
 
 dependencies {
-    implementation(projects.core)
+    implementation(projects.catalogModel)
     compileOnly(libs.kotlin.compiler.embeddable)
 }
