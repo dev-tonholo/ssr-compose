@@ -15,18 +15,18 @@ import kotlinx.serialization.KSerializer
  * Reads one file of a catalog and gives its model.
  *
  * @param subject what the file is, such as `part app`. Every failure message starts with it.
- * @throws CatalogFileException when the file is over [sizeCap], is not valid UTF-8, is not a valid file of the
- * known format, [toModel] rejects what it holds, or the bytes differ from the writer's canonical form.
+ * @param bytes the file, already checked against its size cap.
+ * @throws CatalogFileException when the file is not valid UTF-8, is not a valid file of the known format,
+ * [toModel] rejects what it holds, or the bytes differ from the writer's canonical form.
  */
 internal fun <F, M> readFile(
     subject: String,
     bytes: ByteArray,
-    sizeCap: SizeCap,
     serializer: KSerializer<F>,
     toModel: (F) -> M,
     writeModel: (M, OutputStream) -> Unit,
 ): M {
-    val text = bytes.requireWithin(sizeCap = sizeCap, subject = subject).decodeUtf8(subject = subject)
+    val text = bytes.decodeUtf8(subject = subject)
     val strictKeys = RefusingRepeatedKeys(delegate = serializer)
     return try {
         requireKnownFormat(text = text)

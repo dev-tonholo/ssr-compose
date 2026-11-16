@@ -10,8 +10,7 @@ internal const val MANIFEST_SUBJECT = "manifest"
 internal object CatalogManifestReader {
     fun read(bytes: ByteArray, sizeCap: SizeCap): CatalogManifest = readFile(
         subject = MANIFEST_SUBJECT,
-        bytes = bytes,
-        sizeCap = sizeCap,
+        bytes = bytes.requireWithin(sizeCap = sizeCap, subject = MANIFEST_SUBJECT),
         serializer = CatalogManifestFile.serializer(),
         toModel = CatalogManifestFile::toManifest,
         writeModel = CatalogManifestWriter::writeTo,
