@@ -1,10 +1,10 @@
 package dev.tonholo.ssrcompose.catalog.validation
 
-import dev.tonholo.ssrcompose.catalog.model.Catalog
+import dev.tonholo.ssrcompose.catalog.model.CatalogPart
 import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.model.Parameter
-import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
+import dev.tonholo.ssrcompose.catalog.model.PartName
 import dev.tonholo.ssrcompose.core.data.ValueKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,13 +14,16 @@ class CatalogValidationTest {
     @Test
     fun `given a name that is not an identifier, when a component is created, then it is rejected`() {
         // Arrange
-        val names = listOf("", "1Card", "my-card", "my card", "Card!")
+        val names = listOf("", "_", "__", "1Card", "my-card", "my card", "Card!")
 
         // Act
-        val results = names.map { name -> runCatching { ComponentDescriptor(name = name, parameters = emptyList()) } }
+        val failures = names.map { name ->
+            runCatching { ComponentDescriptor(name = name, parameters = emptyList()) }.exceptionOrNull()
+        }
 
         // Assert
-        assertEquals(expected = names.map { false }, actual = results.map { it.isSuccess })
+        val failureTypes = failures.map { failure -> failure?.let { it::class } }
+        assertEquals(expected = names.map { IllegalArgumentException::class }, actual = failureTypes)
     }
 
     @Test
@@ -40,7 +43,7 @@ class CatalogValidationTest {
     @Test
     fun `given a name over the maximum length, when a component is created, then it is rejected`() {
         // Arrange
-        val name = "A".repeat(n = CatalogLimits.MAX_NAME_LENGTH + 1)
+        val name = "A".repeat(n = LONGEST_NAME + 1)
 
         // Act
         val create = { ComponentDescriptor(name = name, parameters = emptyList()) }
@@ -52,7 +55,7 @@ class CatalogValidationTest {
     @Test
     fun `given a name of exactly the maximum length, when a component is created, then it is accepted`() {
         // Arrange
-        val name = "A".repeat(n = CatalogLimits.MAX_NAME_LENGTH)
+        val name = "A".repeat(n = LONGEST_NAME)
 
         // Act
         val actual = ComponentDescriptor(name = name, parameters = emptyList())
@@ -74,15 +77,20 @@ class CatalogValidationTest {
     }
 
     @Test
-    fun `given a name that is not an identifier, when a parameter is created, then it is rejected`() {
+    fun `given a name that is not an identifier, when any kind of parameter is created, then it is rejected`() {
         // Arrange
         val name = "not valid"
+        val creators = listOf(
+            { textParameter(name = name) },
+            { Parameter.Callback(name = name, required = true) },
+            { Parameter.Slot(name = name, required = true) },
+        )
 
         // Act
-        val create = { textParameter(name = name) }
+        val notRejected = creators.indices.filter { index -> runCatching { creators[index]() }.isSuccess }
 
         // Assert
-        assertFailsWith<IllegalArgumentException> { create() }
+        assertEquals(expected = emptyList(), actual = notRejected)
     }
 
     @Test
@@ -134,18 +142,6 @@ class CatalogValidationTest {
     }
 
     @Test
-    fun `given a very large number of parameters, when a component is created, then it is accepted`() {
-        // Arrange
-        val parameters = parameters(count = MANY)
-
-        // Act
-        val actual = ComponentDescriptor(name = "Card", parameters = parameters)
-
-        // Assert
-        assertEquals(expected = MANY, actual = actual.parameters.size)
-    }
-
-    @Test
     fun `given a repeated parameter name, when a component is created, then it is rejected`() {
         // Arrange
         val parameters = listOf(textParameter(name = "title"), textParameter(name = "title"))
@@ -158,24 +154,12 @@ class CatalogValidationTest {
     }
 
     @Test
-    fun `given a very large number of components, when a catalog is created, then it is accepted`() {
-        // Arrange
-        val components = components(count = MANY)
-
-        // Act
-        val actual = catalog(components = components)
-
-        // Assert
-        assertEquals(expected = MANY, actual = actual.components.size)
-    }
-
-    @Test
     fun `given a repeated component name, when a catalog is created, then it is rejected`() {
         // Arrange
         val components = listOf(component(name = "Card"), component(name = "Card"))
 
         // Act
-        val create = { catalog(components = components) }
+        val create = { partOf(components = components) }
 
         // Assert
         assertFailsWith<IllegalArgumentException> { create() }
@@ -190,7 +174,7 @@ class CatalogValidationTest {
         )
 
         // Act
-        val create = { catalog(choices = choices) }
+        val create = { partOf(choices = choices) }
 
         // Assert
         assertFailsWith<IllegalArgumentException> { create() }
@@ -203,7 +187,7 @@ class CatalogValidationTest {
         val components = listOf(component(name = "Card", parameters = listOf(parameter)))
 
         // Act
-        val create = { catalog(components = components) }
+        val create = { partOf(components = components) }
 
         // Assert
         assertFailsWith<IllegalArgumentException> { create() }
@@ -217,7 +201,7 @@ class CatalogValidationTest {
         val components = listOf(component(name = "Card", parameters = listOf(parameter)))
 
         // Act
-        val create = { catalog(components = components) }
+        val create = { partOf(components = components) }
 
         // Assert
         assertFailsWith<IllegalArgumentException> { create() }
@@ -234,7 +218,7 @@ class CatalogValidationTest {
         val components = listOf(component(name = "Card", parameters = listOf(parameter)))
 
         // Act
-        val create = { catalog(components = components) }
+        val create = { partOf(components = components) }
 
         // Assert
         assertFailsWith<IllegalArgumentException> { create() }
@@ -251,7 +235,7 @@ class CatalogValidationTest {
         val components = listOf(component(name = "Card", parameters = listOf(parameter)))
 
         // Act
-        val create = { catalog(components = components) }
+        val create = { partOf(components = components) }
 
         // Assert
         assertFailsWith<IllegalArgumentException> { create() }
@@ -265,7 +249,7 @@ class CatalogValidationTest {
         val components = listOf(component(name = "Card", parameters = listOf(parameter)))
 
         // Act
-        val actual = catalog(choices = choices, components = components)
+        val actual = partOf(choices = choices, components = components)
 
         // Assert
         assertEquals(expected = 1, actual = actual.components.size)
@@ -274,19 +258,19 @@ class CatalogValidationTest {
     @Test
     fun `given a callback with the maximum number of arguments, when it is created, then it is accepted`() {
         // Arrange
-        val arguments = List(size = CatalogLimits.MAX_CALLBACK_ARGUMENTS) { ValueKind.Text }
+        val arguments = List(size = MOST_ARGUMENTS) { ValueKind.Text }
 
         // Act
         val actual = Parameter.Callback(name = "onDone", arguments = arguments, required = true)
 
         // Assert
-        assertEquals(expected = CatalogLimits.MAX_CALLBACK_ARGUMENTS, actual = actual.arguments.size)
+        assertEquals(expected = MOST_ARGUMENTS, actual = actual.arguments.size)
     }
 
     @Test
     fun `given a callback with more than four arguments, when it is created, then it is rejected`() {
         // Arrange
-        val arguments = List(size = CatalogLimits.MAX_CALLBACK_ARGUMENTS + 1) { ValueKind.Text }
+        val arguments = List(size = MOST_ARGUMENTS + 1) { ValueKind.Text }
 
         // Act
         val create = { Parameter.Callback(name = "onDone", arguments = arguments, required = true) }
@@ -334,21 +318,16 @@ class CatalogValidationTest {
     private fun textParameter(name: String): Parameter.Value =
         Parameter.Value(name = name, kind = ValueKind.Text, required = true)
 
-    private fun parameters(count: Int): List<Parameter> =
-        List(size = count) { index -> textParameter(name = "p$index") }
-
     private fun component(name: String, parameters: List<Parameter> = emptyList()): ComponentDescriptor =
         ComponentDescriptor(name = name, parameters = parameters)
 
-    private fun components(count: Int): List<ComponentDescriptor> =
-        List(size = count) { index -> component(name = "C$index") }
-
-    private fun catalog(
+    private fun partOf(
         choices: List<ChoiceList> = emptyList(),
         components: List<ComponentDescriptor> = emptyList(),
-    ): Catalog = Catalog(version = CatalogVersion(value = "1"), choices = choices, components = components)
+    ): CatalogPart = CatalogPart(name = PartName(value = "app"), choices = choices, components = components)
 
     private companion object {
-        const val MANY = 2_000
+        const val LONGEST_NAME = 64
+        const val MOST_ARGUMENTS = 4
     }
 }

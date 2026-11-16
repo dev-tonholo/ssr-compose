@@ -10,7 +10,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 }
 
-val worstShapeTests = "*CatalogFileWorstShapeMemoryTest"
+val worstShapeTests = "*CatalogPartWorstShapeMemoryTest"
 
 tasks.test {
     maxHeapSize = "256m"
@@ -18,7 +18,7 @@ tasks.test {
 }
 
 val worstShapeMemoryTest = tasks.register<Test>("worstShapeMemoryTest") {
-    description = "Reads the worst 16 MiB catalog under a 512 MiB heap."
+    description = "Reads the worst 16 MiB part under a 512 MiB heap."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath

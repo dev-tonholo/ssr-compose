@@ -1,6 +1,6 @@
 package dev.tonholo.ssrcompose.catalog.bundle
 
 /**
- * Thrown when a catalog file cannot be read. Nothing is created from a file that fails.
+ * Thrown when a manifest, a part or a bundle cannot be read. Nothing is created from a file that fails.
  */
-public class CatalogFileException(message: String, cause: Throwable? = null) : Exception(message, cause)
+public class CatalogFileException(message: String) : Exception(message)
