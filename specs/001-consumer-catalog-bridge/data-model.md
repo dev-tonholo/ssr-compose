@@ -204,7 +204,9 @@ Used by app and server developers:
 - `CatalogVersion`, `ContractVersion`
 - `AppIdentity`, `DeviceContext` (with `Orientation` and `Theme`), `Introduction`, `RefusalKind`
 - `ValueKind`, `DataValue`, `ActionId`
-- `Connection`, `InMemoryConnection`
+- `Connection`
+
+`InMemoryConnection` is not in `core`. It lives in the `core-testing` module, which other modules and library users add as a test dependency.
 
 Public only because `consumer`, `producer` or `catalog-model` use it across the module boundary, since Kotlin's `internal` does not cross modules:
 

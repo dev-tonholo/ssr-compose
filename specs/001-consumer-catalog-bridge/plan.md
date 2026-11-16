@@ -109,7 +109,12 @@ core/                                # Kotlin Multiplatform: jvm, android
     ├── handshake/                   # Introduction, DeviceContext, AppIdentity, Answer
     ├── data/                        # DataValue, ValueKind (the one definition of value kinds)
     ├── message/                     # messages, MessageFrame, MessageCodec, the JSON codec
-    └── connection/                  # Connection, InMemoryConnection
+    └── connection/                  # Connection
+
+core-testing/                        # Kotlin Multiplatform: jvm, android. Published test support for core
+└── src/
+    ├── commonMain/kotlin/dev/tonholo/ssrcompose/core/testing/   # InMemoryConnection and its pair()
+    └── commonTest/kotlin/dev/tonholo/ssrcompose/core/testing/   # InMemoryConnectionTest
 
 catalog-model/                       # Kotlin JVM, build time only
 └── src/main/kotlin/dev/tonholo/ssrcompose/catalog/
@@ -170,6 +175,7 @@ Module dependencies:
 | Module | Depends on |
 |---|---|
 | `core` | nothing in this repo |
+| `core-testing` | `core`. Published, and added by other modules and by library users as a test dependency only. `core` never depends on it |
 | `catalog-model` | `core`, for `CatalogVersion` and `ValueKind` only |
 | `consumer`, `producer` | `core` |
 | `compiler-plugin`, `tooling` | `catalog-model` |
@@ -186,7 +192,7 @@ How the build is written, following the owner's pattern in the thunderbird repos
 
 Not checked: the buildconfig plugin's version against Maven metadata, which T001 checks when it adds it.
 
-**Structure Decision**: four deliverables as modules at the root (`core`, `consumer`, `producer`, `compiler-plugin`), the build-time `catalog-model` library, the tooling library and its two build-tool wrappers, one test-only module, and samples as separate builds that share none of their own code: each uses only the root build, its version catalog and the shared folder of catalogs. `poc/` stays a separate Gradle project and nothing depends on it. The reasons are in [research.md](research.md), sections R5, R11 and R17.
+**Structure Decision**: four deliverables as modules at the root (`core`, `consumer`, `producer`, `compiler-plugin`), the published `core-testing` test-support library, the build-time `catalog-model` library, the tooling library and its two build-tool wrappers, one test-only module, and samples as separate builds that share none of their own code: each uses only the root build, its version catalog and the shared folder of catalogs. `poc/` stays a separate Gradle project and nothing depends on it. The reasons are in [research.md](research.md), sections R5, R11 and R17.
 
 How the build handles the catalog:
 

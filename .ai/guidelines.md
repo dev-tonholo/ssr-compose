@@ -31,12 +31,13 @@ The root is a Gradle build with the library modules and the included build `buil
 | Folder | CLI name | Type | Purpose | May depend on |
 |--------|----------|------|---------|---------------|
 | `core` | `:core` | Kotlin Multiplatform library (`jvm`, `android`) | Document format, catalog, handshake and messages shared by both sides | nothing in this repo |
+| `core-testing` | `:core-testing` | Kotlin Multiplatform library (`jvm`, `android`) | Published test support for `core`: `InMemoryConnection` and its `pair()` | `:core` |
 | `consumer` | `:consumer` | Kotlin Multiplatform library (`android` only) | Consumer library that renders screens | `:core` |
 | `producer` | `:producer` | Kotlin JVM library | Producer library that runs composables | `:core` |
 | `compiler-plugin` | `:compiler-plugin` | Kotlin JVM | Kotlin compiler plugin | `:core` |
 | `tooling` | `:tooling` | Kotlin JVM library | Shared logic for the build-tool plugins | `:core` |
 | `gradle-plugin` | `:gradle-plugin` | Gradle plugin | Thin Gradle wrapper over `:tooling` | `:tooling` |
-| `contract-tests` | `:contract-tests` | Test-only module (Android host tests) | Runs the producer's output through the consumer's reader | `:core`, `:consumer`, `:producer` |
+| `contract-tests` | `:contract-tests` | Test-only module (Android host tests) | Runs the producer's output through the consumer's reader | `:core`, `:core-testing`, `:consumer`, `:producer` |
 | `build-logic` | included build | Gradle convention plugins | Shared build setup, named `dev.tonholo.ssrcompose.conventions.<concern>` | nothing in this repo |
 | `poc/protocol` | `:protocol` | Kotlin JVM library | Node tree, service interface and component contracts shared by both sides | nothing in this repo |
 | `poc/server` | `:server` | Kotlin JVM application | Ktor server that runs composables and serves sessions | `:protocol` |

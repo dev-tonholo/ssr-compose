@@ -4,10 +4,10 @@ Deliverables, module boundaries and shared contracts. The source is principles I
 
 ## Rules
 
-1. The project ships four things: a consumer library, a producer library, a core library, and a Kotlin compiler plugin. The root build has their module shapes (`core`, `consumer`, `producer`, `compiler-plugin`), with one trivial class each and no feature code yet. Do not add feature code to one without a spec.
+1. The project ships four things: a consumer library, a producer library, a core library, and a Kotlin compiler plugin. The root build has their module shapes (`core`, `consumer`, `producer`, `compiler-plugin`), plus the published test-support module `core-testing`. `core` and `core-testing` hold the messages, the handshake types and the in-memory connection; `consumer`, `producer` and `compiler-plugin` still have one trivial class each and no feature code yet. Do not add feature code to a module without a spec.
 2. Everything both sides agree on has one definition, in the core library: document format, catalog, handshake, messages and action bindings.
 3. The consumer library never depends on the producer library, and the producer library never depends on the consumer library. Both depend on core only.
-4. The core library does not depend on Android, a server framework or a transport.
+4. The core library does not depend on Android, a server framework or a transport. It never depends on `core-testing`; other modules add `core-testing` as a test dependency only.
 5. The producer library runs on a plain JVM. It never needs Android classes, stubs or an emulator.
 6. Shipped artifacts never depend on AndroidX Remote Compose. The document format is ours.
 7. The producer never sends a reference to a component that is not in the consumer's catalog.
