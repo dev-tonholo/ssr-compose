@@ -96,7 +96,7 @@ class SsrComposeCompileInputsTest {
     }
 
     private companion object {
-        const val INDEX_CONTENT = "first content"
-        const val CHANGED_INDEX_CONTENT = "second content"
+        const val INDEX_CONTENT = "# first content"
+        const val CHANGED_INDEX_CONTENT = "# second content"
     }
 }
