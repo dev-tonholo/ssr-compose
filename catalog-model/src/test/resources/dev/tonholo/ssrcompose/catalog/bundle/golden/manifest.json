@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "version": "v \"1\" \\ ü",
+  "parts": [
+    {
+      "name": "every-kind",
+      "file": "every-kind.part.json",
+      "fingerprint": "642a1ffc374431f6e07f96bd63a9d968f8424688cf4ed6cd7df7a8fa54e65d1b"
+    }
+  ]
+}
