@@ -430,6 +430,23 @@ class JsonMessageCodecTest {
     }
 
     @Test
+    fun `given an Introduce with an invalid catalog version, when decoded, then only a decoding error is thrown`() {
+        // Arrange
+        val validText = codec.encode(message = introduce).decodeToString()
+        val invalidVersions = listOf("", "v".repeat(n = 65), "a\\u0001b")
+        val frames = invalidVersions.map { invalid ->
+            val payload = validText.replace(oldValue = "home-2", newValue = invalid).encodeToByteArray()
+            MessageFrame.withContractVersion(version = version, payload = payload)
+        }
+
+        // Act
+        val failures = frames.map { frame -> failureClassOf { codec.decodeFirstFrame(frame = frame) } }
+
+        // Assert
+        assertEquals(expected = invalidVersions.map { MessageDecodingException::class }, actual = failures)
+    }
+
+    @Test
     fun `given an Introduce sent as a later frame, when it is decoded, then only a decoding error is thrown`() {
         // Arrange
         val frame = codec.encode(message = introduce)

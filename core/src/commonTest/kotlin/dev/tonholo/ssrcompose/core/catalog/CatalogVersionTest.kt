@@ -1,0 +1,59 @@
+package dev.tonholo.ssrcompose.core.catalog
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class CatalogVersionTest {
+    @Test
+    fun `given an empty text, when a CatalogVersion is created, then it is rejected`() {
+        // Arrange
+        val text = ""
+
+        // Act
+        val create = { CatalogVersion(value = text) }
+
+        // Assert
+        assertFailsWith<IllegalArgumentException> { create() }
+    }
+
+    @Test
+    fun `given a text over the maximum length, when a CatalogVersion is created, then it is rejected`() {
+        // Arrange
+        val text = "v".repeat(n = MAX_LENGTH + 1)
+
+        // Act
+        val create = { CatalogVersion(value = text) }
+
+        // Assert
+        assertFailsWith<IllegalArgumentException> { create() }
+    }
+
+    @Test
+    fun `given a text of the maximum length, when a CatalogVersion is created, then it is accepted`() {
+        // Arrange
+        val text = "v".repeat(n = MAX_LENGTH)
+
+        // Act
+        val actual = CatalogVersion(value = text)
+
+        // Assert
+        assertEquals(expected = text, actual = actual.value)
+    }
+
+    @Test
+    fun `given a text with a control character, when a CatalogVersion is created, then it is rejected`() {
+        // Arrange
+        val text = "3\n4"
+
+        // Act
+        val create = { CatalogVersion(value = text) }
+
+        // Assert
+        assertFailsWith<IllegalArgumentException> { create() }
+    }
+
+    private companion object {
+        const val MAX_LENGTH = 64
+    }
+}
