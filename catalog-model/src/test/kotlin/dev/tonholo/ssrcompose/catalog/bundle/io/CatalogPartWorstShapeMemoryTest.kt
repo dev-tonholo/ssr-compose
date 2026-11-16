@@ -1,28 +1,37 @@
 package dev.tonholo.ssrcompose.catalog.bundle.io
 
+import dev.tonholo.ssrcompose.catalog.bundle.CatalogBundleReader
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
-import dev.tonholo.ssrcompose.catalog.bundle.SizeCap
-import dev.tonholo.ssrcompose.catalog.bundle.readPart
+import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
+import dev.tonholo.ssrcompose.catalog.model.CatalogManifest
+import dev.tonholo.ssrcompose.catalog.model.PartEntry
+import dev.tonholo.ssrcompose.catalog.model.PartName
+import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
 class CatalogPartWorstShapeMemoryTest {
     @Test
-    fun `given a file full of one-letter choice entries, when it is read, then it is refused without running out`() {
+    fun `given a part of 16 MiB of tiny choice entries, when it is read, then it is refused without running out`() {
         // Arrange
-        val entries = ONE_LETTER_ENTRY.repeat(n = ONE_LETTER_ENTRIES)
-        val text = """{"format":1,"part":"app","choices":[{"name":"A","entries":[$entries"a"]}],"components":[]}"""
+        val part = fileAtCap(
+            head = """{"format":1,"part":"app","choices":[{"name":"$NON_LATIN_1","entries":[""",
+            element = """"a",""",
+            last = """"a"""",
+            tail = """]}],"components":[]}""",
+        )
+        val entry = PartEntry(name = PartName(value = "app"), fingerprint = Fingerprint.of(bytes = part))
+        val manifest = CatalogManifest(version = CatalogVersion(value = "1"), parts = listOf(entry))
+        val manifestBytes = CatalogManifestWriter.write(manifest = manifest)
 
         // Act
-        val read = { readPart(text = text) }
+        val read = { CatalogBundleReader.read(manifest = manifestBytes, readPart = { part }) }
 
         // Assert
         assertFailsWith<CatalogFileException> { read() }
     }
 
     private companion object {
-        const val ENVELOPE_LENGTH = 1_024
-        const val ONE_LETTER_ENTRY = """"a","""
-        val ONE_LETTER_ENTRIES = (SizeCap.DEFAULT.bytes - ENVELOPE_LENGTH) / ONE_LETTER_ENTRY.length
+        const val NON_LATIN_1 = "€"
     }
 }
