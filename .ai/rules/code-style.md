@@ -16,6 +16,7 @@ Kotlin style for every module in this repository. The constitution's principle V
 10. Use coroutines for concurrency. Do not use `runBlocking` in production code.
 11. Never assume input is small. Name a realistic upper bound for sessions, document size and update rate, and make the code hold at it.
 12. Respect detekt. Shorten a name before you reach for `@Suppress`.
+13. Read and write JSON with kotlinx.serialization: `@Serializable` classes and `kotlinx.serialization.json`, with a custom serializer only where the default cannot express the shape or the rule: unions, strict types, or size caps. Never walk a `JsonObject` field by field, build JSON by string concatenation, or parse it with regex or string handling. Keep domain models free of serialization annotations by using separate file or wire classes. Reviewers treat hand-written JSON as a finding.
 
 ## Known violations (do not copy them)
 
