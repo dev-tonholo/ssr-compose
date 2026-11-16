@@ -3,6 +3,9 @@ product: jvm/app
 repositories:
   - mavenLocal
 
+dependencies:
+  - dev.tonholo.ssrcompose:core:unspecified
+
 settings:
   kotlin:
     version: 2.4.21
