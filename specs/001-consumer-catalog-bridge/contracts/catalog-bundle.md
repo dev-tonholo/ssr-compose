@@ -171,7 +171,7 @@ A part's name comes from the module's path in the build. The path is made lowerc
 
 The app developer can set another name with `partName`. A name longer than 64 characters fails the app build and asks for a shorter one to be set. A name equal to a Windows device name (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`) is rejected too, since its file could not be made on Windows, and the build asks for another one to be set. Two modules that would give the same name fail the app build, and both are named.
 
-The table shows Gradle module paths. The Kotlin toolchain names its modules in its own way. T030 records how in research.md R5 and maps it to this same rule, so both build tools give the same part names. Not checked yet.
+The table shows Gradle module paths. In the Kotlin toolchain, the part name is made by the same rule from the module's folder path relative to the project folder. The separators are characters other than `a` to `z` and `0` to `9` like any other, so `feature/home` gives `feature-home`, and an empty path, the root module, gives `root`. It is never made from the toolchain's module name, which is only the last folder name (`home`, and the project folder's name for the root module). Two toolchain modules whose folders have the same name fail the toolchain build. This was checked in the probe of T030, see [research.md R5](../research.md#the-kotlin-toolchain-probe-t030). Windows path separators were not run.
 
 ## Part file names
 

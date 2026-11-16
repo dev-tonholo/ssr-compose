@@ -33,7 +33,32 @@ Checked by experiment:
 - The guard turns the wrong order into a compile error.
 - The compile-testing library hides every plugin behind one ID, so the flag cannot be tested there. Only list order counts in those tests.
 
-Not checked: that a Gradle compiler plugin integration can add the flag cleanly, that the Android Gradle Plugin keeps it, and how the Kotlin toolchain orders plugins.
+Checked in the Kotlin toolchain probe (T030, run on 2026-11-16 with Kotlin toolchain 0.14.0 and Kotlin 2.4.21; the setup and `<probe>` are explained in [R5](#the-kotlin-toolchain-probe-t030)):
+
+- The toolchain has no setting for plugin order. Its documentation page on compiler plugins and the output of `<probe> show settings` list none.
+- The toolchain builds the compiler arguments itself. For the `app` module (`mode=producer`), the run's `build/logs/<run>/debug.log` has a `Kotlin compiler args:` line. This one is from the run `amper_2026-11-16_18-51-37_90046-53686_build`. These are the plugin parts of it, with long paths shortened:
+
+```
+-Xplugin=<cache>/kotlin-compose-compiler-plugin-embeddable-2.4.21.jar,~/.m2/repository/dev/tonholo/ssrcompose/compiler-plugin/unspecified/compiler-plugin-unspecified.jar,~/.m2/repository/dev/tonholo/ssrcompose/catalog-model/unspecified/catalog-model-unspecified.jar,<stdlib, annotations and serialization-json jars>,~/.m2/repository/dev/tonholo/ssrcompose/core-jvm/unspecified/core-jvm-unspecified.jar,<serialization-core and coroutines jars>
+-P plugin:androidx.compose.compiler.plugins.kotlin:generateFunctionKeyMetaAnnotations=true,plugin:androidx.compose.compiler.plugins.kotlin:sourceInformation=true,plugin:dev.tonholo.ssrcompose:mode=producer
+-Xcompiler-plugin-order=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin
+-verbose
+```
+
+- In that one `-Xplugin=` argument the Compose compiler is first and this plugin is second. The module's `freeCompilerArgs` come after the plugin arguments, so a flag written there reaches the compiler as written. The module file of `app` in [R5](#the-kotlin-toolchain-probe-t030) passes the order flag that way.
+- The compiler reads the flag and knows both plugin ids. With the flag twice, once each way, the build fails:
+
+```
+$ <probe> build
+ERROR: Compiler plugin 'androidx.compose.compiler.plugins.kotlin' is part of an constraint cycle: PluginOrderConstraint(before=dev.tonholo.ssrcompose, after=androidx.compose.compiler.plugins.kotlin, rawArgument=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin), PluginOrderConstraint(before=androidx.compose.compiler.plugins.kotlin, after=dev.tonholo.ssrcompose, rawArgument=androidx.compose.compiler.plugins.kotlin>dev.tonholo.ssrcompose)
+
+ERROR: Task ':app:compileJvm' failed: Kotlin compilation failed with 1 errors (see above)
+```
+
+- The same flag with an id that no plugin has, `no.such.plugin>androidx.compose.compiler.plugins.kotlin`, builds without a message. A misspelled plugin id in the flag is not caught, so the flag text needs its own check.
+- The Android library module passes the same flag with `mode: consumer`, and the toolchain gives it the same kind of `-Xplugin=`, `-P` and order arguments.
+
+Not checked: that a Gradle compiler plugin integration can add the flag cleanly, and that the Android Gradle Plugin keeps it. Also not checked in the toolchain: the effect of the flag (this plugin has no IR step yet, so no run can show the order), and the order the compiler uses when the flag is absent (only the order of the jars in the argument was seen). Both wait for the IR step. Also not checked: that the toolchain plugin of T101 can add the flag itself (see [Open risk for T101](#open-risk-for-t101) in R5).
 
 ## R3. A real enum for a choice list needs a workaround
 
@@ -88,7 +113,209 @@ Rationale: R2 and R4 show the compiler alone is not enough, and the constitution
 
 This adds two artifacts and two libraries (`tooling`, and `catalog-model` from R17) to the constitution's four deliverables. It is recorded in the plan's Complexity Tracking.
 
-Not checked: the toolchain plugin itself, how the Kotlin toolchain builds an Android library, and how the toolchain names its modules. T030 records that naming here and maps it to the part name rule of [contracts/catalog-bundle.md](contracts/catalog-bundle.md), so both build tools give the same part names.
+### The Kotlin toolchain probe (T030)
+
+The probe is `samples/toolchain-probe/`. It was run on 2026-11-16 with Kotlin toolchain 0.14.0 on macOS, JDK from Android Studio, and the Android SDK that is already on the machine. The probe is a throwaway experiment and nothing depends on it.
+
+How the toolchain was obtained:
+
+- `samples/toolchain-probe/kotlin` is the toolchain's own wrapper script for version 0.14.0. It was downloaded from `https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/kotlin/kotlin-cli/0.14.0/kotlin-cli-0.14.0-wrapper`. Its SHA-256 is `855436c4b4222f57c561e7bfe2f7f223bd72710d0f52a101883434ecbf05b089`, the same as the published `kotlin-cli-0.14.0-wrapper.sha256`.
+- The wrapper is a shell script, so the probe runs on macOS and Linux only. The toolchain's documentation also names a Windows script, `kotlin.bat`. It is not in the probe and was not run.
+- On the first run the wrapper downloads the distribution (`kotlin-cli-0.14.0`) and a Zulu JRE 25 into `KOTLIN_CLI_BOOTSTRAP_CACHE_DIR`. By default that is `~/Library/Caches/JetBrains/Kotlin/cli`.
+- The probe keeps both caches inside its own git-ignored `build/` folder. In the commands below, `<probe>` stands for this line:
+
+```
+env KOTLIN_CLI_BOOTSTRAP_CACHE_DIR="$PWD/samples/toolchain-probe/build/kotlin-cli" samples/toolchain-probe/kotlin --shared-cache-dir="$PWD/samples/toolchain-probe/build/shared-cache"
+```
+
+- Each command also ends with `--project-dir=samples/toolchain-probe`, which is left out of the examples to keep them short.
+
+How the toolchain finds the artifacts after `./gradlew publishToMavenLocal`:
+
+- The command does not publish everything. It published `core`, `core-jvm`, `core-android`, `core-testing` and its two variants, `consumer` and `consumer-android`, and the Gradle plugin with its marker. It did not publish `compiler-plugin`, `catalog-model`, `producer` or `tooling`. Those modules apply `maven-publish` but declare no publication, so the task has nothing to write. Every artifact is published at the version `unspecified`.
+- The probe works around this with an init script, `samples/toolchain-probe/publish-probe.init.gradle.kts`, that adds one `java` publication to `:compiler-plugin` and `:catalog-model`. No build file of the repository changed. A real fix needs a publication and a real version in those modules (T101 and T113 depend on it):
+
+```
+$ ./gradlew --init-script samples/toolchain-probe/publish-probe.init.gradle.kts :compiler-plugin:publishToMavenLocal :catalog-model:publishToMavenLocal
+> Task :catalog-model:publishProbePublicationToMavenLocal
+> Task :catalog-model:publishToMavenLocal
+> Task :compiler-plugin:publishProbePublicationToMavenLocal
+> Task :compiler-plugin:publishToMavenLocal
+BUILD SUCCESSFUL in 5s
+```
+
+- All of it lands in `~/.m2/repository/dev/tonholo/ssrcompose/` (1040 KB once both publications had run).
+- The toolchain does not look in `~/.m2` unless the module asks. Without a `repositories` entry the build fails:
+
+```
+$ <probe> build
+ERROR: Unable to resolve dependency dev.tonholo.ssrcompose:compiler-plugin:unspecified
+         Unable to download checksums of file compiler-plugin-unspecified.pom
+         Unable to download checksums of file compiler-plugin-unspecified.module
+       Repositories used for resolution:
+         - https://repo1.maven.org/maven2
+         - https://maven.google.com
+
+ERROR: Task ':app:downloadCompilerPluginsMain' failed: Unable to resolve dependencies for dev.tonholo.ssrcompose:compiler-plugin:unspecified, see the errors above.
+```
+
+- With `repositories: [mavenLocal]` in the module's `module.yaml` the build passes. The plugin is given as `dependency: dev.tonholo.ssrcompose:compiler-plugin:unspecified` in `settings.kotlin.compilerPlugins`, and the toolchain uses the jars straight from `~/.m2`. This is the module file of `app`:
+
+```yaml
+product: jvm/app
+
+repositories:
+  - mavenLocal
+
+dependencies:
+  - dev.tonholo.ssrcompose:core:unspecified
+
+settings:
+  kotlin:
+    version: 2.4.21
+    freeCompilerArgs:
+      - -Xcompiler-plugin-order=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin
+    compilerPlugins:
+      - id: dev.tonholo.ssrcompose
+        dependency: dev.tonholo.ssrcompose:compiler-plugin:unspecified
+        options:
+          mode: producer
+  compose:
+    enabled: true
+```
+
+- The toolchain follows the plugin's own dependencies. The compiler plugin's classpath held `catalog-model` and, through it, `core-jvm` (see the `-Xplugin=` line in R2). It reads the Gradle module metadata that `publishToMavenLocal` wrote, so `core` as a normal dependency gives `core-jvm` to the JVM module and `core-android` (an AAR) to the Android library.
+- The `repositories` entry is written in each module file in the probe. Putting it in one shared place was not tried.
+
+Where the compiler plugin runs, and the proof:
+
+- Build command and result, with the Compose compiler on in the same module:
+
+```
+$ <probe> build
+✓ Compilation successful for 'app' [jvm]
+✓ Compilation successful for 'android-lib' [android]
+Build successful
+```
+
+- The compiler plugin's own message is written to the run log, not to the console. The toolchain only prints the compiler's warnings and errors. This is the line in `samples/toolchain-probe/build/logs/<run>/info.log`:
+
+```
+00:04.643 INFO  :app:compileJvm           KotlinBuildToolsApiKt     SSR Compose compiler plugin received SsrPluginOptions(mode=Producer, fragmentsDir=null, catalogs=[])
+00:18.074 INFO  :android-lib:compileAndroidDebug KotlinBuildToolsApiKt     SSR Compose compiler plugin received SsrPluginOptions(mode=Consumer, fragmentsDir=null, catalogs=[])
+```
+
+- A control run shows the options reach the plugin. With `mode: bogus` in `app/module.yaml` the plugin refuses it with its own text:
+
+```
+$ <probe> build
+ERROR: Unknown mode 'bogus'. Use one of: consumer, producer
+
+ERROR: Task ':app:compileJvm' failed: Kotlin compilation failed with 1 errors (see above)
+```
+
+Defaults of the toolchain that differ from this repository:
+
+- Kotlin: modules that do not set `settings.kotlin.version` use 2.4.20, and the probe pins 2.4.21 as the repository does.
+- Java: `jvm.release` is 25, from the JDK it finds. This repository targets 17.
+- Compose: 1.12.1, and this repository uses 1.12.2.
+
+Whether the toolchain can build an Android library:
+
+- Yes, as a compile, with both plugins. The probe module is `android-lib`. There is no `android/lib` product type; the documented product types are listed on `https://kotlin-toolchain.org/latest/user-guide/product-types/overview/`. The library is a Kotlin Multiplatform library with one platform:
+
+```yaml
+product:
+  type: kmp/lib
+  platforms: [android]
+```
+
+- The module also sets `settings.android.compileSdk: 37` and `minSdk: 23`.
+- `<probe> build` made `build/tasks/_android-lib_aarAndroidDebug/android-lib-jvm.aar`, which holds `AndroidManifest.xml` and `libs/android-lib-jvm.jar`. The jar holds `GreetingKt.class`. Only the debug variant was built.
+- The compile used the Android SDK that was already on the machine. The `-classpath` of the compile starts with `/Users/rtonholo/Library/Android/sdk/platforms/android-37.0/android.jar`. The toolchain finds the SDK from `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk`. No file in the top two levels of that SDK folder changed during the probe.
+- The plugin ran in the Android compile (the second line of the log above), and `-Xcompiler-plugin-order` reached it as in R2.
+- Not checked: the release variant and `kotlin package`, the Gradle distribution that the toolchain installs for Android packaging (`installGradleDistribution`), publishing the AAR, and a Kotlin Multiplatform library with the Android target next to other targets.
+- The Complexity Tracking row of the plan that expects the consumer side to work from Gradle only depends on this answer. It stays, narrowed to the items above that are not checked.
+
+How the toolchain names its modules, and the part name rule:
+
+- The module name is the name of the folder that holds `module.yaml`, and nothing else. The module path in `project.yaml` is not part of it, and the root module takes the name of the project folder. `<probe> show modules` on the probe:
+
+```
+╭────────────────────────┬──────────────────┬───────────────────╮
+│ Name                   │ Type             │ Short description │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ android-lib            │ kmp/lib          │                   │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ app                    │ jvm/app          │                   │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ featureHome            │ jvm/lib          │                   │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ feature_cart           │ jvm/lib          │                   │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ home                   │ jvm/lib          │                   │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ module-location-plugin │ jvm/amper-plugin │                   │
+├────────────────────────┼──────────────────┼───────────────────┤
+│ toolchain-probe        │ jvm/lib          │                   │
+╰────────────────────────┴──────────────────┴───────────────────╯
+```
+
+- The module in `feature/home` is named `home`, and the root module is named `toolchain-probe`, after the folder `samples/toolchain-probe`. A part name made from the module name would be `home` and `toolchain-probe`, which is not what the rule gives for `:feature:home` and `:`.
+- Folder names must be unique in the project. Two modules in `feature/home` and `settings/home` fail the build:
+
+```
+$ <probe> show modules
+ERROR: Module name 'home' is not unique, it's declared in:
+.../samples/toolchain-probe/feature/home/module.yaml
+.../samples/toolchain-probe/settings/home/module.yaml
+```
+
+- A toolchain plugin can read the path. The probe's `module-location-plugin` task gets `${module.name}`, `${module.rootDir}` (the absolute path of the module folder) and `${project.rootDir}` (the absolute path of the project folder) from its `plugin.yaml`, and prints the module folder relative to the project folder:
+
+```
+$ <probe> do printLocation
+[home][printLocation@module-location-plugin] moduleName=home relativePath='feature/home'
+[feature_cart][printLocation@module-location-plugin] moduleName=feature_cart relativePath='feature_cart'
+[toolchain-probe][printLocation@module-location-plugin] moduleName=toolchain-probe relativePath=''
+[featureHome][printLocation@module-location-plugin] moduleName=featureHome relativePath='featureHome'
+printLocation successful
+```
+
+- The part name rule can be applied to that relative path, with an empty path meaning the root module. Three of the probe's modules give the same results as rows of the contract's table, and `feature_cart` is an extra example that has no row there:
+
+| Module folder in the probe, relative to the project folder | Part name by the rule | Row of the contract's table |
+|---|---|---|
+| `feature/home` | `feature-home` | `:feature:home` gives `feature-home` |
+| `featureHome` | `featurehome` | `:featureHome` gives `featurehome` |
+| empty (the root module) | `root` | `:` gives `root` |
+| `feature_cart` | `feature-cart` | none, an extra example of an underscore in a folder name |
+
+- A Windows path separator is a backslash. Under the rule it is one more run of characters other than `a` to `z` and `0` to `9`, so it would give a hyphen like `/` does. That was not run.
+
+- So the toolchain plugin must build the part name from the relative folder path, never from `module.name`. One rule on a path gives both build tools the same name when the Gradle project folders follow the Gradle paths.
+- Two cases make the names differ. A Gradle project whose folder is not its path gives the Gradle name from the path and the toolchain name from the folder. And a project that uses both build tools cannot have two folders with the same name, because the toolchain refuses it and Gradle does not.
+
+Not checked: the toolchain plugin itself, the build cache for the toolchain's tasks, and the toolchain's IDE support.
+
+### Open risk for T101
+
+The toolchain plugin of T101 may not be able to add the compiler plugin to a module. If it cannot, this conflicts with [plan.md](plan.md), which says no literal compiler plugin id appears in any yaml file, the toolchain plugin's included. The probe only proved that a module can name the plugin itself, with its literal id, in `settings.kotlin.compilerPlugins`.
+
+What the documentation says, checked on 2026-11-16:
+
+- The page about compiler plugins says: "At the moment, they can't publish plugins because the Kotlin Toolchain doesn't support plugin publication yet, so this low-level API is the only way you, as an end user, can configure compiler plugins."
+- The plugin quick start says: "It is not yet possible to use references (${...}) in module.yaml files or access the module configuration tree from plugin.yaml." The references page lists `module.settings.**` as readable by a plugin, so the two pages do not agree.
+- Plugins documented so far contribute tasks, commands, checks and generated sources and resources. No page says a plugin can add a compiler plugin, its options or the order flag to a module.
+- The page on publishing libraries (`https://kotlin-toolchain.org/latest/user-guide/publishing/libraries/`) was checked too. It covers publishing libraries, including to the local Maven repository with `kotlin publish mavenLocal`, and says the feature is in preview. It says nothing about publishing toolchain plugins, or about a plugin adding a compiler plugin to a module. Our compiler plugin is already used as a plain Maven dependency, as the probe proved, so this page does not block T030.
+
+The three ways out, none of them tried:
+
+- Write the literal id, the dependency, the options and the order flag in each module's `module.yaml`, as the probe does. This breaks the plan's rule, and every module carries the same block.
+- Put that block in one module template that each module applies with `apply:`. The literal id then sits in one yaml file instead of many, which still breaks the plan's rule, and the template must then be kept in step with the id in `catalog-model` by hand or by a check.
+- Wait until the toolchain lets a plugin add a compiler plugin to a module, or lets a plugin be published.
+
+The owner decides which one when T101 starts.
 
 ## R6. Fetching at sync
 
