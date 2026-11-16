@@ -28,9 +28,13 @@ internal fun partText(parameter: String): String =
         """"components":[{"name":"Card","parameters":[$parameter]}]}"""
 
 internal fun partWith(
+    name: String = "app",
     components: List<ComponentDescriptor> = emptyList(),
     choices: List<ChoiceList> = emptyList(),
-): CatalogPart = CatalogPart(name = PartName(value = "app"), choices = choices, components = components)
+): CatalogPart = CatalogPart(name = PartName(value = name), choices = choices, components = components)
+
+internal fun partWithComponent(name: String, component: String): CatalogPart =
+    partWith(name = name, components = listOf(ComponentDescriptor(name = component, parameters = emptyList())))
 
 internal fun partAtCapPair(name: String = "app"): Pair<CatalogPart, CatalogPart> {
     val emptySize = writtenSize(name = name, components = emptyList())
@@ -41,22 +45,13 @@ internal fun partAtCapPair(name: String = "app"): Pair<CatalogPart, CatalogPart>
     val fillerCount = (DEFAULT_CAP_BYTES - emptySize - tailOverhead) / perComponent
     val remainder = DEFAULT_CAP_BYTES - (emptySize + fillerCount * perComponent + tailOverhead)
     val fillers = List(size = fillerCount) { index -> fillerComponent(index = index) }
-    val atCap = CatalogPart(
-        name = PartName(value = name),
-        choices = emptyList(),
-        components = fillers + tailComponent(extraChars = remainder),
-    )
-    val overCap = CatalogPart(
-        name = PartName(value = name),
-        choices = emptyList(),
-        components = fillers + tailComponent(extraChars = remainder + 1),
-    )
+    val atCap = partWith(name = name, components = fillers + tailComponent(extraChars = remainder))
+    val overCap = partWith(name = name, components = fillers + tailComponent(extraChars = remainder + 1))
     return atCap to overCap
 }
 
-private fun writtenSize(name: String, components: List<ComponentDescriptor>): Int = CatalogPartWriter.write(
-    part = CatalogPart(name = PartName(value = name), choices = emptyList(), components = components),
-).size
+private fun writtenSize(name: String, components: List<ComponentDescriptor>): Int =
+    CatalogPartWriter.write(part = partWith(name = name, components = components)).size
 
 private fun fillerComponent(index: Int): ComponentDescriptor = ComponentDescriptor(
     name = "C" + index.toString().padStart(length = FILLER_DIGITS, padChar = '0'),
