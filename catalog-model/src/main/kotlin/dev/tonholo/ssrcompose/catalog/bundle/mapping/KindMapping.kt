@@ -22,7 +22,7 @@ private fun ValueKind.toElementKindFile(): ElementKindFile =
 internal fun KindFile.toValueKind(): ValueKind = valueKind(kind = kind, choice = choice, element = of)
 
 private fun ElementKindFile.toValueKind(): ValueKind {
-    if (kind == Kinds.LIST || kind == Kinds.BYTES) {
+    if (kind == Kinds.LIST) {
         throw CatalogFileException(message = "A list holds a text, whole, decimal, flag or choice")
     }
     return valueKind(kind = kind, choice = choice, element = null)
