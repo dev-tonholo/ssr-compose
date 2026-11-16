@@ -1,7 +1,7 @@
 plugins {
+    `java-gradle-plugin`
     alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
     alias(libs.plugins.ssrcompose.conventions.publishing)
-    `java-gradle-plugin`
 }
 
 val functionalTest: SourceSet = sourceSets.create("functionalTest")
