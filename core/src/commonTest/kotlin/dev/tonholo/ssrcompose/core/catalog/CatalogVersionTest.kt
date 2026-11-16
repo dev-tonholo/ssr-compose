@@ -53,6 +53,32 @@ class CatalogVersionTest {
         assertFailsWith<IllegalArgumentException> { create() }
     }
 
+    @Test
+    fun `given a text with an unpaired surrogate, when a CatalogVersion is created, then it is rejected`() {
+        // Arrange
+        val texts = listOf("\uD800", "\uDC00", "\uD800a", "\uDC00\uD800", "\uD83D\uDE00\uD800")
+
+        // Act
+        val notRejected = texts.filter { text ->
+            runCatching { CatalogVersion(value = text) }.exceptionOrNull() !is IllegalArgumentException
+        }
+
+        // Assert
+        assertEquals(expected = emptyList(), actual = notRejected)
+    }
+
+    @Test
+    fun `given a text with a valid surrogate pair, when a CatalogVersion is created, then it is accepted`() {
+        // Arrange
+        val text = "1\uD83D\uDE002"
+
+        // Act
+        val actual = CatalogVersion(value = text)
+
+        // Assert
+        assertEquals(expected = text, actual = actual.value)
+    }
+
     private companion object {
         const val MAX_LENGTH = 64
     }
