@@ -1,6 +1,7 @@
 {
   "tools": [
-    "claude"
+    "claude",
+    "antigravity"
   ],
   "models": {
     "claude": {
@@ -8,6 +9,11 @@
       "top": "opus",
       "mid": "sonnet",
       "small": "haiku"
+    },
+    "antigravity": {
+      "top": "gemini-4-argon-high",
+      "mid": "gemini-4-hydrogen-medium",
+      "small": "gemini-3.8-flash-low"
     }
   }
 }

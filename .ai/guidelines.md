@@ -214,5 +214,6 @@ Edit files in `.ai/` only.
 | Agent | Instructions | Project skills | Project agents |
 |---|---|---|---|
 | Claude Code | `CLAUDE.md` imports `AGENTS.md` | `.claude/skills` (symlink to `.ai/skills`) | `.claude/agents/*.md`, generated |
+| Antigravity (agy) | `AGENTS.md` | `.agents/skills` (symlink to `.ai/skills`) | `.agents/agents/*.md`, generated |
 
 Never edit a generated agent copy. Change `.ai/agents/<name>.md` or `.ai/agents.json`, then run `python3 .ai/scripts/sync-agents.py`.
