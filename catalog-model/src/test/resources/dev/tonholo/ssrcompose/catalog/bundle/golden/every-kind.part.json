@@ -1,0 +1,179 @@
+{
+  "format": 1,
+  "part": "every-kind",
+  "choices": [
+    {
+      "name": "Size",
+      "entries": [
+        "small"
+      ]
+    },
+    {
+      "name": "Style",
+      "entries": [
+        "titleLarge",
+        "bodyMedium"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "name": "Callbacks",
+      "parameters": [
+        {
+          "name": "onClick",
+          "kind": "callback",
+          "required": true
+        },
+        {
+          "name": "onPick",
+          "kind": "callback",
+          "arguments": [
+            {
+              "kind": "text"
+            },
+            {
+              "kind": "whole"
+            },
+            {
+              "kind": "flag"
+            },
+            {
+              "kind": "bytes"
+            }
+          ],
+          "required": false
+        },
+        {
+          "name": "onMeasure",
+          "kind": "callback",
+          "arguments": [
+            {
+              "kind": "decimal"
+            }
+          ],
+          "required": true
+        },
+        {
+          "name": "onChoose",
+          "kind": "callback",
+          "arguments": [
+            {
+              "kind": "choice",
+              "choice": "Style"
+            },
+            {
+              "kind": "list",
+              "of": {
+                "kind": "text"
+              }
+            }
+          ],
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Empty",
+      "parameters": []
+    },
+    {
+      "name": "Slots",
+      "parameters": [
+        {
+          "name": "any",
+          "kind": "slot",
+          "accepts": "any",
+          "required": false
+        },
+        {
+          "name": "consumer",
+          "kind": "slot",
+          "arguments": [
+            {
+              "kind": "list",
+              "of": {
+                "kind": "choice",
+                "choice": "Style"
+              }
+            }
+          ],
+          "accepts": "consumer",
+          "required": true
+        },
+        {
+          "name": "producer",
+          "kind": "slot",
+          "arguments": [
+            {
+              "kind": "text"
+            },
+            {
+              "kind": "decimal"
+            }
+          ],
+          "accepts": "producer",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "Values",
+      "parameters": [
+        {
+          "name": "text",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "whole",
+          "kind": "whole",
+          "required": true
+        },
+        {
+          "name": "decimal",
+          "kind": "decimal",
+          "nullable": true,
+          "required": false
+        },
+        {
+          "name": "flag",
+          "kind": "flag",
+          "required": true
+        },
+        {
+          "name": "choice",
+          "kind": "choice",
+          "choice": "Style",
+          "required": true
+        },
+        {
+          "name": "tags",
+          "kind": "list",
+          "of": {
+            "kind": "text"
+          },
+          "required": true
+        },
+        {
+          "name": "styles",
+          "kind": "list",
+          "of": {
+            "kind": "choice",
+            "choice": "Style"
+          },
+          "required": false
+        },
+        {
+          "name": "counts",
+          "kind": "list",
+          "of": {
+            "kind": "whole"
+          },
+          "nullable": true,
+          "required": false
+        }
+      ]
+    }
+  ]
+}
