@@ -1,0 +1,9 @@
+tasks:
+  printLocation:
+    action: !dev.tonholo.ssrcompose.probe.printModuleLocation
+      moduleName: ${module.name}
+      moduleRootDir: ${module.rootDir}
+      projectRootDir: ${project.rootDir}
+
+commands:
+  - printLocation
