@@ -6,7 +6,7 @@ A catalog is a bundle: one manifest, and one part for each app module that has m
 
 ## Example
 
-A catalog of version 3, from an app with two modules that have marked composables, `:app` and `:feature:payment`.
+A catalog of version 3, from an app with two modules that have marked composables, `:app` and `:feature:payment`. Each file below is what the writer gives for that catalog, byte for byte, and a test in `catalog-model` checks it. The fingerprints in the manifest are those of the two part files.
 
 `manifest.json`:
 
@@ -15,8 +15,16 @@ A catalog of version 3, from an app with two modules that have marked composable
   "format": 1,
   "version": "3",
   "parts": [
-    { "name": "app", "file": "app.part.json", "fingerprint": "5d2c..." },
-    { "name": "feature-payment", "file": "feature-payment.part.json", "fingerprint": "a91f..." }
+    {
+      "name": "app",
+      "file": "app.part.json",
+      "fingerprint": "f74cb13d8bc07ed059793887f9d0479f27a543515a6ce87e14d00a74eb3aeda9"
+    },
+    {
+      "name": "feature-payment",
+      "file": "feature-payment.part.json",
+      "fingerprint": "ab691bd1e20e05cf4e75910e02bd65d7fbffde890d2eb70df9fc1e496f8d99e9"
+    }
   ]
 }
 ```
@@ -28,14 +36,29 @@ A catalog of version 3, from an app with two modules that have marked composable
   "format": 1,
   "part": "app",
   "choices": [
-    { "name": "Style", "entries": ["bodyMedium", "titleLarge"] }
+    {
+      "name": "Style",
+      "entries": [
+        "bodyMedium",
+        "titleLarge"
+      ]
+    }
   ],
   "components": [
     {
       "name": "Greeting",
       "parameters": [
-        { "name": "title", "kind": "text", "required": true },
-        { "name": "style", "kind": "choice", "choice": "Style", "required": false }
+        {
+          "name": "title",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "style",
+          "kind": "choice",
+          "choice": "Style",
+          "required": false
+        }
       ]
     }
   ]
@@ -53,17 +76,53 @@ A catalog of version 3, from an app with two modules that have marked composable
     {
       "name": "CameraScanner",
       "parameters": [
-        { "name": "cancel", "kind": "slot", "arguments": [{ "kind": "text" }], "accepts": "any", "required": true },
-        { "name": "onCancelClick", "kind": "callback", "required": true },
-        { "name": "onScan", "kind": "callback", "arguments": [{ "kind": "bytes" }], "required": true }
+        {
+          "name": "cancel",
+          "kind": "slot",
+          "arguments": [
+            {
+              "kind": "text"
+            }
+          ],
+          "accepts": "any",
+          "required": true
+        },
+        {
+          "name": "onCancelClick",
+          "kind": "callback",
+          "required": true
+        },
+        {
+          "name": "onScan",
+          "kind": "callback",
+          "arguments": [
+            {
+              "kind": "bytes"
+            }
+          ],
+          "required": true
+        }
       ]
     },
     {
       "name": "PaymentSection",
       "parameters": [
-        { "name": "title", "kind": "text", "required": true },
-        { "name": "onPayClick", "kind": "callback", "required": true },
-        { "name": "content", "kind": "slot", "accepts": "consumer", "required": false }
+        {
+          "name": "title",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "onPayClick",
+          "kind": "callback",
+          "required": true
+        },
+        {
+          "name": "content",
+          "kind": "slot",
+          "accepts": "consumer",
+          "required": false
+        }
       ]
     }
   ]
@@ -79,7 +138,7 @@ A catalog of version 3, from an app with two modules that have marked composable
 | `parts` | one entry per part | sorted by `name`. Empty when the app has no marked composable. |
 | `parts[].name` | the part's name | lowercase letters, digits and hyphens, 1 to 64 characters, never a Windows device name (see "Part names" below). Unique in the manifest. |
 | `parts[].file` | the part's file name | always `<name>.part.json`, built from the part's `name`. Unique in the manifest. A reader rejects the whole manifest otherwise. See "Part file names" below. |
-| `parts[].fingerprint` | the fingerprint of the part's bytes | lowercase hexadecimal SHA-256. |
+| `parts[].fingerprint` | the fingerprint of the part's bytes | 64 lowercase hexadecimal digits: the SHA-256. A reader rejects a manifest with any other value. |
 
 ## Part fields
 
@@ -155,13 +214,17 @@ Nothing is fetched or read for a manifest that breaks one of these.
 
 Every component, parameter and choice list name, and every choice entry, must be a valid Kotlin identifier that is not a keyword, at most 64 characters. A reader rejects the whole catalog otherwise, and creates nothing from it.
 
+## Keys
+
+Each object holds only the keys written in this contract, and each key once. A reader refuses a file with a repeated key, an unknown key, a comment or a comma after the last member.
+
 ## Size cap
 
-A reader refuses a manifest or a part larger than its cap, before it parses it. The cap is 16 MiB for each file by default, and the build setup can change it. There is no limit on the number of components or parameters other than this.
+A reader refuses a manifest or a part larger than its cap, before it parses it. Callers reading from streams use the stream overload of `CatalogBundleReader.read`, which reads each stream through `SizeCap.read` up to the cap and one byte more and refuses a file over the cap before the rest of it is read. The cap is 16 MiB for each file by default, and the build setup can change it. There is no limit on the number of components or parameters other than this. How much heap a read or write needs is recorded in [research.md R16](../research.md#r16-scale-and-build-performance).
 
 ## Stability
 
-The same marked composables always give the same bytes in every file: fixed key order, sorted parts, components and choices, two-space indent, one trailing newline, no timestamps and no paths. A change to the catalog is then a small reviewable difference.
+The same marked composables always give the same bytes in every file: fixed key order, sorted parts, components and choices, two-space indent, one trailing newline, no timestamps and no paths. Names are sorted by their UTF-16 code units: `B` comes before `a`, and `a1` before `a_b`. A reader refuses a file that is not the writer's canonical form. A change to the catalog is then a small reviewable difference.
 
 ## Fingerprints
 
