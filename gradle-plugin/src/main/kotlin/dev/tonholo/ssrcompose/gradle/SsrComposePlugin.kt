@@ -13,7 +13,10 @@ internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
     private val coordinates = PluginCoordinates.load()
 
     override fun apply(target: Project) {
-        target.extensions.create(EXTENSION_NAME, SsrComposeExtension::class.java)
+        val extension = target.extensions.create(EXTENSION_NAME, SsrComposeExtension::class.java)
+        target.afterEvaluate {
+            SyncHook.registerIfProducer(project = target, extension = extension)
+        }
     }
 
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean = true

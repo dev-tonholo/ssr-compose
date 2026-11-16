@@ -33,10 +33,12 @@ abstract class SsrComposeExtension @Inject constructor(objects: ObjectFactory) {
         action.execute(producerSettings)
     }
 
+    internal fun isProducerConfigured(): Boolean = producerConfigured && !consumerConfigured
+
     internal fun resolveMode(): CompilerPluginMode =
         when {
+            isProducerConfigured() -> CompilerPluginMode.Producer
             consumerConfigured && !producerConfigured -> CompilerPluginMode.Consumer
-            producerConfigured && !consumerConfigured -> CompilerPluginMode.Producer
             consumerConfigured -> error(message = BOTH_BLOCKS_MESSAGE)
             else -> error(message = NO_BLOCK_MESSAGE)
         }

@@ -13,8 +13,19 @@ internal class FixtureProject(
         write(relativePath = "settings.gradle.kts", text = settings)
     }
 
-    fun configure(ssrComposeBlock: String): FixtureProject {
-        write(relativePath = "build.gradle.kts", text = buildScript(ssrComposeBlock))
+    fun configure(
+        ssrComposeBlock: String,
+        extraPlugins: List<String> = emptyList(),
+        extraBuildScript: String = "",
+    ): FixtureProject {
+        write(
+            relativePath = "build.gradle.kts",
+            text = buildScript(
+                ssrComposeBlock = ssrComposeBlock,
+                extraPlugins = extraPlugins,
+                extraBuildScript = extraBuildScript,
+            ),
+        )
         return this
     }
 
@@ -36,14 +47,21 @@ internal class FixtureProject(
 
     fun compile(): BuildResult = run(task = COMPILE_TASK)
 
-    fun runAndFail(task: String): BuildResult = runner(task).buildAndFail()
+    fun run(task: String, vararg extraArgs: String): BuildResult =
+        runner(task = task, extraArgs = extraArgs.toList()).build()
 
-    private fun run(task: String): BuildResult = runner(task).build()
+    fun runAndFail(task: String): BuildResult = runner(task = task).buildAndFail()
 
-    private fun runner(task: String): GradleRunner =
+    private fun runner(task: String, extraArgs: List<String> = emptyList()): GradleRunner =
         GradleRunner.create()
             .withProjectDir(directory)
-            .withArguments(listOfNotNull(task, "--stacktrace", BUILD_CACHE_FLAG.takeIf { buildCacheDirectory != null }))
+            .withArguments(
+                listOfNotNull(
+                    task,
+                    "--stacktrace",
+                    BUILD_CACHE_FLAG.takeIf { buildCacheDirectory != null },
+                ) + extraArgs,
+            )
 
     private fun write(relativePath: String, text: String) {
         val file = File(directory, relativePath)
@@ -56,11 +74,22 @@ internal class FixtureProject(
             .filter { line -> line.startsWith("$tag$SEPARATOR") }
             .map { line -> line.removePrefix("$tag$SEPARATOR") }
 
-    private fun buildScript(ssrComposeBlock: String): String =
-        BUILD_SCRIPT_TEMPLATE.replace(oldValue = SSR_COMPOSE_BLOCK_PLACEHOLDER, newValue = ssrComposeBlock)
+    private fun buildScript(
+        ssrComposeBlock: String,
+        extraPlugins: List<String>,
+        extraBuildScript: String,
+    ): String {
+        val pluginLines = extraPlugins.joinToString(separator = "\n    ")
+        return BUILD_SCRIPT_TEMPLATE
+            .replace(oldValue = EXTRA_PLUGINS_PLACEHOLDER, newValue = pluginLines)
+            .replace(oldValue = SSR_COMPOSE_BLOCK_PLACEHOLDER, newValue = ssrComposeBlock)
+            .replace(oldValue = EXTRA_BUILD_SCRIPT_PLACEHOLDER, newValue = extraBuildScript)
+    }
 
     private companion object {
+        const val EXTRA_PLUGINS_PLACEHOLDER = "EXTRA_PLUGINS"
         const val SSR_COMPOSE_BLOCK_PLACEHOLDER = "SSR_COMPOSE_BLOCK"
+        const val EXTRA_BUILD_SCRIPT_PLACEHOLDER = "EXTRA_BUILD_SCRIPT"
         const val PRINT_TASK = "printCompilerSetup"
         const val COMPILE_TASK = "compileKotlin"
         const val BUILD_CACHE_FLAG = "--build-cache"
@@ -81,11 +110,14 @@ internal class FixtureProject(
             plugins {
                 alias(libs.plugins.kotlin.jvm)
                 alias(libs.plugins.ssrcompose)
+                $EXTRA_PLUGINS_PLACEHOLDER
             }
 
             ssrCompose {
                 $SSR_COMPOSE_BLOCK_PLACEHOLDER
             }
+
+            $EXTRA_BUILD_SCRIPT_PLACEHOLDER
 
             tasks.register("$PRINT_TASK") {
                 val compile = tasks.named<KotlinCompile>("compileKotlin")
