@@ -1,3 +1,10 @@
 modules:
   - ./android-lib
   - ./app
+  - ./feature/home
+  - ./featureHome
+  - ./feature_cart
+  - ./module-location-plugin
+
+plugins:
+  - ./module-location-plugin
