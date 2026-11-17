@@ -13,7 +13,7 @@ lifecycle = "2.10.0"
 remote-compose = "1.0.0-alpha23"
 turbine = "1.2.1"
 androidx-test-runner = "1.7.0"
-slf4j = "2.0.17"
+slf4j = "2.0.20"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
