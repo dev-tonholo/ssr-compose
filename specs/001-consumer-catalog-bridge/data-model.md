@@ -58,6 +58,20 @@ The components of one app module.
 
 A part stands on its own: it lists every choice list its components use, even when another part lists the same one.
 
+### CatalogFragment (`catalog-model`)
+
+The marked composables of one source file. The compiler plugin writes one for each source file it sees that has any, in a folder for the compilation, and the module's `ssrCatalogPart` step reads them and merges them into the part. The compiler plugin and the step share this one definition.
+
+| Field | Rule |
+|---|---|
+| `format` | the same format version as a part |
+| `source` | the folders of the file's package and its name, such as `app/home/Banner.kt`. Never a path of the machine that built it, so the same sources give the same fragment on every machine. Not empty, no leading `/`, no backslash or colon, and no segment that is empty, starts or ends with a dot, or holds two dots in a row. The fragment's file name must fit in 255 bytes of UTF-8. |
+| `components` | sorted by name, written the same way as in a part |
+
+The fragment's file name is `source` with each `/` turned into `..`, followed by `.fragment.json`. A segment never holds two dots in a row, so two sources never share a file name, even when one has a dot in its file name and the other a package, on a file system that tells upper and lower case apart. On one that does not, `Home.kt` and `home.kt` in one package share a file. The writer refuses a file over the size cap of a part, 16 MiB by default, and the reader refuses it before parsing, with the same canonical form as a part file.
+
+A fragment has no choice lists yet: only text parameters exist so far (T027).
+
 ### PartEntry (`catalog-model`)
 
 One line of the manifest.
