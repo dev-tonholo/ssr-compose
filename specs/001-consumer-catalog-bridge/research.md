@@ -105,7 +105,26 @@ Checked by experiment, for one module:
 - Two clean builds give identical bytes.
 - The compiler catches a duplicate name only on a full build. The merge catches it always and names both.
 
-Not checked: a Kotlin Multiplatform module with an Android target (the plugin runs once per compilation, so fragments need a folder per compilation, and a marked `expect` and `actual` pair would look like a duplicate); one module collecting the parts of the modules it depends on (T105 settles it); the build cache and the configuration cache for the part and bundle steps (T114 settles them); and the state of fragments after a failed incremental build.
+Checked by experiment (T027, `KmpAndroidFragmentsTest`), for a Kotlin Multiplatform module with an Android target and two product flavors:
+
+- The plugin runs once for each Android variant compilation, so each variant gets its own folder of fragments (R8c lists the paths). The free variant's folder holds the free composable and not the paid one, and the other way round.
+- The checker sees both the `expect` file and the `actual` file of a marked pair in an Android compilation. The fragment writer leaves out a marked `expect` and writes the marked `actual`, so the pair counts once and the merge rule stays as it is: a name used twice fails. Without that rule the part held `Shared` twice and the merge failed with "A part must not repeat a component name".
+- For a file that only one flavor has, the second compile after an edit was incremental. It wrote again only that file's fragment, and the module's part equalled the part of a clean build, byte for byte. A test compares the bytes after the edit with the bytes of a clean build in another folder, and checks that the part changed and still holds the untouched files' components. The edits in the Gradle tests only add a parameter. Removing the marker or deleting a file is covered only by the compile tests, which are not incremental, and by the gap about deleted source files below (#152).
+- For an edit to a file in `commonMain`, every fragment of the variant was written again, so the compilation was not incremental. The Kotlin log of an incremental compile shows `enableUnsafeIncrementalCompilationForMultiplatform=false`, which is probably the reason, but that is not confirmed. The part still equals the part of a clean build.
+- The `expect` file and the `actual` file can have the same name in the same package, `Panel.kt` in `commonMain` and in `androidMain`, which is a common layout. Both then have the same fragment source and share one fragment file. The part held that pair once, and it would have held it once even without the rule that leaves out the `expect`. The pair with two file names, `Shared.kt` and `SharedActual.kt`, held the component twice without that rule, so the fixture has both pairs. Inside one compilation the result does not depend on which of the two files the compiler checks first: the writer does not let the `expect` file, which has no component, remove the fragment the `actual` file wrote in the same compilation. `FragmentWriterTest` covers that order.
+- `compileKotlinMetadata` and `compileCommonMainKotlinMetadata` were skipped in every project tried, an Android-only module and an Android plus JVM module, so the plugin never saw them and no `metadata` folder appeared. With a native or JavaScript target they would run, and that is not checked.
+
+Found by the experiment and left for later tasks:
+
+- The fragments folder is not an output of the compile task. Deleting it and building again left the compile up to date and wrote no fragments. `ssrCatalogPart` must tell a missing folder from a module with no marked composables, and a compile taken from the build cache has the same gap. This is filed as #151: T047 registers the folder as an output of the compile task, and T114 proves it.
+- A fragment names its source by the folders of its package and its file name, such as `fixture/kmp/Home.kt`, because a path of the machine would break the relative path rule for the inputs of `ssrCatalogPart` and the cache. The cost is that the part step cannot see from the name alone that a source file is gone. It needs the module's source file list, or the compiler plugin needs one more option. This is filed as #152, with T045 as the owner, T047 wiring it and T033 testing it.
+- The checker and the fragment writer handle text parameters only. A marked composable with another parameter type fails the compile with a plain message that names the composable and the parameter, and writes no fragment for that file. Still missing, for T044: errors at the line and column of the parameter, a marked function that is not `@Composable`, modifier parameters left out, nullable text, a type alias of text, choice lists in a fragment, a function name that is not a plain Kotlin identifier, and every other kind (callbacks T064, slots T075).
+- The writer leaves out every marked `expect`, so a marked `expect` whose `actual` is not marked would give no component. No test runs this case. T044 should make it an error.
+- The same-source rule above holds inside one compilation only. In an incremental compile that rechecks the `expect` file and not the `actual` file, the writer removes the fragment the `actual` file wrote earlier, and the part loses the component. `FragmentWriterTest` shows it with two writers. A commonMain edit forces a full recompile today, which hides it, and no Gradle test runs it. Only the part step can decide this, because it sees every source file. It is part of #152.
+- Two different files with the same package and the same name that both hold marked composables write one fragment, and the last one wins without a message. A clash of the class both files would make on the JVM makes this rare on Android. Two file names that differ only by case, `Home.kt` and `home.kt` in one package, also share a fragment file on a file system that ignores case.
+- A fragment's source and file name follow rules (`data-model.md`). A file with no marked composable never needs a fragment, so a file name that breaks the rules, such as `Odd..Name.kt`, builds. A marked file with such a name fails the compile with a message that names the file. Both are tested.
+
+Not checked: one module collecting the parts of the modules it depends on (T105 settles it); the build cache and the configuration cache for the part and bundle steps (T114 settles them); and the state of fragments after a failed incremental build.
 
 Alternatives considered: the compiler writes the whole catalog. Turned down by the experiment. One catalog file for the whole app, merged in one step: turned down by the owner, because one change in any module would produce the whole file again and no module's result could be cached on its own.
 
@@ -129,6 +148,16 @@ How the build is set up, as the owner asked on the root build pull request and a
 - The samples apply the Gradle plugin with `alias(libs.plugins.ssrcompose)`, from T056 and T057 on; T007 creates the sample builds before the plugin exists.
 
 Rationale: R2 and R4 show the compiler alone is not enough, and the constitution says nothing may work only through Gradle. The owner's ktgd project already has this shape: a compiler plugin, a Gradle plugin and a toolchain plugin with its tasks in a `plugin.yaml`.
+
+Found by T027, for T024 (not fixed here): in a plain `com.android.library` module, with AGP 9.5.1's built-in Kotlin and no Kotlin Gradle plugin applied, the compile failed in the compiler plugin:
+
+```
+e: java.lang.NoSuchFieldError: Class org.jetbrains.kotlin.config.CompilerConfigurationKey does not have member field 'org.jetbrains.kotlin.config.CompilerConfigurationKey$Companion Companion'
+	at dev.tonholo.ssrcompose.compiler.SsrConfigurationKeys.<clinit>(SsrConfigurationKeys.kt:10)
+	at dev.tonholo.ssrcompose.compiler.SsrCommandLineProcessor.processOption(SsrCommandLineProcessor.kt:45)
+```
+
+It went away when `org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21` was added to the build script classpath of the module. The compiler plugin is built against Kotlin 2.4.21, so the likely cause is that the built-in Kotlin ran an older compiler. Which version it used is not checked.
 
 This adds two artifacts and two libraries (`tooling`, and `catalog-model` from R17) to the constitution's four deliverables. It is recorded in the plan's Complexity Tracking.
 
@@ -410,7 +439,20 @@ Not checked: how that compile error is produced.
 
 Decision: a part belongs to one compilation. Each Android variant has a catalog version, the project's by default, and the check compares the variant's bundle with the saved bundle of its version. A flavor with different marked composables sets its own version. The compiler plugin writes fragments in a folder per compilation. A marked `expect` and `actual` pair is one component.
 
-Not checked: all of it, since the catalog experiment used a plain JVM module.
+Checked by experiment (T027), in a Kotlin Multiplatform module with an Android target and two product flavors, `free` and `paid`, on AGP 9.5.1 and Kotlin 2.4.21:
+
+- Product flavors next to the Kotlin Multiplatform plugin only work with `android.builtInKotlin=false` and `android.newDsl=false` in `gradle.properties`. Without them AGP stops at configuration: "The 'com.android.library' (or 'com.android.application') plugin is not compatible with the 'org.jetbrains.kotlin.multiplatform' plugin since AGP 9.0", and it names these two flags as a way to "temporarily bypass this issue". With the flags AGP and Kotlin both print deprecation warnings, and AGP says the flags go away in version 10. The test fixture sets them. A real project that wants variants in a Kotlin Multiplatform module has to do the same until that changes.
+- The fragments folders seen, one per variant compilation: `build/ssr/fragments/android/freeDebug` and `build/ssr/fragments/android/paidDebug`. A scratch probe, not a test, also saw `android/freeDebugUnitTest`, so test compilations get their own folders. The part step must read only the folder of the variant's own compilation. That rule is not built yet. `KmpAndroidFragmentsTest` asserts the two full paths, target segment included.
+- The free folder holds `Home`, `Shared`, `Panel` and `FreeBanner`, and the paid folder holds `Home`, `Shared`, `Panel` and `PaidBanner`. A composable in `commonMain` appears in every variant's folder, as expected, because every variant compiles it.
+- A marked `expect` and `actual` pair is one component in the part (R4).
+- An edit to one file leaves the part equal to a clean build's part (R4).
+
+Probed and not covered by a test:
+
+- The AGP plugin this repository uses, `com.android.kotlin.multiplatform.library`, has one variant only: target `android`, compilations `main` and `hostTest`, folder `ssr/fragments/android/main`. It cannot have flavors. A marked `expect` and `actual` pair compiled with it, next to a JVM target.
+- A plain `com.android.library` module with product flavors and no Kotlin Multiplatform plugin runs the plugin for each variant too, with compilations `freeDebug` and `paidDebug`. Its target name is empty, so the folder has no target segment: `ssr/fragments/freeDebug`.
+
+Not checked: the per-variant catalog version in the build setup (T092), the check of a variant's bundle against the saved bundle of its version, and what the build does when two variants share a version but have different marked composables.
 
 ## R9. One bridge per held catalog
 
