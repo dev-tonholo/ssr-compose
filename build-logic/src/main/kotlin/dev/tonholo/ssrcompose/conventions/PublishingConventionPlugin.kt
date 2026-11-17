@@ -2,6 +2,7 @@ package dev.tonholo.ssrcompose.conventions
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
@@ -19,8 +20,8 @@ private const val VERIFY_PUBLICATIONS_DESCRIPTION = "Verifies that the module de
 
 /**
  * Applies the Maven publishing plugin, sets the group shared by every published module, registers a Maven
- * publication for plain Kotlin JVM libraries, and wires a verification task into `check`. Kotlin Multiplatform and
- * Gradle plugin modules already receive their publications from their own plugins.
+ * publication for plain Kotlin JVM libraries, enables sources jars for JVM modules, and wires a verification task into
+ * `check`. Kotlin Multiplatform and Gradle plugin modules already receive their publications from their own plugins.
  *
  * Suppressed unused: Gradle creates this plugin from the declaration in `build-logic/build.gradle.kts`.
  */
@@ -30,9 +31,16 @@ internal abstract class PublishingConventionPlugin : Plugin<Project> {
         pluginManager.apply(MavenPublishPlugin::class.java)
         group = PROJECT_GROUP
         pluginManager.withPlugin(libs.plugins.kotlin.jvm.get().pluginId) {
+            configureJvmSourcesJar()
             registerJvmPublicationIfNeeded()
         }
         registerVerifyPublicationsTask()
+    }
+}
+
+private fun Project.configureJvmSourcesJar() {
+    extensions.configure<JavaPluginExtension> {
+        withSourcesJar()
     }
 }
 
