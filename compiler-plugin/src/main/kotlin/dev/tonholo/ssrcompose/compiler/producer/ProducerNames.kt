@@ -14,6 +14,7 @@ internal object ProducerNames {
 
     val composable = ClassId(composePackage, Name.identifier("Composable"))
     val composableFunction0 = ClassId(composeInternalPackage, Name.identifier("ComposableFunction0"))
+    val composableFunction1 = ClassId(composeInternalPackage, Name.identifier("ComposableFunction1"))
     val remoteAction1 = ClassId(producerPackage, Name.identifier("RemoteAction1"))
     val consumerComponent = CallableId(producerPackage, Name.identifier("ConsumerComponent"))
     val arrayOf = CallableId(FqName("kotlin"), Name.identifier("arrayOf"))

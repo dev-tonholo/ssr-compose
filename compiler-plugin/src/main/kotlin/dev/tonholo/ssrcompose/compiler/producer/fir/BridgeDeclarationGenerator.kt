@@ -72,6 +72,14 @@ internal class BridgeDeclarationGenerator(
                 isMarkedNullable = !isRequired,
                 attributes = composableTypeAttributes(),
             )
+
+            ThrowawayParameterKind.SlotOfText -> ProducerNames.composableFunction1.constructClassLikeType(
+                typeArguments = arrayOf(
+                    session.builtinTypes.stringType.coneType,
+                    session.builtinTypes.unitType.coneType,
+                ),
+                attributes = composableTypeAttributes(),
+            )
         }
 
     private fun composableTypeAttributes(): ConeAttributes =
