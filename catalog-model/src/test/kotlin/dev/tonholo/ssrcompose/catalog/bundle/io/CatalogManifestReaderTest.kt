@@ -70,12 +70,17 @@ class CatalogManifestReaderTest {
         // Arrange
         val entry = entryText(name = "app")
         val manifests = listOf(
+            // language=json
             """{"format":0,"version":"1","parts":[]}""",
+            // language=json
             """{"format":-1,"version":"1","parts":[]}""",
+            // language=json
             """{"format":2,"version":"1","parts":[]}""",
+            // language=json
             """{"format":"1","version":"1","parts":[]}""",
+            // language=json
             """{"format":1,"version":"1","parts":[],"extra":1}""",
-            manifestText(entry.replace(oldValue = "}", newValue = ""","extra":1}""")),
+            manifestText(entry.replace(oldValue = "}", newValue = /* language=json */ ""","extra":1}""")),
         )
 
         // Act
@@ -90,8 +95,10 @@ class CatalogManifestReaderTest {
     @Test
     fun `given an object with the same key twice, when the manifest is read, then each manifest is refused`() {
         // Arrange
+        // language=json
         val twoNames = """{"name":"app","name":"home","file":"app.part.json","fingerprint":"$ANY_FINGERPRINT"}"""
         val manifests = listOf(
+            // language=json
             """{"format":1,"version":"1","version":"2","parts":[]}""",
             manifestText(twoNames),
         )

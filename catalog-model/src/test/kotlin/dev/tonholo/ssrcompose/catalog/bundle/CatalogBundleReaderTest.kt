@@ -111,6 +111,7 @@ class CatalogBundleReaderTest {
     @Test
     fun `given a manifest that is not valid, when the bundle is read, then the message names the manifest`() {
         // Arrange
+        // language=json
         val manifest = """{"format":1,"version":"1","parts":[],"extra":1}""".encodeToByteArray()
 
         // Act
@@ -155,6 +156,7 @@ class CatalogBundleReaderTest {
     @Test
     fun `given a part that is not valid, when the bundle is read, then the message names the part`() {
         // Arrange
+        // language=json
         val invalid = """{"format":1,"part":"home","choices":[],"components":[],"extra":1}""".encodeToByteArray()
 
         // Act

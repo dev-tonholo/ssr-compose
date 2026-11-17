@@ -2,6 +2,7 @@ package dev.tonholo.ssrcompose.gradle.testing
 
 internal object FixtureSources {
     const val MARKED_SOURCE_PATH = "src/main/kotlin/Marked.kt"
+    // language=kotlin
     const val CONSUMER_BLOCK = """consumer { catalogVersion = "3" }"""
 
     const val DEFAULT_VERSION = "2"
@@ -9,6 +10,7 @@ internal object FixtureSources {
 
     fun indexPath(version: String = DEFAULT_VERSION): String = "build/ssr/index/$version.index"
 
+    // language=kotlin
     fun producerBlock(version: String = DEFAULT_VERSION, bridgePackage: String = DEFAULT_BRIDGE_PACKAGE): String = """
         producer {
             catalog(version = "$version") {
@@ -18,6 +20,7 @@ internal object FixtureSources {
         }
     """.trimIndent()
 
+    // language=kotlin
     val MARKED_SOURCE = """
         import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
 
@@ -26,6 +29,7 @@ internal object FixtureSources {
         }
     """.trimIndent()
 
+    // language=kotlin
     val PRODUCER_BLOCK = """
         producer {
             catalog(version = "2") {

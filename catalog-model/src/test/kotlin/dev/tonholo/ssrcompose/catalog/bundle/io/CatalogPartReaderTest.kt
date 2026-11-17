@@ -64,22 +64,44 @@ class CatalogPartReaderTest {
     @Test
     fun `given values of the wrong type, when the file is read, then each file is refused`() {
         // Arrange
+        // language=json
         val parameter = """{"name":"title","kind":"text","required":true}"""
         val wrongFiles = listOf(
+            // language=json
             """[]""",
+            // language=json
             """{"format":1,"part":1,"choices":[],"components":[]}""",
+            // language=json
             """{"format":1,"part":"app","choices":{},"components":[]}""",
+            // language=json
             """{"format":1,"part":"app","choices":[],"components":{}}""",
+            // language=json
             """{"format":1,"part":"app","choices":[],"components":[1]}""",
+            // language=json
             """{"format":1,"part":"app","choices":[{"name":"A","entries":"x"}],"components":[]}""",
-            partText(parameter = """{"name":5,"kind":"text","required":true}"""),
-            partText(parameter = """{"name":"title","kind":5,"required":true}"""),
-            partText(parameter = """{"name":"title","kind":"text","required":true,"nullable":"yes"}"""),
-            partText(parameter = """{"name":"onTap","kind":"callback","arguments":"text","required":true}"""),
-            partText(parameter = """{"name":"onTap","kind":"callback","arguments":[5],"required":true}"""),
-            partText(parameter = """{"name":"onTap","kind":"callback","arguments":["text"],"required":true}"""),
-            partText(parameter = """{"name":"items","kind":"list","of":"text","required":true}"""),
-            partText(parameter = """{"name":"content","kind":"slot","accepts":1,"required":true}"""),
+            partText(parameter = /* language=json */ """{"name":5,"kind":"text","required":true}"""),
+            partText(parameter = /* language=json */ """{"name":"title","kind":5,"required":true}"""),
+            partText(
+                // language=json
+                parameter = """{"name":"title","kind":"text","required":true,"nullable":"yes"}""",
+            ),
+            partText(
+                // language=json
+                parameter = """{"name":"onTap","kind":"callback","arguments":"text","required":true}""",
+            ),
+            partText(
+                // language=json
+                parameter = """{"name":"onTap","kind":"callback","arguments":[5],"required":true}""",
+            ),
+            partText(
+                // language=json
+                parameter = """{"name":"onTap","kind":"callback","arguments":["text"],"required":true}""",
+            ),
+            partText(parameter = /* language=json */ """{"name":"items","kind":"list","of":"text","required":true}"""),
+            partText(
+                // language=json
+                parameter = """{"name":"content","kind":"slot","accepts":1,"required":true}""",
+            ),
             partText(parameter = parameter.replace(oldValue = "text", newValue = "list")),
         )
 

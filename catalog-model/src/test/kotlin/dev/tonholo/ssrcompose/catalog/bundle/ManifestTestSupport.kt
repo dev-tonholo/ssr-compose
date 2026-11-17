@@ -20,9 +20,11 @@ internal fun readManifest(text: String): CatalogManifest =
     CatalogManifestReader.read(bytes = text.encodeToByteArray(), sizeCap = SizeCap.DEFAULT)
 
 internal fun entryText(name: String, file: String = "$name.part.json", fingerprint: String = ANY_FINGERPRINT): String =
+    // language=json
     """{"name":"$name","file":"$file","fingerprint":"$fingerprint"}"""
 
 internal fun manifestText(vararg entries: String, version: String = "1"): String =
+    // language=json
     """{"format":1,"version":"$version","parts":[${entries.joinToString(separator = ",")}]}"""
 
 internal fun everyKindManifest(): CatalogManifest = CatalogManifest(

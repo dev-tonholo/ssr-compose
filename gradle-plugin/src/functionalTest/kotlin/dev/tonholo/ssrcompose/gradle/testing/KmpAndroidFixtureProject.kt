@@ -42,6 +42,7 @@ internal class KmpAndroidFixtureProject(private val directory: File) {
             org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g
         """.trimIndent()
 
+        // language=kotlin
         val BUILD_SCRIPT = """
             plugins {
                 alias(libs.plugins.kotlin.multiplatform)

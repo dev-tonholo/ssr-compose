@@ -61,15 +61,15 @@ class JsonMessageCodecTest {
         ProducerMessage.Screen(screen = "home", content = ScreenContent(components = listOf(component)))
 
     private fun deepTriggerText(levels: Int): String = buildString {
-        append("""{"type":"Trigger","action":"a","arguments":[""")
+        append(/* language=json */ """{"type":"Trigger","action":"a","arguments":[""")
         repeat(times = levels) { append('[') }
         repeat(times = levels) { append(']') }
         append("]}")
     }
 
     private fun deepScreenText(levels: Int): String = buildString {
-        append("""{"type":"Screen","screen":"home","content":[""")
-        repeat(times = levels) { append("""{"name":"Box","slots":{"content":[""") }
+        append(/* language=json */ """{"type":"Screen","screen":"home","content":[""")
+        repeat(times = levels) { append(/* language=json */ """{"name":"Box","slots":{"content":[""") }
         repeat(times = levels) { append("]}}") }
         append("]}")
     }
@@ -272,7 +272,7 @@ class JsonMessageCodecTest {
         val actual = codec.encode(message = message).decodeToString()
 
         // Assert
-        assertEquals(expected = """{"type":"Accepted","contractVersion":1}""", actual = actual)
+        assertEquals(expected = /* language=json */ """{"type":"Accepted","contractVersion":1}""", actual = actual)
     }
 
     @Test
@@ -287,6 +287,7 @@ class JsonMessageCodecTest {
 
         // Assert
         assertEquals(
+            // language=json
             expected = """{"type":"Refused","kind":"IntroductionNotValid","reason":"Not valid"}""",
             actual = actual,
         )
@@ -326,7 +327,7 @@ class JsonMessageCodecTest {
         val actual = codec.encode(message = message).decodeToString()
 
         // Assert
-        assertTrue(actual = actual.startsWith(prefix = """{"type":"Introduce""""))
+        assertTrue(actual = actual.startsWith(prefix = /* language=json */ """{"type":"Introduce""""))
     }
 
     @Test
@@ -338,12 +339,13 @@ class JsonMessageCodecTest {
         val actual = codec.encode(message = message).decodeToString()
 
         // Assert
-        assertEquals(expected = """{"type":"OpenScreen","screen":"home"}""", actual = actual)
+        assertEquals(expected = /* language=json */ """{"type":"OpenScreen","screen":"home"}""", actual = actual)
     }
 
     @Test
     fun `given a later frame that starts with whitespace, when it is decoded, then it is read as a message`() {
         // Arrange
+        // language=json
         val frame = """  {"type":"OpenScreen","screen":"home"}""".encodeToByteArray()
 
         // Act
@@ -545,6 +547,7 @@ class JsonMessageCodecTest {
     @Test
     fun `given an unknown message type, when decoded as a producer message, then only a decoding error is thrown`() {
         // Arrange
+        // language=json
         val frame = """{"type":"Nothing"}""".encodeToByteArray()
 
         // Act
@@ -557,6 +560,7 @@ class JsonMessageCodecTest {
     @Test
     fun `given a message missing a field, when it is decoded, then only a decoding error is thrown`() {
         // Arrange
+        // language=json
         val frame = """{"type":"OpenScreen"}""".encodeToByteArray()
 
         // Act
@@ -569,6 +573,7 @@ class JsonMessageCodecTest {
     @Test
     fun `given a broken bytes value, when it is decoded, then only a decoding error is thrown`() {
         // Arrange
+        // language=json
         val frame = """{"type":"Trigger","action":"a","arguments":[{"type":"Bytes","value":"%%not base64%%"}]}"""
             .encodeToByteArray()
 
