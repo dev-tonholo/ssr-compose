@@ -1,5 +1,7 @@
 # ssr-compose
 
+[![CI](https://github.com/dev-tonholo/ssr-compose/actions/workflows/pull_request.yml/badge.svg?branch=main)](https://github.com/dev-tonholo/ssr-compose/actions/workflows/pull_request.yml) [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE) [![Kotlin](https://img.shields.io/badge/kotlin-2.4.21-blue?logo=kotlin)](https://kotlinlang.org) [![Compose Multiplatform](https://img.shields.io/badge/Compose%20Multiplatform-1.12.2-blue)](https://www.jetbrains.com/compose-multiplatform/) ![Platforms](https://img.shields.io/badge/platform-Android%20%C2%B7%20JVM-blue) [![Status](https://img.shields.io/badge/status-experimental-orange)](#status)
+
 Server-side rendering for Jetpack Compose.
 
 > [!NOTE]
