@@ -2,15 +2,13 @@
 
 package dev.tonholo.ssrcompose.compiler.producer.fir
 
-import dev.tonholo.ssrcompose.compiler.SsrNames
+import dev.tonholo.ssrcompose.compiler.fir.buildComposableAnnotation
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
 import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayComponent
 import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayParameter
 import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayParameterKind
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
-import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
@@ -19,7 +17,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeAttributes
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.CustomAnnotationTypeAttribute
-import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.FqName
@@ -56,7 +53,7 @@ internal class BridgeDeclarationGenerator(
                 )
             }
         }
-        function.replaceAnnotations(listOf(composableAnnotation()))
+        function.replaceAnnotations(listOf(buildComposableAnnotation()))
         unplaceableBridgeMarker.mark(function = function, component = component)
         return listOf(function.symbol)
     }
@@ -86,10 +83,5 @@ internal class BridgeDeclarationGenerator(
         }
 
     private fun composableTypeAttributes(): ConeAttributes =
-        ConeAttributes.create(listOf(CustomAnnotationTypeAttribute(listOf(composableAnnotation()))))
-
-    private fun composableAnnotation() = buildAnnotation {
-        annotationTypeRef = buildResolvedTypeRef { coneType = SsrNames.composable.constructClassLikeType() }
-        argumentMapping = FirEmptyAnnotationArgumentMapping
-    }
+        ConeAttributes.create(listOf(CustomAnnotationTypeAttribute(listOf(buildComposableAnnotation()))))
 }
