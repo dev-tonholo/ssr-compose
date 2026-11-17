@@ -20,7 +20,7 @@ fun composeOnce(content: @Composable () -> Unit) {
     }
 }
 
-private class NoopApplier : AbstractApplier<Unit>(root = Unit) {
+internal class NoopApplier : AbstractApplier<Unit>(root = Unit) {
     override fun insertTopDown(index: Int, instance: Unit) = Unit
 
     override fun insertBottomUp(index: Int, instance: Unit) = Unit
