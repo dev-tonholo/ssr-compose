@@ -9,7 +9,8 @@ internal class FixtureProject(
     private val buildCacheDirectory: File? = null,
 ) {
     init {
-        write(relativePath = "settings.gradle.kts", text = settingsScript())
+        val settings = FixtureSettings.script(buildCacheDirectory = buildCacheDirectory)
+        write(relativePath = "settings.gradle.kts", text = settings)
     }
 
     fun configure(ssrComposeBlock: String): FixtureProject {
@@ -55,71 +56,20 @@ internal class FixtureProject(
             .filter { line -> line.startsWith("$tag$SEPARATOR") }
             .map { line -> line.removePrefix("$tag$SEPARATOR") }
 
-    private fun settingsScript(): String {
-        val repositoryRoot = requireNotNull(System.getProperty(REPOSITORY_ROOT_PROPERTY)) {
-            "The $REPOSITORY_ROOT_PROPERTY system property is not set"
-        }
-        val settings = SETTINGS_TEMPLATE.replace(oldValue = REPOSITORY_ROOT_PLACEHOLDER, newValue = repositoryRoot)
-        val cacheBlock = buildCacheDirectory?.let { cacheDirectory ->
-            BUILD_CACHE_TEMPLATE.replace(
-                oldValue = BUILD_CACHE_PLACEHOLDER,
-                newValue = cacheDirectory.invariantSeparatorsPath,
-            )
-        }
-        return listOfNotNull(settings, cacheBlock).joinToString(separator = "\n")
-    }
-
     private fun buildScript(ssrComposeBlock: String): String =
         BUILD_SCRIPT_TEMPLATE.replace(oldValue = SSR_COMPOSE_BLOCK_PLACEHOLDER, newValue = ssrComposeBlock)
 
     private companion object {
-        const val REPOSITORY_ROOT_PROPERTY = "ssrcompose.repoRoot"
-        const val REPOSITORY_ROOT_PLACEHOLDER = "REPOSITORY_ROOT"
         const val SSR_COMPOSE_BLOCK_PLACEHOLDER = "SSR_COMPOSE_BLOCK"
         const val PRINT_TASK = "printCompilerSetup"
         const val COMPILE_TASK = "compileKotlin"
         const val BUILD_CACHE_FLAG = "--build-cache"
-        const val BUILD_CACHE_PLACEHOLDER = "BUILD_CACHE_DIRECTORY"
         const val SEPARATOR = "|"
         const val PLUGIN_OPTION_TAG = "PLUGIN_OPTION"
         const val FREE_ARGUMENT_TAG = "FREE_ARGUMENT"
         const val INPUT_PROPERTY_TAG = "INPUT_PROPERTY"
         const val DEPENDENCY_TAG = "DEPENDENCY"
         const val IMPLEMENTATION_TAG = "IMPLEMENTATION"
-
-        val SETTINGS_TEMPLATE = """
-            pluginManagement {
-                repositories {
-                    google()
-                    mavenCentral()
-                    gradlePluginPortal()
-                }
-            }
-
-            dependencyResolutionManagement {
-                repositories {
-                    google()
-                    mavenCentral()
-                }
-                versionCatalogs {
-                    create("libs") {
-                        from(files("$REPOSITORY_ROOT_PLACEHOLDER/gradle/libs.versions.toml"))
-                    }
-                }
-            }
-
-            includeBuild("$REPOSITORY_ROOT_PLACEHOLDER")
-
-            rootProject.name = "fixture"
-        """.trimIndent()
-
-        val BUILD_CACHE_TEMPLATE = """
-            buildCache {
-                local {
-                    directory = file("$BUILD_CACHE_PLACEHOLDER")
-                }
-            }
-        """.trimIndent()
 
         val BUILD_SCRIPT_TEMPLATE = """
             @file:OptIn(org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi::class)
