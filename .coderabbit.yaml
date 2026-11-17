@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "Plain, simple English. Short sentences, everyday words."
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  in_progress_fortune: false
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: false
+  suggested_labels: false
+  suggested_reviewers: false
+  enable_prompt_for_ai_agents: true
+
+  path_filters:
+    - "!**/gradlew"
+    - "!**/gradlew.bat"
+    - "!**/gradle/wrapper/**"
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!**/.kotlin/**"
+    - "!**/.idea/**"
+    - "!**/*.iml"
+    - "!**/local.properties"
+    - "!.claude/**"
+    - "!.agents/**"
+    - "!.codex/**"
+    - "!.opencode/**"
+    - "!.specify/**"
+    - "!LICENSE"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+    - "!**/*.ico"
+
+  path_instructions:
+    - path: "**/*.kt"
+      instructions: |
+        Review against .ai/guidelines.md and .ai/rules/code-style.md and architecture.md.
+        - Flag any `!!`, wildcard import, fully qualified name used in code instead of an import, and magic number.
+        - Prefer named arguments.
+        - Flag any new `@Suppress`. The owner must approve each one, and suppressing a compiler error is never acceptable.
+        - Code explains itself. Comments are allowed only for API docs, truly complex logic, formulas and attributions. Treat a comment that explains how code works as a finding, and suggest a refactor instead.
+        - A string that holds code (Kotlin, a Gradle script, JSON, XML) needs a language comment, such as `// language=kotlin`, on the line right before its declaration.
+        - Packages are split by role. Flag a package that collects unrelated roles or grows so crowded it hides the structure.
+        - `core`, `consumer` and `producer` never depend on `catalog-model`, and `consumer` and `producer` never depend on each other.
+    - path: "**/src/*[Tt]est*/**/*.kt"
+      instructions: |
+        Review against .ai/rules/testing.md.
+        - Test names follow `given ..., when ..., then ...`, and bodies have Arrange, Act and Assert sections.
+        - Rule 10: a test checks behaviour and never pins code. Flag a test that takes its expected value from the code under test, such as an enum or constant read back through the code (`entries` round trips), or a source constant standing in for a number from the spec. Spec numbers belong in a test-owned named constant.
+        - Flag a test that cannot fail when the behaviour it names breaks.
+        - Prefer hand-written fakes to mocking libraries.
+    - path: "compiler-plugin/**"
+      instructions: |
+        This is a Kotlin K2 compiler plugin (FIR and IR). Check that diagnostics belong to this plugin, never to a reused Kotlin diagnostic that users could suppress. Check that the plugin never uses the network and never parses catalog JSON; it reads only the catalog index.
+    - path: "**/*.gradle.kts"
+      instructions: |
+        Build scripts are Kotlin only. Versions come from gradle/libs.versions.toml, never hardcoded. Check that the configuration cache stays usable.
+    - path: ".github/**"
+      instructions: |
+        Every third-party Action is pinned to a full commit SHA with its version in a comment. Jobs use least privilege (`permissions: contents: read` unless more is needed) and `persist-credentials: false` on checkout.
+    - path: "**/*.md"
+      instructions: |
+        Review against .ai/rules/documentation.md. Plain, simple English with short sentences. Flag links that point to files that do not exist.
+    - path: "specs/**"
+      instructions: |
+        These are Spec Kit documents (spec, plan, research, tasks). Check that tasks, plan and research agree with the functional requirements in spec.md, and flag any contradiction between them.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+
+  finishing_touches:
+    unit_tests:
+      enabled: false
+
+  tools:
+    detekt:
+      enabled: false
+    languagetool:
+      enabled: false
+    markdownlint:
+      enabled: false
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    gitleaks:
+      enabled: true
+    shellcheck:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - ".ai/guidelines.md"
+      - ".ai/rules/*.md"
