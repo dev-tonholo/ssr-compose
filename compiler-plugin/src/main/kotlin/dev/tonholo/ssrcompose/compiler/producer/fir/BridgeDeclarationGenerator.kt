@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 internal class BridgeDeclarationGenerator(
     session: FirSession,
     private val catalog: BridgeCatalog,
+    private val unplaceableBridgeMarker: UnplaceableBridgeMarker = UnplaceableBridgeMarker(),
 ) : FirDeclarationGenerationExtension(session) {
     private val componentsById: Map<CallableId, ThrowawayComponent> =
         catalog.index.components.associateBy { CallableId(catalog.bridgePackage, Name.identifier(it.name)) }
@@ -55,6 +56,7 @@ internal class BridgeDeclarationGenerator(
             }
         }
         function.replaceAnnotations(listOf(composableAnnotation()))
+        unplaceableBridgeMarker.mark(function = function, component = component)
         return listOf(function.symbol)
     }
 
