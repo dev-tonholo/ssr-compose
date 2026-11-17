@@ -11,7 +11,8 @@ import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 /**
  * Sets up a Kotlin Multiplatform library with an Android target: the Kotlin Multiplatform and Android Kotlin
  * Multiplatform library plugins, the testing and detekt conventions, the JVM target for every JVM target, and the
- * Android namespace, SDK versions and host tests. A module adds the targets it needs, such as `jvm()`.
+ * Android namespace, SDK versions and host tests, which return default values for Android stubs.
+ * A module adds the targets it needs, such as `jvm()`.
  *
  * Suppressed unused: Gradle creates this plugin from the declaration in `build-logic/build.gradle.kts`.
  */
@@ -34,7 +35,7 @@ internal abstract class KmpLibraryConventionPlugin : Plugin<Project> {
                 compileSdk = libs.compileSdk
                 minSdk = libs.minSdk
                 compilerOptions.jvmTarget.set(libs.jvmTarget)
-                withHostTest {}
+                withHostTest { isReturnDefaultValues = true }
             }
         }
     }
