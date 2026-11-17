@@ -3,8 +3,10 @@ package dev.tonholo.ssrcompose.compiler
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginBuildConfig
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
 import dev.tonholo.ssrcompose.compiler.consumer.ConsumerFirRegistrar
+import dev.tonholo.ssrcompose.compiler.consumer.renderer.ir.RendererIrGenerationExtension
 import dev.tonholo.ssrcompose.compiler.producer.registerBridgeExtensions
 import dev.tonholo.ssrcompose.compiler.producer.registerUnplaceableBridgeCheck
+import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.report
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
@@ -27,7 +29,9 @@ internal class SsrCompilerPluginRegistrar : CompilerPluginRegistrar() {
         )
         if (options.mode == CompilerPluginMode.Producer) registerBridgeExtensions(options.catalogs)
         if (options.mode == CompilerPluginMode.Check) registerUnplaceableBridgeCheck()
-        ConsumerFirRegistrar.from(options = options, messages = configuration.messageCollector)
-            ?.let { FirExtensionRegistrarAdapter.registerExtension(it) }
+        ConsumerFirRegistrar.from(options = options, messages = configuration.messageCollector)?.let { registrar ->
+            FirExtensionRegistrarAdapter.registerExtension(registrar)
+            IrGenerationExtension.registerExtension(RendererIrGenerationExtension())
+        }
     }
 }
