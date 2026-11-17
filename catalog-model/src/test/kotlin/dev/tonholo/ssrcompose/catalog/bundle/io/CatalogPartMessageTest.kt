@@ -12,6 +12,7 @@ class CatalogPartMessageTest {
     fun `given a very long unknown key, when the file is refused, then the message is short`() {
         // Arrange
         val key = "k".repeat(n = VERY_LONG)
+        // language=json
         val text = """{"format":1,"part":"app","choices":[],"components":[],"$key":1}"""
 
         // Act
@@ -26,6 +27,7 @@ class CatalogPartMessageTest {
         // Arrange
         val prefix = "a".repeat(n = PREFIX_LENGTH)
         val name = prefix + "Z".repeat(n = VERY_LONG - PREFIX_LENGTH)
+        // language=json
         val text = """{"format":1,"part":"app","choices":[],"components":[{"name":"$name","parameters":[]}]}"""
 
         // Act
@@ -38,6 +40,7 @@ class CatalogPartMessageTest {
     @Test
     fun `given a missing field, when the file is refused, then the message names it`() {
         // Arrange
+        // language=json
         val text = """{"format":1,"part":"app","components":[]}"""
 
         // Act
@@ -51,6 +54,7 @@ class CatalogPartMessageTest {
     @Test
     fun `given a value of the wrong type, when the file is refused, then the message holds the path to it`() {
         // Arrange
+        // language=json
         val text = """{"format":1,"part":5,"choices":[],"components":[]}"""
 
         // Act

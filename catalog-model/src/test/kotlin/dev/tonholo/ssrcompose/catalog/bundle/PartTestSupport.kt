@@ -24,7 +24,9 @@ internal fun readPart(text: String, sizeCap: SizeCap = SizeCap.DEFAULT): Catalog
     CatalogPartReader.read(bytes = text.encodeToByteArray(), sizeCap = sizeCap, subject = APP_PART_SUBJECT)
 
 internal fun partText(parameter: String): String =
+    // language=json
     """{"format":1,"part":"app","choices":[{"name":"A","entries":["b"]}],""" +
+        // language=json
         """"components":[{"name":"Card","parameters":[$parameter]}]}"""
 
 internal fun partWith(

@@ -15,9 +15,13 @@ class CatalogPartWorstShapeMemoryTest {
     fun `given a part of 16 MiB of tiny choice entries, when it is read, then it is refused without running out`() {
         // Arrange
         val part = fileAtCap(
+            // language=json
             head = """{"format":1,"part":"app","choices":[{"name":"$NON_LATIN_1","entries":[""",
+            // language=json
             element = """"a",""",
+            // language=json
             last = """"a"""",
+            // language=json
             tail = """]}],"components":[]}""",
         )
         val entry = PartEntry(name = PartName(value = "app"), fingerprint = Fingerprint.of(bytes = part))

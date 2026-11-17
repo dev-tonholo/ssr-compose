@@ -30,6 +30,7 @@ internal object KmpAndroidSources {
     val EDITED_FREE_BANNER: String =
         markedComposable(declaration = "fun FreeBanner(text: String, caption: String = \"\")")
 
+    // language=kotlin
     private fun markedComposable(declaration: String, body: Boolean = true): String = """
         package fixture.kmp
 

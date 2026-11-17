@@ -25,6 +25,7 @@ internal object FixtureSettings {
         return listOfNotNull(settings, cacheBlock).joinToString(separator = "\n")
     }
 
+    // language=kotlin
     private val SETTINGS_TEMPLATE = """
         pluginManagement {
             repositories {
@@ -51,6 +52,7 @@ internal object FixtureSettings {
         rootProject.name = "fixture"
     """.trimIndent()
 
+    // language=kotlin
     private val BUILD_CACHE_TEMPLATE = """
         buildCache {
             local {

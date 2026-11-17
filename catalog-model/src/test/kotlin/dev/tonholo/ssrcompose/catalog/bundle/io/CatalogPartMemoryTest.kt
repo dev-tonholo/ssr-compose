@@ -11,6 +11,7 @@ class CatalogPartMemoryTest {
     @Test
     fun `given a parameter padded with a huge unknown field, when the file is read, then it is refused`() {
         // Arrange
+        // language=json
         val parameter = """{"name":"title","kind":"text","required":true,"padding":$HUGE_ARRAY}"""
 
         // Act
@@ -23,6 +24,7 @@ class CatalogPartMemoryTest {
     @Test
     fun `given a huge array as the format, when the file is read, then it is refused`() {
         // Arrange
+        // language=json
         val text = """{"format":$HUGE_ARRAY,"part":"app","choices":[],"components":[]}"""
 
         // Act
@@ -35,6 +37,7 @@ class CatalogPartMemoryTest {
     @Test
     fun `given a huge array as a flag, when the file is read, then it is refused`() {
         // Arrange
+        // language=json
         val parameter = """{"name":"title","kind":"text","required":$HUGE_ARRAY}"""
 
         // Act
