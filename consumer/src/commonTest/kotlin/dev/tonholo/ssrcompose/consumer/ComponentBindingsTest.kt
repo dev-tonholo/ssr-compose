@@ -20,6 +20,11 @@ private const val DECIMAL_KIND = "decimal"
 private const val TEXT_KIND = "text"
 private const val WHOLE_VALUE = 9_000_000_000L
 private const val DECIMAL_VALUE = 2.5
+private const val CHOICE_KIND = "choice"
+private const val LIST_KIND = "list"
+private const val UNKNOWN_ENTRY = "Huge"
+
+private enum class Style { Body, Title }
 
 private class ValueRead(
     val expectedKind: String,
@@ -57,6 +62,20 @@ private val valueReads = listOf(
         foundKind = TEXT_KIND,
         strict = { flag(name = PARAMETER) },
         orNull = { flagOrNull(name = PARAMETER) },
+    ),
+    ValueRead(
+        expectedKind = CHOICE_KIND,
+        wrongValue = DataValue.Text(value = TEXT_VALUE),
+        foundKind = TEXT_KIND,
+        strict = { choice<Style>(name = PARAMETER) },
+        orNull = { choiceOrNull<Style>(name = PARAMETER) },
+    ),
+    ValueRead(
+        expectedKind = LIST_KIND,
+        wrongValue = DataValue.Text(value = TEXT_VALUE),
+        foundKind = TEXT_KIND,
+        strict = { list(name = PARAMETER) },
+        orNull = { listOrNull(name = PARAMETER) },
     ),
 )
 
@@ -177,6 +196,70 @@ class ComponentBindingsTest {
             assertEquals(expected = flag, actual = strict.getOrThrow())
             assertEquals(expected = flag, actual = orNull.getOrThrow())
         }
+    }
+
+    @Test
+    fun `given a choice entry of an enum, when it is read as that enum, then the entry is returned`() {
+        listOf("Body" to Style.Body, "Title" to Style.Title).forEach { (entry, expected) ->
+            // Arrange
+            val placed = greetingWith(value = DataValue.Choice(entry = entry))
+
+            // Act
+            val strict = readFrom(placed = placed) { choice<Style>(name = PARAMETER) }
+            val orNull = readFrom(placed = placed) { choiceOrNull<Style>(name = PARAMETER) }
+
+            // Assert
+            assertEquals(expected = expected, actual = strict.getOrThrow())
+            assertEquals(expected = expected, actual = orNull.getOrThrow())
+        }
+    }
+
+    @Test
+    fun `given a choice entry the enum does not have, when it is read, then both reads name the entry and the enum`() {
+        // Arrange
+        val placed = greetingWith(value = DataValue.Choice(entry = UNKNOWN_ENTRY))
+
+        // Act
+        val strict = readFrom(placed = placed) { choice<Style>(name = PARAMETER) }
+        val orNull = readFrom(placed = placed) { choiceOrNull<Style>(name = PARAMETER) }
+
+        // Assert
+        listOf(strict, orNull).forEach { result ->
+            val message = assertIs<PlacedValueException>(result.exceptionOrNull()).message.orEmpty()
+            assertTrue(
+                actual = listOf(GREETING, PARAMETER, UNKNOWN_ENTRY, "Style").all { it in message },
+                message = message,
+            )
+        }
+    }
+
+    @Test
+    fun `given a list value, when it is read as a list, then its items are returned in order`() {
+        // Arrange
+        val items = listOf(DataValue.Text(value = TEXT_VALUE), DataValue.WholeNumber(value = WHOLE_VALUE))
+        val placed = greetingWith(value = DataValue.ListValue(items = items))
+
+        // Act
+        val strict = readFrom(placed = placed) { list(name = PARAMETER) }
+        val orNull = readFrom(placed = placed) { listOrNull(name = PARAMETER) }
+
+        // Assert
+        assertEquals(expected = items, actual = strict.getOrThrow())
+        assertEquals(expected = items, actual = orNull.getOrThrow())
+    }
+
+    @Test
+    fun `given an empty list value, when it is read as a list, then an empty list is returned`() {
+        // Arrange
+        val placed = greetingWith(value = DataValue.ListValue(items = emptyList()))
+
+        // Act
+        val strict = readFrom(placed = placed) { list(name = PARAMETER) }
+        val orNull = readFrom(placed = placed) { listOrNull(name = PARAMETER) }
+
+        // Assert
+        assertEquals(expected = emptyList(), actual = strict.getOrThrow())
+        assertEquals(expected = emptyList(), actual = orNull.getOrThrow())
     }
 
     @Test
