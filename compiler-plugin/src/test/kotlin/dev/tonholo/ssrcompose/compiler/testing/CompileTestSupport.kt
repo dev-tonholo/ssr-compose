@@ -29,11 +29,25 @@ internal class CompileTestSupport(
         options: List<Pair<String, String>> = emptyList(),
         classpath: List<File> = emptyList(),
     ): JvmCompilationResult =
+        compileSource(
+            fileName = "$fileName$FIXTURE_SUFFIX",
+            source = readFixture(fixtureName),
+            options = options,
+            classpath = classpath,
+        )
+
+    /**
+     * Compiles inline [source] under [fileName].
+     */
+    fun compileSource(
+        fileName: String,
+        source: String,
+        options: List<Pair<String, String>> = emptyList(),
+        classpath: List<File> = emptyList(),
+    ): JvmCompilationResult =
         KotlinCompilation().apply {
             classpaths = classpath
-            sources = listOf(
-                SourceFile.kotlin(name = "$fileName$FIXTURE_SUFFIX", contents = readFixture(fixtureName)),
-            )
+            sources = listOf(SourceFile.kotlin(name = fileName, contents = source))
             compilerPluginRegistrars = registrars
             commandLineProcessors = if (runsSsrPlugin) listOf(SsrCommandLineProcessor()) else emptyList()
             pluginOptions = options.map { (name, value) ->
