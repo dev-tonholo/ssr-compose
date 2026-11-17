@@ -100,6 +100,7 @@ internal class FixtureProject(
         const val DEPENDENCY_TAG = "DEPENDENCY"
         const val IMPLEMENTATION_TAG = "IMPLEMENTATION"
 
+        // language=kotlin
         val BUILD_SCRIPT_TEMPLATE = """
             @file:OptIn(org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi::class)
 
