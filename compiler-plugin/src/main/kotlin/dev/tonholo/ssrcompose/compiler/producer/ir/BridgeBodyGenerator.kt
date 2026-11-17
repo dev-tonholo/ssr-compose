@@ -13,7 +13,9 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.builders.irBlockBody
 import org.jetbrains.kotlin.ir.builders.irCall
+import org.jetbrains.kotlin.ir.builders.irExprBody
 import org.jetbrains.kotlin.ir.builders.irGet
+import org.jetbrains.kotlin.ir.builders.irNull
 import org.jetbrains.kotlin.ir.builders.irString
 import org.jetbrains.kotlin.ir.builders.irVararg
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
@@ -46,11 +48,20 @@ internal class BridgeBodyGenerator(
         val catalog = key?.let(catalogsByKey::get)
         if (key != null && catalog != null && declaration.body == null) {
             val component = catalog.componentsByName.getValue(declaration.name.asString())
+            declaration.defaultOptionalParametersToNull(component = component)
             declaration.body = DeclarationIrBuilder(context, declaration.symbol).irBlockBody {
                 +consumerComponentCall(function = declaration, component = component, key = key)
             }
         }
         return super.visitSimpleFunction(declaration)
+    }
+
+    private fun IrSimpleFunction.defaultOptionalParametersToNull(component: ThrowawayComponent) {
+        val builder = DeclarationIrBuilder(context, symbol)
+        val optionalNames = component.parameters.filterNot { it.isRequired }.map { it.name }.toSet()
+        parameters.filter { it.name.asString() in optionalNames }.forEach { parameter ->
+            parameter.defaultValue = builder.irExprBody(builder.irNull())
+        }
     }
 
     private fun IrBuilderWithScope.consumerComponentCall(
