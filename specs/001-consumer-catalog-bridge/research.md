@@ -126,6 +126,17 @@ Found by the experiment and left for later tasks:
 
 Not checked: one module collecting the parts of the modules it depends on (T105 settles it); the build cache and the configuration cache for the part and bundle steps (T114 settles them); and the state of fragments after a failed incremental build.
 
+Checked by experiment (T028, `SlotAnnotationTest`), for reading slot type annotations in the consumer checker:
+
+- `SlotParameterMapper` detects `@Composable () -> Unit` parameters using `FirValueParameter.returnTypeRef.coneType`, checking `isSomeFunctionType(session)`, a single `Unit` type argument, and `Composable` in the type's annotation class IDs.
+- Annotation class IDs are read by walking the typealias chain in a loop: starting from the slot's `coneType`, each step reads `customAnnotations` (via `toAnnotationClassId(session)`), then follows `attributes.abbreviatedType` to its `FirTypeAliasSymbol`, reads `resolvedAnnotationsWithClassIds`, and continues with `resolvedExpandedTypeRef.coneType` until no typealias remains.
+- Direct slot types with `@ConsumerComposable`, `@ProducerComposable`, or neither produced `consumer`, `producer`, and `any` in the written fragment's `accepts` field.
+- Typealias slot types worked for all three placements (annotation on the typealias right-hand side, annotation on the `typealias` declaration itself, and annotation at the parameter use site) and across nested typealias chains, including conflicts split across chain levels.
+- A slot type carrying both `@ConsumerComposable` and `@ProducerComposable` fails compilation with `ConflictingSlotAnnotations`, naming the composable and the slot and stating that a slot accepts consumer composables, producer composables or either, not both. This is the owner's decision because each annotation means only that side.
+- Nullable slot types (`(@Composable () -> Unit)?`) are rejected by `isSlot` and fail the build with `UnsupportedParameter` until T075.
+- Marked composables or parameters whose name is not a plain Kotlin identifier of at most 64 characters (such as backtick-escaped names) fail compilation with `UnsupportedName` before any model descriptor is constructed, instead of throwing from the catalog model.
+- Not checked: slots with parameters (`@Composable (A) -> Unit`), and reporting slot diagnostics (`UnsupportedParameter`, `ConflictingSlotAnnotations`) at the slot parameter's exact source location (left for T075).
+
 Alternatives considered: the compiler writes the whole catalog. Turned down by the experiment. One catalog file for the whole app, merged in one step: turned down by the owner, because one change in any module would produce the whole file again and no module's result could be cached on its own.
 
 ## R5. Build-tool plugins on top of the compiler plugin

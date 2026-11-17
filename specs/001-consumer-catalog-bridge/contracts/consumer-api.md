@@ -21,8 +21,9 @@ fun PaymentSection(
 ```
 
 - `@ConsumerComposable` on a function puts it in the consumer catalog. Only a top-level composable function with no type parameters can be marked. A member, an extension or a generic one fails the build at that function.
-- `@ConsumerComposable` or `@ProducerComposable` on a slot's type says what the slot accepts. With neither, it accepts either. This is recorded in the catalog and not checked in this feature.
+- `@ConsumerComposable` or `@ProducerComposable` on a slot's type says what the slot accepts. With neither, it accepts either. Having both on the same slot type fails the build. What a slot accepts is recorded in the catalog and not checked in this feature.
 - A parameter must be a kind the catalog can describe, or the build fails at that parameter. See [catalog-bundle.md](catalog-bundle.md).
+- The marked composable and its parameters must have names that are plain Kotlin identifiers of at most 64 characters, or the build fails.
 - A modifier parameter is left out of the catalog and gets its default.
 
 The annotations live in `core`, so common code can use them. The Gradle plugin adds `core` to the compile classpath of each compilation by itself, at the plugin's own version, so a module that applies `alias(libs.plugins.ssrcompose)` needs nothing else to mark composables.
