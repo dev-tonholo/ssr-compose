@@ -12,6 +12,9 @@ internal object ProducerTestOptions {
             bridgePackage = bridgePackage,
         )
 
+    fun checkOptions(): List<Pair<String, String>> =
+        listOf(CompilerPluginOptions.MODE to CompilerPluginMode.Check.optionValue)
+
     fun producerOptions(vararg catalogs: CatalogOptionValue): List<Pair<String, String>> =
         listOf(CompilerPluginOptions.MODE to CompilerPluginMode.Producer.optionValue) +
             catalogs.map { CompilerPluginOptions.CATALOG to it.encode() }

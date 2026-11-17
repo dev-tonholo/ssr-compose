@@ -4,6 +4,7 @@ import dev.tonholo.ssrcompose.catalog.options.CompilerPluginBuildConfig
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
 import dev.tonholo.ssrcompose.compiler.consumer.ConsumerFirRegistrar
 import dev.tonholo.ssrcompose.compiler.producer.registerBridgeExtensions
+import dev.tonholo.ssrcompose.compiler.producer.registerUnplaceableBridgeCheck
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.report
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
@@ -25,6 +26,7 @@ internal class SsrCompilerPluginRegistrar : CompilerPluginRegistrar() {
             message = "SSR Compose compiler plugin received $options",
         )
         if (options.mode == CompilerPluginMode.Producer) registerBridgeExtensions(options.catalogs)
+        if (options.mode == CompilerPluginMode.Check) registerUnplaceableBridgeCheck()
         ConsumerFirRegistrar.from(options = options, messages = configuration.messageCollector)
             ?.let { FirExtensionRegistrarAdapter.registerExtension(it) }
     }
