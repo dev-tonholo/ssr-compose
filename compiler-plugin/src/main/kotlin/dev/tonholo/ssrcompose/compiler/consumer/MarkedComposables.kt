@@ -2,34 +2,30 @@ package dev.tonholo.ssrcompose.compiler.consumer
 
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
-import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+import dev.tonholo.ssrcompose.compiler.SsrNames
+import dev.tonholo.ssrcompose.compiler.consumer.slot.SlotParameterMapper
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.DirectDeclarationsAccess
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
 
 private const val PATH_SEPARATOR = "/"
 
-private val CONSUMER_COMPOSABLE: ClassId =
-    ClassId.topLevel(topLevelFqName = FqName(ConsumerComposable::class.java.name))
-
 /**
- * What one source file holds: its [source], the [components] of its marked composables, and the [unsupported]
- * parameters of those composables.
+ * What one source file holds: its [source], the [components] of its marked composables, and the [parameterErrors]
+ * of those composables.
  */
 internal class ScannedFile(
     val source: String,
     val components: List<ComponentDescriptor>,
-    val unsupported: List<UnsupportedParameter>,
+    val parameterErrors: List<ConsumerError>,
 ) {
     private val hasValidSource: Boolean = CatalogFragment.isValidSource(source = source)
 
     val errors: List<ConsumerError>
         get() = when {
-            unsupported.isNotEmpty() -> unsupported
+            parameterErrors.isNotEmpty() -> parameterErrors
             components.isNotEmpty() && !hasValidSource -> listOf(UnsupportedSource(source = source))
             else -> emptyList()
         }
@@ -54,24 +50,36 @@ internal class MarkedComposables(private val session: FirSession) {
         return ScannedFile(
             source = file.sourcePath(),
             components = marked.map(::describe),
-            unsupported = marked.flatMap(::unsupportedParametersOf),
+            parameterErrors = marked.flatMap(::parameterErrorsOf),
         )
     }
 
     private fun isMarked(function: FirNamedFunction): Boolean =
-        function.hasAnnotation(classId = CONSUMER_COMPOSABLE, session = session) && !function.status.isExpect
+        function.hasAnnotation(classId = SsrNames.consumerComposable, session = session) && !function.status.isExpect
 
     private fun describe(function: FirNamedFunction): ComponentDescriptor =
         ComponentDescriptor(
             name = function.name.asString(),
             parameters = function.valueParameters
-                .filter(ParameterKindMapper::isSupported)
-                .map(ParameterKindMapper::toParameter),
+                .filter { parameter -> ParameterKindMapper.isSupported(parameter = parameter, session = session) }
+                .map { parameter -> ParameterKindMapper.toParameter(parameter = parameter, session = session) },
         )
 
-    private fun unsupportedParametersOf(function: FirNamedFunction): List<UnsupportedParameter> =
-        function.valueParameters.filterNot(ParameterKindMapper::isSupported).map { parameter ->
-            UnsupportedParameter(composable = function.name.asString(), parameter = parameter.name.asString())
+    private fun parameterErrorsOf(function: FirNamedFunction): List<ConsumerError> =
+        function.valueParameters.mapNotNull { parameter ->
+            when {
+                SlotParameterMapper.hasConflictingAnnotations(parameter = parameter, session = session) ->
+                    ConflictingSlotAnnotations(
+                        composable = function.name.asString(),
+                        parameter = parameter.name.asString(),
+                    )
+                !ParameterKindMapper.isSupported(parameter = parameter, session = session) ->
+                    UnsupportedParameter(
+                        composable = function.name.asString(),
+                        parameter = parameter.name.asString(),
+                    )
+                else -> null
+            }
         }
 }
 
