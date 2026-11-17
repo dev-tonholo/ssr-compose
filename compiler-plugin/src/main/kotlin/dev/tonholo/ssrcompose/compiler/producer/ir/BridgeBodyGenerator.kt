@@ -5,6 +5,7 @@ package dev.tonholo.ssrcompose.compiler.producer.ir
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
 import dev.tonholo.ssrcompose.compiler.producer.BridgeKey
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
+import dev.tonholo.ssrcompose.compiler.producer.UnplaceableComponent
 import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayComponent
 import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayParameterKind
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -42,6 +43,7 @@ internal class BridgeBodyGenerator(
         }
     }
     private val arrayOf: IrSimpleFunctionSymbol by lazy { finder.findFunctions(ProducerNames.arrayOf).single() }
+    private val error: IrSimpleFunctionSymbol by lazy { finder.findFunctions(ProducerNames.error).single() }
 
     override fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement {
         val key = (declaration.origin as? IrDeclarationOrigin.GeneratedByPlugin)?.pluginKey as? BridgeKey
@@ -49,8 +51,13 @@ internal class BridgeBodyGenerator(
         if (key != null && catalog != null && declaration.body == null) {
             val component = catalog.componentsByName.getValue(declaration.name.asString())
             declaration.defaultOptionalParametersToNull(component = component)
+            val unplaceableMessage = UnplaceableComponent.messageOf(component)
             declaration.body = DeclarationIrBuilder(context, declaration.symbol).irBlockBody {
-                +consumerComponentCall(function = declaration, component = component, key = key)
+                +if (unplaceableMessage == null) {
+                    consumerComponentCall(function = declaration, component = component, key = key)
+                } else {
+                    errorCall(message = unplaceableMessage)
+                }
             }
         }
         return super.visitSimpleFunction(declaration)
@@ -98,6 +105,9 @@ internal class BridgeBodyGenerator(
             )
         }
     }
+
+    private fun IrBuilderWithScope.errorCall(message: String): IrExpression =
+        irCall(error).apply { arguments[0] = irString(message) }
 
     private fun IrBuilderWithScope.argumentsArray(
         calleeParameter: IrValueParameter,
