@@ -2,15 +2,29 @@
 
 Server-side rendering for Jetpack Compose.
 
+> [!NOTE]
+> This project is experimental and in early development. Nothing is published to Maven yet, and there is no stable API to depend on. So far the core protocol, the catalog bundle format and the consumer bindings are built and tested, and the compiler plugin and build tooling are proven only by small experiments. The first feature is the consumer catalog and bridge, which lets a server screen place an app's own composables. It is not finished, so do not use this in an app yet. APIs will change without notice.
+
 A server runs your composable logic: state, effects, lambdas, conditions and loops. The app shows the result. It renders the components it already has natively, and plays the parts it does not have from a document the server sends.
 
 This is server-side rendering, not server-driven rendering. The server is not limited to arranging components the app already ships.
 
 ## Status
 
-The library is being designed. Nothing is released yet, and there is no API to depend on.
+The library is in early development. Nothing is released yet, and there is no API to depend on.
 
 The idea was proven first in a proof of concept, kept in [poc](poc) as a reference. Its [README](poc/README.md) explains what was proven, the limits found, and how to run it.
+
+The root Gradle build now holds the library modules, and the first feature is being built there. It is the consumer catalog and bridge. The [spec](specs/001-consumer-catalog-bridge/spec.md), the [plan](specs/001-consumer-catalog-bridge/plan.md) and the [task list](specs/001-consumer-catalog-bridge/tasks.md) show what is planned and what is done.
+
+What exists today:
+
+- The core protocol: the handshake, the messages, the connection and an in-memory connection for tests.
+- The catalog bundle: the model, its checks, and the reader and writer for the manifest and its parts.
+- Experiments for the compiler plugin and the build tooling, with their results written in the [research notes](specs/001-consumer-catalog-bridge/research.md).
+- The consumer bindings, which read the values a producer sends for a placed app composable.
+
+What does not exist yet: a producer that serves screens, the consumer session and screen, and the Gradle tasks that tie the catalog to a build. No screen runs end to end with the new libraries. The only end-to-end demo is the proof of concept.
 
 ## What is being built
 
