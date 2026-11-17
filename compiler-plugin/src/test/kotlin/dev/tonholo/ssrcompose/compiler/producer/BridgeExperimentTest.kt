@@ -2,12 +2,10 @@ package dev.tonholo.ssrcompose.compiler.producer
 
 import androidx.compose.compiler.plugins.kotlin.ComposePluginRegistrar
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
-import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
-import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
-import dev.tonholo.ssrcompose.catalog.options.CompilerPluginOptions
 import dev.tonholo.ssrcompose.compiler.SsrCompilerPluginRegistrar
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
-import dev.tonholo.ssrcompose.compiler.testing.ThrowawayIndexFiles
+import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
+import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -111,17 +109,6 @@ class BridgeExperimentTest {
         assertNotEquals(illegal = ExitCode.OK, actual = result.exitCode, message = result.messages)
         assertTrue(actual = result.messages.contains(ORDER_GUARD_MESSAGE), message = result.messages)
     }
-
-    private fun catalog(indexName: String, version: String, bridgePackage: String): CatalogOptionValue =
-        CatalogOptionValue(
-            version = version,
-            indexPath = ThrowawayIndexFiles.path(indexName = indexName),
-            bridgePackage = bridgePackage,
-        )
-
-    private fun producerOptions(vararg catalogs: CatalogOptionValue): List<Pair<String, String>> =
-        listOf(CompilerPluginOptions.MODE to CompilerPluginMode.Producer.optionValue) +
-            catalogs.map { CompilerPluginOptions.CATALOG to it.encode() }
 
     private companion object {
         const val FIRST_INDEX = "first-catalog.throwaway-index"
