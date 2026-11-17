@@ -26,8 +26,8 @@ private fun ChoiceList.toFile(): ChoiceListFile = ChoiceListFile(name = name, en
 
 private fun ChoiceListFile.toModel(): ChoiceList = ChoiceList(name = name, entries = entries)
 
-private fun ComponentDescriptor.toFile(): ComponentFile =
+internal fun ComponentDescriptor.toFile(): ComponentFile =
     ComponentFile(name = name, parameters = parameters.map { it.toFile() })
 
-private fun ComponentFile.toModel(): ComponentDescriptor =
+internal fun ComponentFile.toModel(): ComponentDescriptor =
     ComponentDescriptor(name = name, parameters = parameters.map { it.toModel() })
