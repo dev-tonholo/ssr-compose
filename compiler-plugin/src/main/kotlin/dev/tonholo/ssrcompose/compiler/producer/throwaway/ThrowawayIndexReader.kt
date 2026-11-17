@@ -4,8 +4,8 @@ import java.io.File
 
 /**
  * Reads the throwaway index format: a `component <Name>` line, then one `param <name> <kind> <required|optional>`
- * line for each of its parameters. Lines that start with `#` and blank lines are ignored. An `action-of-text`
- * parameter cannot be optional.
+ * line for each of its parameters. Lines that start with `#` and blank lines are ignored. An `action-of-text` or
+ * `slot-of-text` parameter cannot be optional.
  */
 internal object ThrowawayIndexReader {
     private const val COMMENT_PREFIX = "#"
@@ -56,8 +56,8 @@ internal object ThrowawayIndexReader {
             OPTIONAL_WORD -> false
             else -> throw IllegalArgumentException("Expected required or optional: $line")
         }
-        require(isRequired || kind != ThrowawayParameterKind.ActionOfText) {
-            "The action-of-text parameter '$name' cannot be optional yet: $line"
+        require(isRequired || kind.canBeOptional) {
+            "The ${kind.word} parameter '$name' cannot be optional yet: $line"
         }
         return ThrowawayParameter(name = name, kind = kind, isRequired = isRequired)
     }

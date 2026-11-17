@@ -14,8 +14,9 @@ internal data class ThrowawayParameter(
     val isRequired: Boolean,
 )
 
-internal enum class ThrowawayParameterKind(val word: String) {
-    Text(word = "text"),
-    ActionOfText(word = "action-of-text"),
-    Slot(word = "slot"),
+internal enum class ThrowawayParameterKind(val word: String, val canBeOptional: Boolean) {
+    Text(word = "text", canBeOptional = true),
+    ActionOfText(word = "action-of-text", canBeOptional = false),
+    Slot(word = "slot", canBeOptional = true),
+    SlotOfText(word = "slot-of-text", canBeOptional = false),
 }
