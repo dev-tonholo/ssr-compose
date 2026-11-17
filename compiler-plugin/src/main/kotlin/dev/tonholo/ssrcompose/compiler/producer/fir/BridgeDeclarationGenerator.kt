@@ -2,6 +2,7 @@
 
 package dev.tonholo.ssrcompose.compiler.producer.fir
 
+import dev.tonholo.ssrcompose.compiler.SsrNames
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
 import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayComponent
@@ -88,7 +89,7 @@ internal class BridgeDeclarationGenerator(
         ConeAttributes.create(listOf(CustomAnnotationTypeAttribute(listOf(composableAnnotation()))))
 
     private fun composableAnnotation() = buildAnnotation {
-        annotationTypeRef = buildResolvedTypeRef { coneType = ProducerNames.composable.constructClassLikeType() }
+        annotationTypeRef = buildResolvedTypeRef { coneType = SsrNames.composable.constructClassLikeType() }
         argumentMapping = FirEmptyAnnotationArgumentMapping
     }
 }

@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.fir.declarations.FirFile
 
 /**
  * Writes the fragment of every source file the compiler checks, and fails the compilation for a marked composable
- * with a parameter that is not text, or in a file whose name cannot name a fragment.
+ * with a parameter that is not text or a composable slot, or in a file whose name cannot name a fragment.
  */
 internal class ConsumerComposableChecker(
     private val writer: FragmentWriter,

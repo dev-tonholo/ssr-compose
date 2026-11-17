@@ -8,12 +8,25 @@ internal sealed interface ConsumerError {
 }
 
 /**
- * A parameter of a marked composable that is not text, which is all a fragment can describe so far.
+ * A parameter of a marked composable that is not text or a composable slot,
+ * which is all a fragment can describe so far.
  */
 internal data class UnsupportedParameter(val composable: String, val parameter: String) : ConsumerError {
     override val message: String =
-        "The parameter $parameter of the marked composable $composable is not text. " +
-            "Only text parameters are supported so far"
+        "The parameter $parameter of the marked composable $composable is not text or a composable slot. " +
+            "Only text and composable slot parameters are supported so far"
+}
+
+/**
+ * A slot parameter of a marked composable whose type has both `@ConsumerComposable` and `@ProducerComposable`.
+ */
+internal data class ConflictingSlotAnnotations(
+    val composable: String,
+    val parameter: String,
+) : ConsumerError {
+    override val message: String =
+        "The slot $parameter of the marked composable $composable has both @ConsumerComposable and " +
+            "@ProducerComposable. A slot accepts consumer composables, producer composables or either, not both"
 }
 
 /**
