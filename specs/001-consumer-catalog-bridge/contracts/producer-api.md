@@ -61,7 +61,7 @@ fun CheckoutScreen() {
 - `LocalConsumer.current` gives the session's `device`, `app` and `catalogVersion`. `device` is state: when the app reports a change, the screen recomposes and what it holds stays.
 - A slot that passes arguments cannot be filled in this feature:
   - When the slot is optional, the bridge function has no parameter for it and the app uses its own default.
-  - When the slot is required, the component cannot be placed. Its bridge function exists, and calling it is a compile error that names the component and the slot, and says that slots with arguments are not supported yet. `CameraScanner` and a `PaymentSection` whose title is a slot with arguments are in this group until remote composables exist.
+  - When the slot is required, the component cannot be placed. Its bridge function exists, and calling it or referencing it is a compile error that names the component and the slot, and says that slots with arguments are not supported yet. The function carries `@UnplaceableBridge`, an annotation of the producer library that belongs to the compiler plugin: do not write it in code. The compiler plugin reads it from the compiled bridge, so the error also appears in a module that depends on the bridge module, when the compiler plugin runs there with `mode=check`. A call that still gets past the compiler throws the same message when the function is composed. `CameraScanner` and a `PaymentSection` whose title is a slot with arguments are in this group until remote composables exist.
 
 ## Screens for several catalog versions
 
@@ -160,6 +160,6 @@ The default does nothing. The library depends on no logging library.
 
 ## What is public
 
-In `producer`: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. Everything else in `producer` is internal.
+In `producer`: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type, and the annotation `UnplaceableBridge`. The compiler plugin owns `UnplaceableBridge` and puts it on a bridge that cannot be placed; it has to be public so the plugin can read it from compiled code, and developers must not write it. Everything else in `producer` is internal.
 
 The `core` types this API uses are in the one list of public `core` types in [data-model.md](../data-model.md#what-is-public-in-core).

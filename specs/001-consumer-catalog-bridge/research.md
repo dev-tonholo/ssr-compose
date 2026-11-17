@@ -4,7 +4,7 @@ Decisions for the plan, each with its reason and what was turned down. Facts are
 
 Two experiments were run on 2026-11-15 before any design, on Kotlin 2.4.21, Compose runtime 1.12.2, Gradle 9.8.2 and JDK 25 with a JVM 17 target. Their code is in `.superpowers/spikes/k2-bridge/` and `.superpowers/spikes/k2-catalog/`, which git ignores. They are throwaway and nothing depends on them.
 
-A third experiment, T025, ran on 2026-11-16 inside the real modules. Its results are in R1, R2, R8, R8a and R9.
+A third experiment, T025, ran on 2026-11-16 inside the real modules. Its results are in R1, R2, R8, R8a and R9. A fourth, T026, ran the same day in the same modules. Its result is in R8b.
 
 The design was revised on 2026-11-15 by three owner decisions: the catalog is a bundle split per module, screens are written per catalog version, and the catalog is build time only. The experiments used a single catalog file. What they proved still holds for each part and for each bridge, and what the bundle adds is marked as not checked below.
 
@@ -471,11 +471,28 @@ Not checked: a required parameter whose type is nullable in the app, sent as an 
 
 ## R8b. Slots that pass arguments
 
-Decision: such a slot is described in the catalog and cannot be filled until remote composables exist. An optional one gets no bridge parameter. A component with a required one cannot be placed: its bridge function is created so the name resolves, and any call to it is a compile error that names the later feature.
+Decision: such a slot is described in the catalog and cannot be filled until remote composables exist. An optional one gets no bridge parameter. A component with a required one cannot be placed: its bridge function is created so the name resolves, every call and every reference to it is a compile error that names the composable and the slot and says that slots with arguments are not supported yet, and the function throws the same message if it is ever composed.
 
 Consequence for the first samples: the owner's `PaymentSection` and `CameraScanner` examples both have a required slot with arguments, so the samples of this feature use components with values, callbacks and slots without arguments.
 
-Not checked: how that compile error is produced.
+Checked by T026 on 2026-11-17, in the compile tests of `compiler-plugin/src/test/kotlin/dev/tonholo/ssrcompose/compiler/producer/UnplaceableComponentTest.kt` and the run test of `UnplaceableBridgeRunTimeTest.kt`, on Kotlin 2.4.21:
+
+- The error is reported by a FIR checker of this plugin, `fir/UnplaceableBridgeCheckers.kt`, registered with `FirAdditionalCheckersExtension`. It checks function calls and callable references, and reports `BridgeDiagnostics.UNPLACEABLE_COMPONENT`, a diagnostic of this plugin in `diagnostic/BridgeDiagnostics.kt`. The message is only the chosen text: `The composable 'PaymentSection' cannot be placed from the server: its required slot 'methodPicker' receives arguments, and slots with arguments are not supported yet.` The tests assert that an error line ends with that whole text, and a run with the message cut to the last words fails 5 of the 10 tests in `UnplaceableComponentTest` and the run time test.
+- The compiler does not use `@Deprecated` or any compiler-owned error for this, so no compiler words come before the text.
+- The bridge function carries `@UnplaceableBridge(message)`, an annotation of the producer library with binary retention, put there by `fir/UnplaceableBridgeMarker.kt`. The checker reads the message from that annotation. It reads it the same way from the function created in the same module and from the compiled bridge of another module, so the checker has no list of components of its own.
+- In the module that creates the bridge, these fail with the message: a call with a trailing lambda, a reference `::PaymentSection`, and a call with wrong arguments. The bridge name still resolves, with no unresolved reference, and a placeable component in the same catalog is not affected.
+- A module that depends on the bridge module gets the same error for a call and for a reference when the plugin runs there with `mode=check`. A call to a placeable bridge from that module compiles.
+- `mode=check` is a third value of `CompilerPluginMode`, next to `consumer` and `producer`, chosen by the owner. In it the plugin registers only the checker and creates no bridge. The command line gives it the same parsing and the same error text as the other two, and an unknown mode lists `check`. In `mode=producer`, the checker runs in every compilation, with or without a catalog, and only bridge creation needs a catalog: a caller compiled with `mode=producer` and no catalog still gets the error when calling an unplaceable bridge from another module, and a caller compiled with `mode=producer` and its own catalog gets the error for the other module's unplaceable bridge while its own bridges still resolve. The Gradle plugin never picks `check` yet: its `ssrCompose` block resolves only consumer or producer, and T047 adds the choice for modules that create no bridge.
+- A module that runs no plugin is not stopped: the same caller, compiled with only the Compose compiler against the bridge module's output, compiles. That is the limit of a compile time check.
+- The run time backstop: the body of an unplaceable bridge function is `error(message)` with the same text, made in `ir/BridgeBodyGenerator.kt`. A caller compiled without this plugin was run through a composition, and the exception it threw had that message as its root cause. The test calls the caller by reflection from a class loader over the two outputs, and it lives in `compiler-plugin` and not in `producer`, because the producer test compilation runs this plugin with a catalog, so a call there is the compile error.
+
+Limits and not checked:
+
+- `FirAdditionalCheckersExtension`, the checker base class, `getAnnotationWithResolvedArgumentsByClassId` and the diagnostic factories are public and compile without a warning, but the Kotlin documentation for FIR plugins (`docs/fir/fir-plugins.md`) only describes the extension point, and compiler plugins have no stability promise. Check them at each Kotlin upgrade.
+- Whether `@Suppress` turns this error off: not checked. The owner chose not to try it.
+- Not checked: whether the IDE shows the error; any Kotlin version other than 2.4.21; the Gradle setup that turns on `mode=check` in each module that depends on a bridge module and creates no bridge, which T047 adds; the compile time the checker adds, because it looks up an annotation on every call and every callable reference in each module where `mode=check` or `mode=producer` runs, which T031a measures with and without the check.
+- The throwaway index reader refuses `slot-of-text optional`, so an optional slot with arguments, which gets no bridge parameter, is not made yet. A component with two required slots with arguments names only the first. T076 does both.
+- The throwaway kind `slot-of-text` is a slot whose content receives one text, created as `ComposableFunction1<String, Unit>`. T076 builds the type from the arguments in the catalog.
 
 ## R8c. Where a part comes from in a project with variants
 
