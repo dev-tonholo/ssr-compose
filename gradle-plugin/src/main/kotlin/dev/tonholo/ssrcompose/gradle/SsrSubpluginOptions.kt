@@ -20,6 +20,7 @@ internal class SsrSubpluginOptions(
         return when (mode) {
             CompilerPluginMode.Consumer -> listOf(modeOption, fragmentsDirOption(compilation))
             CompilerPluginMode.Producer -> listOf(modeOption) + catalogOptions()
+            CompilerPluginMode.Check -> listOf(modeOption)
         }
     }
 

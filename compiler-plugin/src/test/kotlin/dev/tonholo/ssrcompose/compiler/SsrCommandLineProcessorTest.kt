@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.compiler.plugin.AbstractCliOption
 import org.jetbrains.kotlin.compiler.plugin.CliOptionProcessingException
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -13,7 +14,7 @@ class SsrCommandLineProcessorTest {
     private val processor = SsrCommandLineProcessor()
 
     @Test
-    fun `given a mode that is neither consumer nor producer, when it is processed, then it fails and names the mode`() {
+    fun `given an unknown mode, when it is processed, then it fails and names the mode and every mode`() {
         // Arrange
         val configuration = CompilerConfiguration()
 
@@ -23,7 +24,21 @@ class SsrCommandLineProcessorTest {
         }
 
         // Assert
-        assertTrue(actual = failure.message.orEmpty().contains("sideways"), message = failure.message)
+        val message = failure.message.orEmpty()
+        val missing = listOf("sideways", "consumer", "producer", "check").filterNot(message::contains)
+        assertEquals(expected = emptyList(), actual = missing, message = message)
+    }
+
+    @Test
+    fun `given the mode check, when it is processed, then the configuration holds that mode`() {
+        // Arrange
+        val configuration = CompilerConfiguration()
+
+        // Act
+        configuration.process(optionName = CompilerPluginOptions.MODE, value = "check")
+
+        // Assert
+        assertEquals(expected = "check", actual = configuration[SsrConfigurationKeys.MODE]?.optionValue)
     }
 
     @Test
