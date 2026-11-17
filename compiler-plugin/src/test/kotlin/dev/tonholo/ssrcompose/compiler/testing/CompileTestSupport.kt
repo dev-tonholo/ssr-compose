@@ -29,9 +29,23 @@ internal class CompileTestSupport(
         options: List<Pair<String, String>> = emptyList(),
         classpath: List<File> = emptyList(),
     ): JvmCompilationResult =
-        compileSource(
-            fileName = "$fileName$FIXTURE_SUFFIX",
-            source = readFixture(fixtureName),
+        compileSources(
+            sources = listOf(sourceFile(fixtureName = fixtureName, fileName = fileName)),
+            options = options,
+            classpath = classpath,
+        )
+
+    /** Compiles several fixtures together in one compilation. */
+    fun compile(
+        fixtures: List<String>,
+        options: List<Pair<String, String>> = emptyList(),
+        classpath: List<File> = emptyList(),
+        fileNames: Map<String, String> = emptyMap(),
+    ): JvmCompilationResult =
+        compileSources(
+            sources = fixtures.map { fixtureName ->
+                sourceFile(fixtureName = fixtureName, fileName = fileNames[fixtureName] ?: fixtureName)
+            },
             options = options,
             classpath = classpath,
         )
@@ -45,9 +59,25 @@ internal class CompileTestSupport(
         options: List<Pair<String, String>> = emptyList(),
         classpath: List<File> = emptyList(),
     ): JvmCompilationResult =
+        compileSources(
+            sources = listOf(SourceFile.kotlin(name = fileName, contents = source)),
+            options = options,
+            classpath = classpath,
+        )
+
+    private fun sourceFile(fixtureName: String, fileName: String): SourceFile {
+        val name = if (fileName.endsWith(KT_EXTENSION)) fileName else "$fileName$FIXTURE_SUFFIX"
+        return SourceFile.kotlin(name = name, contents = readFixture(fixtureName = fixtureName))
+    }
+
+    private fun compileSources(
+        sources: List<SourceFile>,
+        options: List<Pair<String, String>>,
+        classpath: List<File>,
+    ): JvmCompilationResult =
         KotlinCompilation().apply {
             classpaths = classpath
-            sources = listOf(SourceFile.kotlin(name = fileName, contents = source))
+            this.sources = sources
             compilerPluginRegistrars = registrars
             commandLineProcessors = if (runsSsrPlugin) listOf(SsrCommandLineProcessor()) else emptyList()
             pluginOptions = options.map { (name, value) ->
@@ -71,5 +101,6 @@ internal class CompileTestSupport(
     private companion object {
         const val FIXTURES_FOLDER = "fixtures"
         const val FIXTURE_SUFFIX = ".fixture.kt"
+        const val KT_EXTENSION = ".kt"
     }
 }
