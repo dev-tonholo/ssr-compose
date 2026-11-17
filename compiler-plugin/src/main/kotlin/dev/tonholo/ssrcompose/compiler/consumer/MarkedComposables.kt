@@ -44,7 +44,8 @@ internal class ScannedFile(
 }
 
 /**
- * Finds the marked composables of a source file.
+ * Finds the marked composables of a source file. A marked `expect` is left out and its marked `actual` is kept, so
+ * a pair counts once.
  */
 internal class MarkedComposables(private val session: FirSession) {
     @OptIn(DirectDeclarationsAccess::class)
@@ -58,7 +59,7 @@ internal class MarkedComposables(private val session: FirSession) {
     }
 
     private fun isMarked(function: FirNamedFunction): Boolean =
-        function.hasAnnotation(classId = CONSUMER_COMPOSABLE, session = session)
+        function.hasAnnotation(classId = CONSUMER_COMPOSABLE, session = session) && !function.status.isExpect
 
     private fun describe(function: FirNamedFunction): ComponentDescriptor =
         ComponentDescriptor(
