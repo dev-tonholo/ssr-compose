@@ -45,10 +45,10 @@ This is the first feature, so it also creates the root build, all four deliverab
 
 Checked and not checked, as principle VII asks:
 
-- Checked by experiment: the compiler creating the bridge, the plugin order rule and its guard, the enum workaround, reading marked composables with every parameter kind, precise compile errors, the compile error for a component that cannot be placed (in the module that creates the bridge, and in a module that only reads it when the plugin runs there with `mode=check`), fragments plus merge under incremental compilation, byte-identical output, and the compile-testing library on this Kotlin version.
+- Checked by experiment: the compiler creating the bridge, the plugin order rule and its guard, the enum workaround, reading marked composables with every parameter kind, precise compile errors, the compile error for a component that cannot be placed (in the module that creates the bridge, and in a module that only reads it when the plugin runs there with `mode=check`), creating a consumer-side renderer for a marked composable with a text parameter, fragments plus merge under incremental compilation, byte-identical output, and the compile-testing library on this Kotlin version.
 - Checked against Maven metadata: every version above.
 - Checked in the code already written for T011 and T019: the first frame's 4-byte contract version prefix, `Answer` wrapped by `ProducerMessage.Answered`, `MessageDecodingException`, and `MessageCodec.json()`.
-- Not checked: anything in the IDE; a Kotlin Multiplatform module with an Android target for producing a part, with variants; one module collecting the parts of the modules it depends on; the build cache and the configuration cache for the catalog steps; the index format; creating a bridge declaration only when code names it; the time and memory to compile against a 20,000 component catalog, and the 2 second figure; running the fetch on IDE sync; the Kotlin toolchain plugin itself; the effect of the plugin order flag and the default plugin order in the Kotlin toolchain; creating the consumer-side renderers in the compiler; `RemoteAction0` and `RemoteAction2` to `RemoteAction4` as created parameter types; a required nullable parameter and an optional callback in created functions; the Gradle setup that turns on the plugin's `mode=check` in modules that depend on a bridge module (T047); the compile time of the check of bridge calls (T031a); an annotation on a slot's type; the 10,000 session target. Each has a task that settles it, and the riskiest come first. T031a, the scale gate, settles the index format, bridge declarations on demand and the 2 second figure. T030 checked that the Kotlin toolchain accepts the plugin order flag and can compile an Android library with the plugin (research.md [R2](research.md#r2-the-order-of-the-two-compiler-plugins-is-a-correctness-matter) and [R5](research.md#the-kotlin-toolchain-probe-t030)); the effect of the flag and the default order wait for the IR step.
+- Not checked: anything in the IDE; a Kotlin Multiplatform module with an Android target for producing a part, with variants; one module collecting the parts of the modules it depends on; the build cache and the configuration cache for the catalog steps; the index format; creating a bridge declaration only when code names it; the time and memory to compile against a 20,000 component catalog, and the 2 second figure; running the fetch on IDE sync; the Kotlin toolchain plugin itself; the effect of the plugin order flag and the default plugin order in the Kotlin toolchain; consumer-side renderers against the real `:consumer` library (`PlacedComponentScope` and `PlacedValueException`), for the remaining parameter kinds, defaults, a user function named `<Composable>Renderer` in the same package, the renderer index and real Gradle incremental builds (T055, T064, T075); `RemoteAction0` and `RemoteAction2` to `RemoteAction4` as created parameter types; a required nullable parameter and an optional callback in created functions; the Gradle setup that turns on the plugin's `mode=check` in modules that depend on a bridge module (T047); the compile time of the check of bridge calls (T031a); an annotation on a slot's type; the 10,000 session target. Each has a task that settles it, and the riskiest come first. T031a, the scale gate, settles the index format, bridge declarations on demand and the 2 second figure. T030 checked that the Kotlin toolchain accepts the plugin order flag and can compile an Android library with the plugin (research.md [R2](research.md#r2-the-order-of-the-two-compiler-plugins-is-a-correctness-matter) and [R5](research.md#the-kotlin-toolchain-probe-t030)); the effect of the flag and the default order wait for the IR step.
 
 ## Constitution Check
 
@@ -147,12 +147,20 @@ producer/                            # Kotlin JVM
 
 compiler-plugin/                     # Kotlin JVM, K2
 └── src/
-    ├── main/kotlin/dev/tonholo/ssrcompose/compiler/
-    │   ├── consumer/                # FIR checker, fragment writer, renderer creation
+    ├── main/kotlin/dev/tonholo/ssrcompose/compiler/   # SsrCompilerPluginRegistrar, SsrCommandLineProcessor, SsrNames
+    │   ├── fir/                     # ComposableAnnotation shared by consumer and producer FIR generators
+    │   ├── ir/                      # PluginOrderGuard and PluginOrderDiagnostics shared by consumer and producer IR steps
+    │   ├── consumer/                # FIR checker, fragment writer
+    │   │   ├── slot/                # SlotParameterMapper
+    │   │   └── renderer/            # RendererKey, RendererNames
+    │   │       ├── diagnostic/      # RendererDiagnostics
+    │   │       ├── fir/             # RendererDeclarationGenerator
+    │   │       │   └── checker/     # RendererCheckersExtension, RendererComposableChecker
+    │   │       └── ir/              # RendererBodyGenerator, RendererIrGenerationExtension
     │   └── producer/                # BridgeCatalog, BridgeKey, ProducerNames, UnplaceableComponent, BridgeExtensionRegistration
     │       ├── fir/                 # BridgeDeclarationGenerator, BridgeFirExtensionRegistrar, UnplaceableBridgeMarker, UnplaceableBridgeCheckers, UnplaceableBridgeCheckRegistrar
-    │       ├── ir/                  # BridgeBodyGenerator, BridgeIrGenerationExtension, PluginOrderGuard
-    │       ├── diagnostic/          # the compile errors of the order guard and of a component that cannot be placed
+    │       ├── ir/                  # BridgeBodyGenerator, BridgeIrGenerationExtension
+    │       ├── diagnostic/          # the compile error of a component that cannot be placed
     │       └── throwaway/           # the index format of T025, until T031a replaces it
     └── test/
         ├── kotlin/                  # compile tests with kotlin-compile-testing
