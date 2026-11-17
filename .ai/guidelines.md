@@ -156,7 +156,7 @@ The engineering-manager stops and asks the owner before:
 ## Verification before you call work done
 
 1. `./poc/gradlew -p poc build detekt` passes when you touched `poc/`.
-2. `./gradlew build` passes when you touched anything outside `poc/`.
+2. `./gradlew build` and `./gradlew check --configuration-cache` pass when you touched anything outside `poc/`.
 3. Tests pass. New behavior has a test that failed before the change.
 4. `python3 .ai/scripts/sync-agents.py --check` passes.
 5. You checked your diff against every file in `rules/`. Use the [reviewer](agents/reviewer.md) agent for a second look.
