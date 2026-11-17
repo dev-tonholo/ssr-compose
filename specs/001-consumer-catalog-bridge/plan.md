@@ -141,7 +141,7 @@ producer/                            # Kotlin JVM
     │   ├── Producer.kt, ProducerBuilder.kt, ConsumerComponent.kt
     │   ├── RemoteAction1.kt, Callback.kt, LocalConsumer.kt   # T065 folds RemoteAction1 into RemoteAction.kt with the other four
     │   ├── ProducerLimits.kt, ProducerObserver.kt
-    │   └── internal/                # PlacedNode and ScreenApplier (stand-ins from T025), session, screen registry, live composition, actions, guard, validation
+    │   └── internal/                # PlacedNode (stand-in from T025), ScreenApplier, live screen, snapshot notifier, session, screen registry, actions, guard, validation
     ├── test/
     └── loadTest/
 
