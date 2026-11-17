@@ -1,0 +1,41 @@
+name: Set up the build
+description: Installs JDK 17 and 25, Gradle properties, Android platform 37 and Gradle with its cache.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK 17 and JDK 25
+      uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+      with:
+        distribution: temurin
+        java-version: |
+          17
+          25
+
+    - name: Install CI Gradle properties
+      shell: bash
+      run: |
+        mkdir -p ~/.gradle
+        cp "${{ github.workspace }}/.github/ci-gradle.properties" ~/.gradle/gradle.properties
+
+    - name: Cache Android platform 37
+      id: cache-android
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ env.ANDROID_HOME }}/platforms/android-37.0
+          ${{ env.ANDROID_HOME }}/licenses
+        key: android-sdk-${{ runner.os }}-android-37.0
+
+    - name: Install Android platform 37
+      if: steps.cache-android.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        ANDROID_PLATFORM: platforms;android-37.0
+      run: |
+        sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+        { yes 2>/dev/null || true; } | "$sdkmanager" --licenses > /dev/null
+        "$sdkmanager" "$ANDROID_PLATFORM"
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
