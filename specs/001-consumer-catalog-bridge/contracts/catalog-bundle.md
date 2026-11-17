@@ -206,7 +206,7 @@ Nothing is fetched or read for a manifest that breaks one of these.
 - `bytes` is allowed only as a callback argument.
 - A callback and a slot use the same field, `arguments`, for what they pass along.
 - A callback has no result. A callback with more than four arguments is a build error in the app.
-- A slot's `accepts` comes from `@ConsumerComposable` or `@ProducerComposable` on the slot's type. With neither, it is `any`. It is recorded in this feature and not checked yet.
+- A slot's `accepts` comes from `@ConsumerComposable` or `@ProducerComposable` on the slot's type. With neither, it is `any`. A slot type with both `@ConsumerComposable` and `@ProducerComposable` is a build error in the app. What a slot accepts is recorded in this feature and not checked yet.
 - A slot with `arguments` can be described here. Filling it needs the later remote composables feature. Until then, an optional one is simply not given, and a component with a required one cannot be placed by the server at all. `CameraScanner` above is such a component.
 - A modifier parameter is left out of the catalog.
 
