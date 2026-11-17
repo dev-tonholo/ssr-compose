@@ -35,6 +35,7 @@ internal class KmpAndroidFixtureProject(private val directory: File) {
     }
 
     private companion object {
+        // language=properties
         val GRADLE_PROPERTIES = """
             android.builtInKotlin=false
             android.newDsl=false
