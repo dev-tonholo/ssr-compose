@@ -16,13 +16,18 @@ internal class CompileTestSupport(
         ComposePluginRegistrar(),
     ),
 ) {
+    /**
+     * Compiles the fixture as a source file named [fileName], which is the fixture's name unless a test needs
+     * two fixtures to be the same file in two compilations.
+     */
     fun compile(
         fixtureName: String,
+        fileName: String = fixtureName,
         options: List<Pair<String, String>> = emptyList(),
     ): JvmCompilationResult =
         KotlinCompilation().apply {
             sources = listOf(
-                SourceFile.kotlin(name = "$fixtureName$FIXTURE_SUFFIX", contents = readFixture(fixtureName)),
+                SourceFile.kotlin(name = "$fileName$FIXTURE_SUFFIX", contents = readFixture(fixtureName)),
             )
             compilerPluginRegistrars = registrars
             commandLineProcessors = listOf(SsrCommandLineProcessor())
