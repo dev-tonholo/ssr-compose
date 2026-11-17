@@ -8,6 +8,7 @@ import com.tschuchort.compiletesting.SourceFile
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginBuildConfig
 import dev.tonholo.ssrcompose.compiler.SsrCommandLineProcessor
 import dev.tonholo.ssrcompose.compiler.SsrCompilerPluginRegistrar
+import java.io.File
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 
 internal class CompileTestSupport(
@@ -16,6 +17,8 @@ internal class CompileTestSupport(
         ComposePluginRegistrar(),
     ),
 ) {
+    private val runsSsrPlugin = registrars.any { it is SsrCompilerPluginRegistrar }
+
     /**
      * Compiles the fixture as a source file named [fileName], which is the fixture's name unless a test needs
      * two fixtures to be the same file in two compilations.
@@ -24,13 +27,15 @@ internal class CompileTestSupport(
         fixtureName: String,
         fileName: String = fixtureName,
         options: List<Pair<String, String>> = emptyList(),
+        classpath: List<File> = emptyList(),
     ): JvmCompilationResult =
         KotlinCompilation().apply {
+            classpaths = classpath
             sources = listOf(
                 SourceFile.kotlin(name = "$fileName$FIXTURE_SUFFIX", contents = readFixture(fixtureName)),
             )
             compilerPluginRegistrars = registrars
-            commandLineProcessors = listOf(SsrCommandLineProcessor())
+            commandLineProcessors = if (runsSsrPlugin) listOf(SsrCommandLineProcessor()) else emptyList()
             pluginOptions = options.map { (name, value) ->
                 PluginOption(
                     pluginId = CompilerPluginBuildConfig.COMPILER_PLUGIN_ID,
