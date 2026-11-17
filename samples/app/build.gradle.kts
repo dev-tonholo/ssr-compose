@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -20,3 +21,10 @@ android {
         create("catalogV1") { dimension = "catalog" }
     }
 }
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(file("../../config/detekt/detekt.yml"))
+}
+
+apply(from = "../detekt-source.gradle.kts")
