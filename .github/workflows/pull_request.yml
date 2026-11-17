@@ -1,0 +1,113 @@
+name: Pull request
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build
+      - name: Build and detekt with the configuration cache
+        run: ./gradlew build detekt --configuration-cache
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: build-reports
+          retention-days: 7
+          path: |
+            **/build/reports/
+            **/build/test-results/
+
+  wrapper-validation:
+    name: Gradle wrapper validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Gradle wrappers
+        uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          min-wrapper-count: 2
+
+  agents:
+    name: Agent files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the generated agent files
+        run: python3 .ai/scripts/sync-agents.py --check
+      - name: Check the links
+        run: python3 .ai/scripts/check-links.py
+      - name: Lint agent roles
+        run: python3 .ai/scripts/lint-roles.py .ai/agents
+
+  samples:
+    name: Samples
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build
+      - name: Check and assemble the sample app
+        run: ./gradlew -p samples/app check assembleCurrentDebug
+      - name: Build the sample server
+        run: ./gradlew -p samples/server build
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: samples-reports
+          retention-days: 7
+          path: |
+            samples/**/build/reports/
+            samples/**/build/test-results/
+
+  poc:
+    name: Proof of concept
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-build
+      - name: Build the proof of concept with detekt
+        run: ./poc/gradlew -p poc build detekt
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: poc-reports
+          retention-days: 7
+          path: |
+            poc/**/build/reports/
+            poc/**/build/test-results/
