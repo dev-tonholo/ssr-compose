@@ -1,10 +1,29 @@
 package dev.tonholo.ssrcompose.compiler.consumer
 
+import dev.tonholo.ssrcompose.catalog.validation.CatalogLimits
+
 /**
  * A reason to fail the compilation of a consumer file. Every message names what is wrong and where.
  */
 internal sealed interface ConsumerError {
     val message: String
+}
+
+/**
+ * A marked composable or parameter whose name is not a plain Kotlin identifier of at most
+ * [CatalogLimits.MAX_NAME_LENGTH] characters, which is all the catalog can hold.
+ */
+internal data class UnsupportedName(
+    val composable: String,
+    val parameter: String? = null,
+) : ConsumerError {
+    override val message: String = if (parameter == null) {
+        "The marked composable $composable has a name the catalog cannot hold. " +
+            "A name must be a plain Kotlin identifier of at most ${CatalogLimits.MAX_NAME_LENGTH} characters"
+    } else {
+        "The parameter $parameter of the marked composable $composable has a name the catalog cannot hold. " +
+            "A name must be a plain Kotlin identifier of at most ${CatalogLimits.MAX_NAME_LENGTH} characters"
+    }
 }
 
 /**

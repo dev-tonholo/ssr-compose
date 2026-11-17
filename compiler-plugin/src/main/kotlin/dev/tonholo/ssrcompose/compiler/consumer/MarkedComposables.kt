@@ -2,6 +2,7 @@ package dev.tonholo.ssrcompose.compiler.consumer
 
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
+import dev.tonholo.ssrcompose.catalog.validation.isKotlinIdentifier
 import dev.tonholo.ssrcompose.compiler.SsrNames
 import dev.tonholo.ssrcompose.compiler.consumer.slot.SlotParameterMapper
 import org.jetbrains.kotlin.fir.FirSession
@@ -47,10 +48,12 @@ internal class MarkedComposables(private val session: FirSession) {
     @OptIn(DirectDeclarationsAccess::class)
     fun scan(file: FirFile): ScannedFile {
         val marked = file.declarations.filterIsInstance<FirNamedFunction>().filter(::isMarked)
+        val errors = marked.flatMap(::errorsOf)
+        val components = if (errors.isEmpty()) marked.map(::describe) else emptyList()
         return ScannedFile(
             source = file.sourcePath(),
-            components = marked.map(::describe),
-            parameterErrors = marked.flatMap(::parameterErrorsOf),
+            components = components,
+            parameterErrors = errors,
         )
     }
 
@@ -65,18 +68,31 @@ internal class MarkedComposables(private val session: FirSession) {
                 .map { parameter -> ParameterKindMapper.toParameter(parameter = parameter, session = session) },
         )
 
-    private fun parameterErrorsOf(function: FirNamedFunction): List<ConsumerError> =
+    private fun errorsOf(function: FirNamedFunction): List<ConsumerError> {
+        val composableName = function.name.asString()
+        val nameError = if (isKotlinIdentifier(text = composableName)) {
+            emptyList()
+        } else {
+            listOf(UnsupportedName(composable = composableName))
+        }
+        return nameError + parameterErrorsOf(function = function, composableName = composableName)
+    }
+
+    private fun parameterErrorsOf(function: FirNamedFunction, composableName: String): List<ConsumerError> =
         function.valueParameters.mapNotNull { parameter ->
+            val parameterName = parameter.name.asString()
             when {
+                !isKotlinIdentifier(text = parameterName) ->
+                    UnsupportedName(composable = composableName, parameter = parameterName)
                 SlotParameterMapper.hasConflictingAnnotations(parameter = parameter, session = session) ->
                     ConflictingSlotAnnotations(
-                        composable = function.name.asString(),
-                        parameter = parameter.name.asString(),
+                        composable = composableName,
+                        parameter = parameterName,
                     )
                 !ParameterKindMapper.isSupported(parameter = parameter, session = session) ->
                     UnsupportedParameter(
-                        composable = function.name.asString(),
-                        parameter = parameter.name.asString(),
+                        composable = composableName,
+                        parameter = parameterName,
                     )
                 else -> null
             }

@@ -14,7 +14,11 @@ private fun Char.continuesIdentifier(): Boolean = isLetterOrDigit() || this == U
 
 private fun String.isOnlyUnderscores(): Boolean = all { it == UNDERSCORE }
 
-internal fun isKotlinIdentifier(text: String): Boolean =
+/**
+ * True when [text] is a non-empty plain Kotlin identifier of at most [CatalogLimits.MAX_NAME_LENGTH] characters,
+ * not made only of underscores, and not a hard keyword.
+ */
+public fun isKotlinIdentifier(text: String): Boolean =
     text.isNotEmpty() &&
         text.length <= CatalogLimits.MAX_NAME_LENGTH &&
         text.first().startsIdentifier() &&
