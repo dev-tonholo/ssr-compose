@@ -390,6 +390,20 @@ A developer can do the same by hand with `ComponentBindings`.
 
 Not checked: all of it. The experiments covered reading composables (R4) and creating declarations (R1), not this combination. A task builds the smallest version first. If creating the renderer in the compiler proves fragile, the hand-written bindings still work, and the renderer becomes follow-up work.
 
+### Hand-written bindings and device values (T052, T053)
+
+Checked on 2026-11-17.
+
+- A strict read fails for an absent value, a `None` value, a value of another kind and an unknown choice entry. All four failures are a `PlacedValueException`. The contract did not name a type for the first, second and fourth, so they use the same one as the third.
+- `PlacedComponentScope` is `@Immutable` and equal when its placed components are equal. A test recomposes a screen with a new but equal scope and sees the binding skipped, and sees it run again when the component changes.
+- `@Immutable` is a promise the types do not enforce: `PlacedComponent` holds `Map` and `List` interfaces and `DataValue.Bytes` wraps a `ByteArray`. A scope over a map that is changed in place would be skipped with stale values, so the scope documents that the placed component must not change after it is made. Decoded messages are new objects, so this holds.
+- The equality walks the whole placed component, slots included, for each equal but new scope on every recomposition of its parent. The codec refuses JSON nesting deeper than 128 levels and a slot takes 3, so slots nest about 40 deep at most. Nothing caps the components on a screen. The owner's three apps have 621 to 1,085 composables in the whole app, so a screen is expected to have hundreds. The cost is about components times depth field comparisons, 40,000 for 1,000 components at depth 40. It was not measured. If T054 finds it too slow, it can compare each decoded component once when a `Screen` arrives and reuse the old scope for an equal one, so later comparisons stop at the identity check.
+- Every device value is read in common code, so nothing was put in `consumer/src/androidMain/`. Density comes from `LocalDensity`, the window size from `LocalWindowInfo.containerSize`, the theme from `isSystemInDarkTheme()` and the language from `Locale.current`.
+- The values are published to `DeviceValues.current` in a `SideEffect`, so a reader outside composition, such as T098, sees them after the screen is committed.
+- Tested: each value, and a change of density, window size and theme followed by a recomposition. The theme and language tests live in `consumer/src/androidHostTest/`, because `isSystemInDarkTheme()` reads Android's `LocalConfiguration` on Android and the test must provide one. The host tests return default values for Android stubs, set in the kmp-library convention plugin for every KMP module, because Compose's runtime calls them.
+- Not tested: a change of language during a session. `Locale.current` is not state, so it is read again only when something else recomposes the function. A locale change should reach the screen because Android sends a configuration change and `isSystemInDarkTheme()` reads the configuration, but that was not run on a device.
+- Not tested: the window size on a real device before the first layout, which may be zero. The producer accepts 1 to 100,000, so T054 must wait for a real size before it introduces the app.
+
 ## R8. Callbacks on the server follow the function type pattern
 
 Decision: a callback parameter of a bridge function has one of the types `RemoteAction0`, `RemoteAction1<A>`, `RemoteAction2<A, B>`, `RemoteAction3<A, B, C>` or `RemoteAction4<A, B, C, D>`, in the producer library. The number matches the arguments of the app's callback, as Kotlin's own `Function0`, `Function1` and so on do. Each is a function interface, so a server developer passes a lambda.
