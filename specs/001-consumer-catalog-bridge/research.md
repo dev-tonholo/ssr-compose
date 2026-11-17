@@ -280,7 +280,7 @@ product:
 
 - The module also sets `settings.android.compileSdk: 37` and `minSdk: 23`.
 - `<probe> build` made `build/tasks/_android-lib_aarAndroidDebug/android-lib-jvm.aar`, which holds `AndroidManifest.xml` and `libs/android-lib-jvm.jar`. The jar holds `GreetingKt.class`. Only the debug variant was built.
-- The compile used the Android SDK that was already on the machine. The `-classpath` of the compile starts with `/Users/rtonholo/Library/Android/sdk/platforms/android-37.0/android.jar`. The toolchain finds the SDK from `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk`. No file in the top two levels of that SDK folder changed during the probe.
+- The compile used the Android SDK that was already on the machine. The `-classpath` of the compile starts with `<android-sdk>/platforms/android-37.0/android.jar`. The toolchain finds the SDK from `ANDROID_HOME`, then `ANDROID_SDK_ROOT`, then `~/Library/Android/sdk`. No file in the top two levels of that SDK folder changed during the probe.
 - The plugin ran in the Android compile (the second line of the log above), and `-Xcompiler-plugin-order` reached it as in R2.
 - Not checked: the release variant and `kotlin package`, the Gradle distribution that the toolchain installs for Android packaging (`installGradleDistribution`), publishing the AAR, and a Kotlin Multiplatform library with the Android target next to other targets.
 - The Complexity Tracking row of the plan that expects the consumer side to work from Gradle only depends on this answer. It stays, narrowed to the items above that are not checked.
