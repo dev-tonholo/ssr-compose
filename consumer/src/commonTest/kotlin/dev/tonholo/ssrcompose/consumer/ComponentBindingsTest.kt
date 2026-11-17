@@ -13,9 +13,13 @@ import kotlin.test.assertTrue
 
 private const val GREETING = "Greeting"
 private const val PAYMENT_SECTION = "PaymentSection"
-private const val TITLE = "title"
-private const val TITLE_TEXT = "Pay now"
+private const val PARAMETER = "parameter"
+private const val TEXT_VALUE = "Pay now"
 private const val WHOLE_KIND = "whole"
+private const val DECIMAL_KIND = "decimal"
+private const val TEXT_KIND = "text"
+private const val WHOLE_VALUE = 9_000_000_000L
+private const val DECIMAL_VALUE = 2.5
 
 private class ValueRead(
     val expectedKind: String,
@@ -27,11 +31,32 @@ private class ValueRead(
 
 private val valueReads = listOf(
     ValueRead(
-        expectedKind = "text",
+        expectedKind = TEXT_KIND,
         wrongValue = DataValue.WholeNumber(value = 1),
         foundKind = WHOLE_KIND,
-        strict = { text(name = TITLE) },
-        orNull = { textOrNull(name = TITLE) },
+        strict = { text(name = PARAMETER) },
+        orNull = { textOrNull(name = PARAMETER) },
+    ),
+    ValueRead(
+        expectedKind = WHOLE_KIND,
+        wrongValue = DataValue.DecimalNumber(value = DECIMAL_VALUE),
+        foundKind = DECIMAL_KIND,
+        strict = { whole(name = PARAMETER) },
+        orNull = { wholeOrNull(name = PARAMETER) },
+    ),
+    ValueRead(
+        expectedKind = DECIMAL_KIND,
+        wrongValue = DataValue.WholeNumber(value = WHOLE_VALUE),
+        foundKind = WHOLE_KIND,
+        strict = { decimal(name = PARAMETER) },
+        orNull = { decimalOrNull(name = PARAMETER) },
+    ),
+    ValueRead(
+        expectedKind = "flag",
+        wrongValue = DataValue.Text(value = TEXT_VALUE),
+        foundKind = TEXT_KIND,
+        strict = { flag(name = PARAMETER) },
+        orNull = { flagOrNull(name = PARAMETER) },
     ),
 )
 
@@ -46,7 +71,7 @@ private fun <T> readFrom(placed: PlacedComponent, read: PlacedComponentScope.() 
 }
 
 private fun greetingWith(value: DataValue?): PlacedComponent =
-    PlacedComponent(name = GREETING, values = if (value == null) emptyMap() else mapOf(TITLE to value))
+    PlacedComponent(name = GREETING, values = if (value == null) emptyMap() else mapOf(PARAMETER to value))
 
 class ComponentBindingsTest {
     @Test
@@ -99,15 +124,59 @@ class ComponentBindingsTest {
     @Test
     fun `given a text value, when it is read as text, then the text is returned`() {
         // Arrange
-        val placed = greetingWith(value = DataValue.Text(value = TITLE_TEXT))
+        val placed = greetingWith(value = DataValue.Text(value = TEXT_VALUE))
 
         // Act
-        val strict = readFrom(placed = placed) { text(name = TITLE) }
-        val orNull = readFrom(placed = placed) { textOrNull(name = TITLE) }
+        val strict = readFrom(placed = placed) { text(name = PARAMETER) }
+        val orNull = readFrom(placed = placed) { textOrNull(name = PARAMETER) }
 
         // Assert
-        assertEquals(expected = TITLE_TEXT, actual = strict.getOrThrow())
-        assertEquals(expected = TITLE_TEXT, actual = orNull.getOrThrow())
+        assertEquals(expected = TEXT_VALUE, actual = strict.getOrThrow())
+        assertEquals(expected = TEXT_VALUE, actual = orNull.getOrThrow())
+    }
+
+    @Test
+    fun `given a whole value beyond the Int range, when it is read as whole, then the same number is returned`() {
+        // Arrange
+        val placed = greetingWith(value = DataValue.WholeNumber(value = WHOLE_VALUE))
+
+        // Act
+        val strict = readFrom(placed = placed) { whole(name = PARAMETER) }
+        val orNull = readFrom(placed = placed) { wholeOrNull(name = PARAMETER) }
+
+        // Assert
+        assertEquals(expected = WHOLE_VALUE, actual = strict.getOrThrow())
+        assertEquals(expected = WHOLE_VALUE, actual = orNull.getOrThrow())
+    }
+
+    @Test
+    fun `given a decimal value, when it is read as decimal, then the same number is returned`() {
+        // Arrange
+        val placed = greetingWith(value = DataValue.DecimalNumber(value = DECIMAL_VALUE))
+
+        // Act
+        val strict = readFrom(placed = placed) { decimal(name = PARAMETER) }
+        val orNull = readFrom(placed = placed) { decimalOrNull(name = PARAMETER) }
+
+        // Assert
+        assertEquals(expected = DECIMAL_VALUE, actual = strict.getOrThrow())
+        assertEquals(expected = DECIMAL_VALUE, actual = orNull.getOrThrow())
+    }
+
+    @Test
+    fun `given a flag value, when it is read as flag, then the same flag is returned`() {
+        listOf(true, false).forEach { flag ->
+            // Arrange
+            val placed = greetingWith(value = DataValue.Flag(value = flag))
+
+            // Act
+            val strict = readFrom(placed = placed) { flag(name = PARAMETER) }
+            val orNull = readFrom(placed = placed) { flagOrNull(name = PARAMETER) }
+
+            // Assert
+            assertEquals(expected = flag, actual = strict.getOrThrow())
+            assertEquals(expected = flag, actual = orNull.getOrThrow())
+        }
     }
 
     @Test
@@ -122,7 +191,7 @@ class ComponentBindingsTest {
 
             // Assert
             val failure = assertIs<PlacedValueException>(value = strict.exceptionOrNull(), message = read.expectedKind)
-            assertTrue(actual = listOf(GREETING, TITLE, read.expectedKind).all { it in failure.message.orEmpty() })
+            assertTrue(actual = listOf(GREETING, PARAMETER, read.expectedKind).all { it in failure.message.orEmpty() })
             assertNull(actual = orNull.getOrThrow(), message = read.expectedKind)
         }
     }
@@ -158,7 +227,7 @@ class ComponentBindingsTest {
                 val failure = assertIs<PlacedValueException>(result.exceptionOrNull(), message = read.expectedKind)
                 val message = failure.message.orEmpty()
                 assertTrue(
-                    actual = listOf(GREETING, TITLE, read.expectedKind, read.foundKind).all { it in message },
+                    actual = listOf(GREETING, PARAMETER, read.expectedKind, read.foundKind).all { it in message },
                     message = message,
                 )
             }
