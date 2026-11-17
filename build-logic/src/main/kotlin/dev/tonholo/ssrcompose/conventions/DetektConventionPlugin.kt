@@ -3,6 +3,9 @@ package dev.tonholo.ssrcompose.conventions
 import dev.detekt.gradle.extensions.DetektExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.ProjectLayout
+import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.plugin.KotlinBasePlugin
@@ -32,16 +35,30 @@ internal abstract class DetektConventionPlugin : Plugin<Project> {
             config.setFrom(rootProject.file(DETEKT_CONFIG_PATH))
         }
         plugins.withType(KotlinBasePlugin::class.java) {
-            extensions.configure<DetektExtension> { source.setFrom(kotlinSourceDirectories()) }
+            val sourceSetContainer = extensions.getByType<KotlinSourceSetContainer>()
+            val sourceDirectories = kotlinSourceDirectories(
+                layout = layout,
+                providers = providers,
+                sourceSetContainer = sourceSetContainer,
+            )
+            extensions.configure<DetektExtension> { source.setFrom(sourceDirectories) }
         }
     }
 }
 
-private fun Project.kotlinSourceDirectories() = provider {
-    val buildDirectory = layout.buildDirectory.get().asFile
-    extensions.getByType<KotlinSourceSetContainer>().sourceSets.map { sourceSet ->
-        sourceSet.kotlin.sourceDirectories.filter { directory ->
-            !directory.startsWith(buildDirectory) && !directory.isResourcesFolderOf(projectDir)
+private fun kotlinSourceDirectories(
+    layout: ProjectLayout,
+    providers: ProviderFactory,
+    sourceSetContainer: KotlinSourceSetContainer,
+): Provider<List<File>> {
+    val projectDir = layout.projectDirectory.asFile
+    val buildDirectory = layout.buildDirectory.asFile
+    return providers.provider {
+        val buildDirectoryFile = buildDirectory.get()
+        sourceSetContainer.sourceSets.flatMap { sourceSet ->
+            sourceSet.kotlin.sourceDirectories.filter { directory ->
+                !directory.startsWith(buildDirectoryFile) && !directory.isResourcesFolderOf(projectDir = projectDir)
+            }
         }
     }
 }
