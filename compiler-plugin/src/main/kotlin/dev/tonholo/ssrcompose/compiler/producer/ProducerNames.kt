@@ -19,5 +19,6 @@ internal object ProducerNames {
     val unplaceableBridge = ClassId(producerPackage, Name.identifier("UnplaceableBridge"))
     val message: Name = Name.identifier("message")
     val consumerComponent = CallableId(producerPackage, Name.identifier("ConsumerComponent"))
+    val error = CallableId(FqName("kotlin"), Name.identifier("error"))
     val arrayOf = CallableId(FqName("kotlin"), Name.identifier("arrayOf"))
 }
