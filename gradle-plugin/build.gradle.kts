@@ -9,6 +9,7 @@ val functionalTest: SourceSet = sourceSets.create("functionalTest")
 dependencies {
     implementation(projects.tooling)
     implementation(projects.catalogModel)
+    implementation(libs.gradle.idea.ext)
     compileOnly(libs.kotlin.gradle.plugin.api)
     testImplementation(gradleApi())
 
