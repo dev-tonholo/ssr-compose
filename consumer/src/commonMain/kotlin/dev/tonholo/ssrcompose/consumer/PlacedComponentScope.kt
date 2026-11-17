@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.consumer
 
+import androidx.compose.runtime.Immutable
 import dev.tonholo.ssrcompose.consumer.internal.KindName
 import dev.tonholo.ssrcompose.consumer.internal.absent
 import dev.tonholo.ssrcompose.consumer.internal.absentChoice
@@ -12,7 +13,12 @@ import dev.tonholo.ssrcompose.core.message.PlacedComponent
  * A read on this class throws [PlacedValueException] when the value is absent or `None`.
  * The `OrNull` read of each kind is an extension function in this package. It returns null in those two cases.
  * Both throw [PlacedValueException] when the value has another kind than the read asks for.
+ *
+ * Two scopes are equal when they wrap equal placed components,
+ * so a binding is skipped when its component did not change.
+ * The placed component and its maps and lists must not change after the scope is made.
  */
+@Immutable
 public class PlacedComponentScope internal constructor(internal val placed: PlacedComponent) {
     /**
      * The text of the parameter [name].
@@ -58,4 +64,8 @@ public class PlacedComponentScope internal constructor(internal val placed: Plac
      */
     public fun list(name: String): List<DataValue> =
         listOrNull(name = name) ?: absent(name = name, expected = KindName.LIST)
+
+    override fun equals(other: Any?): Boolean = other is PlacedComponentScope && other.placed == placed
+
+    override fun hashCode(): Int = placed.hashCode()
 }
