@@ -34,3 +34,17 @@ dependencies {
 tasks.named<Test>("scaleTest") {
     maxHeapSize = "12g"
 }
+
+val namedOnlyProbeJar = tasks.register<Jar>("namedOnlyProbeJar") {
+    description = "Packs the named-only bridge prototype so a real Gradle build of the scale experiment can run it."
+    archiveClassifier = "named-only-probe"
+    from(sourceSets.main.get().output.classesDirs)
+    from(sourceSets.test.get().output.classesDirs) {
+        include("dev/tonholo/ssrcompose/compiler/testing/scale/**")
+    }
+    from(layout.projectDirectory.dir("src/namedOnlyProbe/resources"))
+}
+
+configurations.consumable("namedOnlyProbe") {
+    outgoing.artifact(namedOnlyProbeJar)
+}

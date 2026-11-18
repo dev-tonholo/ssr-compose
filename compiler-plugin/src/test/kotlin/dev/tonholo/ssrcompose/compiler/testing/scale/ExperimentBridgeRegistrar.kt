@@ -43,15 +43,22 @@ internal class ExperimentBridgeRegistrar(
     override val supportsK2: Boolean = true
 
     override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
-        val namesInSource = creation.namedIn?.let { source ->
-            IDENTIFIER.findAll(source).mapTo(destination = HashSet()) { it.value }
-        }
-        val bridgeCatalogs = catalogs.map(BridgeCatalog::from)
-        FirExtensionRegistrarAdapter.registerExtension(
-            ExperimentFirRegistrar(catalogs = bridgeCatalogs, namesInSource = namesInSource, files = creation.files),
-        )
-        IrGenerationExtension.registerExtension(BridgeIrGenerationExtension(bridgeCatalogs))
+        registerExperimentBridges(catalogs = catalogs, creation = creation)
     }
+}
+
+internal fun CompilerPluginRegistrar.ExtensionStorage.registerExperimentBridges(
+    catalogs: List<CatalogOptionValue>,
+    creation: BridgeCreation,
+) {
+    val namesInSource = creation.namedIn?.let { source ->
+        IDENTIFIER.findAll(source).mapTo(destination = HashSet()) { it.value }
+    }
+    val bridgeCatalogs = catalogs.map(BridgeCatalog::from)
+    FirExtensionRegistrarAdapter.registerExtension(
+        ExperimentFirRegistrar(catalogs = bridgeCatalogs, namesInSource = namesInSource, files = creation.files),
+    )
+    IrGenerationExtension.registerExtension(BridgeIrGenerationExtension(catalogs = bridgeCatalogs))
 }
 
 private class ExperimentFirRegistrar(
