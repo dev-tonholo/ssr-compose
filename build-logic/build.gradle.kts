@@ -52,6 +52,10 @@ gradlePlugin {
             id = "dev.tonholo.ssrcompose.conventions.testing"
             implementationClass = "dev.tonholo.ssrcompose.conventions.TestingConventionPlugin"
         }
+        register("conventionScaleTest") {
+            id = "dev.tonholo.ssrcompose.conventions.scale-test"
+            implementationClass = "dev.tonholo.ssrcompose.conventions.ScaleTestConventionPlugin"
+        }
         register("conventionDetekt") {
             id = "dev.tonholo.ssrcompose.conventions.detekt"
             implementationClass = "dev.tonholo.ssrcompose.conventions.DetektConventionPlugin"
