@@ -8,6 +8,9 @@ internal object FixtureSources {
     const val DEFAULT_VERSION = "2"
     const val DEFAULT_BRIDGE_PACKAGE = "app.bridge.v2"
 
+    /** What Gradle prints with `--info` when a change makes a Kotlin compile task rebuild everything. */
+    const val FULL_REBUILD_MESSAGE = "The input changes require a full rebuild for incremental task"
+
     fun indexPath(version: String = DEFAULT_VERSION): String = "build/ssr/index/$version.index"
 
     // language=kotlin

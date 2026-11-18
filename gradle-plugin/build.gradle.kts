@@ -1,3 +1,6 @@
+import dev.tonholo.ssrcompose.conventions.runsOnlyScaleTests
+import dev.tonholo.ssrcompose.conventions.skipsScaleTests
+
 plugins {
     `java-gradle-plugin`
     alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
@@ -15,6 +18,7 @@ dependencies {
 
     "functionalTestImplementation"(gradleTestKit())
     "functionalTestImplementation"(libs.kotlin.test.junit5)
+    "functionalTestImplementation"(testFixtures(projects.catalogModel))
 
     "functionalTestRuntimeOnly"(projects.compilerPlugin)
     "functionalTestRuntimeOnly"(projects.catalogModel)
@@ -49,16 +53,27 @@ tasks.processResources {
     }
 }
 
-val functionalTestTask = tasks.register<Test>("functionalTest") {
-    description = "Runs the Gradle TestKit tests."
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
+fun Test.runsFunctionalTests() {
     testClassesDirs = functionalTest.output.classesDirs
     classpath = functionalTest.runtimeClasspath
     systemProperty("ssrcompose.repoRoot", rootProject.projectDir.absolutePath)
     inputs.files(rootProject.file("gradle.properties"), rootProject.file("gradle/libs.versions.toml"))
         .withPropertyName("fixtureBuildFiles")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+val functionalTestTask = tasks.register<Test>("functionalTest") {
+    description = "Runs the Gradle TestKit tests."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    runsFunctionalTests()
+    skipsScaleTests()
     shouldRunAfter(tasks.test)
+}
+
+tasks.register<Test>("functionalScaleTest") {
+    description = "Runs the Gradle TestKit probes of the scale experiment. `check` does not run them."
+    runsFunctionalTests()
+    runsOnlyScaleTests()
 }
 
 tasks.check {
