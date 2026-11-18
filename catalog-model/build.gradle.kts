@@ -1,4 +1,5 @@
 plugins {
+    `java-test-fixtures`
     alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
     alias(libs.plugins.ssrcompose.conventions.serialization)
     alias(libs.plugins.ssrcompose.conventions.publishing)
@@ -8,6 +9,11 @@ plugins {
 dependencies {
     api(projects.core)
     implementation(libs.kotlinx.serialization.json)
+}
+
+val javaComponent = components["java"] as AdhocComponentWithVariants
+listOf(configurations.testFixturesApiElements, configurations.testFixturesRuntimeElements).forEach { fixtures ->
+    javaComponent.withVariantsFromConfiguration(fixtures.get()) { skip() }
 }
 
 val worstShapeTests = "*WorstShapeMemoryTest"
