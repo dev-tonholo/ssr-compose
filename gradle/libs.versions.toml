@@ -57,5 +57,6 @@ ssrcompose-conventions-kmp-library = { id = "dev.tonholo.ssrcompose.conventions.
 ssrcompose-conventions-compose = { id = "dev.tonholo.ssrcompose.conventions.compose" }
 ssrcompose-conventions-serialization = { id = "dev.tonholo.ssrcompose.conventions.serialization" }
 ssrcompose-conventions-testing = { id = "dev.tonholo.ssrcompose.conventions.testing" }
+ssrcompose-conventions-scale-test = { id = "dev.tonholo.ssrcompose.conventions.scale-test" }
 ssrcompose-conventions-detekt = { id = "dev.tonholo.ssrcompose.conventions.detekt" }
 ssrcompose-conventions-publishing = { id = "dev.tonholo.ssrcompose.conventions.publishing" }
