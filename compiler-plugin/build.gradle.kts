@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
     alias(libs.plugins.ssrcompose.conventions.publishing)
+    alias(libs.plugins.ssrcompose.conventions.scale.test)
 }
 
 kotlin {
@@ -27,4 +28,9 @@ dependencies {
     testImplementation(libs.compose.runtime)
     testImplementation(libs.kotlin.compile.testing)
     testImplementation(projects.producer)
+    testImplementation(testFixtures(projects.catalogModel))
+}
+
+tasks.named<Test>("scaleTest") {
+    maxHeapSize = "12g"
 }
