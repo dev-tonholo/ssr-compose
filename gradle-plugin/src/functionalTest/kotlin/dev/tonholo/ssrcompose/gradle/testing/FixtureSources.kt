@@ -13,6 +13,21 @@ internal object FixtureSources {
 
     fun indexPath(version: String = DEFAULT_VERSION): String = "build/ssr/index/$version.index"
 
+    /** A screen named after [component] that calls its bridge with [title]. */
+    fun bridgeScreenSource(component: String, title: String): String =
+        // language=kotlin
+        """
+        package app.screens
+
+        import androidx.compose.runtime.Composable
+        import $DEFAULT_BRIDGE_PACKAGE.$component
+
+        @Composable
+        fun ${component}Screen() {
+            $component(title = "$title")
+        }
+        """.trimIndent()
+
     // language=kotlin
     fun producerBlock(version: String = DEFAULT_VERSION, bridgePackage: String = DEFAULT_BRIDGE_PACKAGE): String = """
         producer {
