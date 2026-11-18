@@ -1,17 +1,40 @@
-package dev.tonholo.ssrcompose.catalog.testing.indexformat
+package dev.tonholo.ssrcompose.catalog.index
 
+import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
+import dev.tonholo.ssrcompose.catalog.bundle.SizeCap
+import dev.tonholo.ssrcompose.catalog.bundle.io.requireWithin
+import dev.tonholo.ssrcompose.catalog.index.binary.BINARY_FORMAT_VERSION
+import dev.tonholo.ssrcompose.catalog.index.binary.BINARY_MAGIC
+import dev.tonholo.ssrcompose.catalog.index.binary.ComponentBodyWriter
 import dev.tonholo.ssrcompose.catalog.model.Catalog
+import dev.tonholo.ssrcompose.catalog.model.ChoiceList
+import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.model.Parameter
 import dev.tonholo.ssrcompose.core.data.ValueKind
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 
-internal class BinaryIndexWriter(private val catalog: Catalog) {
-    private val components = catalog.sortedComponents()
-    private val choices = catalog.sortedChoices()
-    private val strings = collectStrings()
-    private val stringIds = strings.withIndex().associate { (index, text) -> text to index }
-    private val bodyWriter = BinaryBodyWriter(idOf = stringIds::getValue)
+/**
+ * Writes the index the compiler plugin reads. The same catalog always gives the same bytes, whatever the order of its
+ * parts, and the index holds no path and no time.
+ */
+public object CatalogIndexWriter {
+    /**
+     * Returns the bytes of the index of [catalog].
+     *
+     * @param sizeCap the most bytes the index may have. The default is the cap the compiler plugin reads with.
+     * @throws CatalogFileException when the index is over [sizeCap].
+     */
+    public fun write(catalog: Catalog, sizeCap: SizeCap = CatalogIndexReader.DEFAULT_SIZE_CAP): ByteArray =
+        IndexBytes(catalog = catalog).write().requireWithin(sizeCap = sizeCap, subject = INDEX_SUBJECT)
+}
+
+private class IndexBytes(private val catalog: Catalog) {
+    private val components: List<ComponentDescriptor> = catalog.parts.flatMap { it.components }.sortedBy { it.name }
+    private val choices: List<ChoiceList> = catalog.parts.flatMap { it.choices }.distinct().sortedBy { it.name }
+    private val strings: List<String> = collectStrings()
+    private val stringIds: Map<String, Int> = strings.withIndex().associate { (index, text) -> text to index }
+    private val bodyWriter = ComponentBodyWriter(idOf = stringIds::getValue)
 
     fun write(): ByteArray = bytesOf { output ->
         output.writeInt(BINARY_MAGIC)

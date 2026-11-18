@@ -1,11 +1,13 @@
-package dev.tonholo.ssrcompose.catalog.testing.indexformat
+package dev.tonholo.ssrcompose.catalog.index.binary
 
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.model.Parameter
+import dev.tonholo.ssrcompose.catalog.model.SlotAccepts
 import dev.tonholo.ssrcompose.core.data.ValueKind
 import java.io.DataOutputStream
 
-internal class BinaryBodyWriter(private val idOf: (String) -> Int) {
+/** Writes the parameters of one component, with each text as its id in the string table. */
+internal class ComponentBodyWriter(private val idOf: (String) -> Int) {
     fun write(output: DataOutputStream, component: ComponentDescriptor) {
         output.writeInt(component.parameters.size)
         component.parameters.forEach { parameter -> writeParameter(output = output, parameter = parameter) }
@@ -26,10 +28,16 @@ internal class BinaryBodyWriter(private val idOf: (String) -> Int) {
 
             is Parameter.Slot -> {
                 writeHeader(output = output, tag = PARAMETER_SLOT, parameter = parameter, nullable = false)
-                output.writeByte(parameter.accepts.ordinal)
+                output.writeByte(acceptsCode(accepts = parameter.accepts))
                 writeKinds(output = output, kinds = parameter.arguments)
             }
         }
+    }
+
+    private fun acceptsCode(accepts: SlotAccepts): Int = when (accepts) {
+        SlotAccepts.Any -> ACCEPTS_ANY
+        SlotAccepts.Consumer -> ACCEPTS_CONSUMER
+        SlotAccepts.Producer -> ACCEPTS_PRODUCER
     }
 
     private fun writeHeader(output: DataOutputStream, tag: Int, parameter: Parameter, nullable: Boolean) {

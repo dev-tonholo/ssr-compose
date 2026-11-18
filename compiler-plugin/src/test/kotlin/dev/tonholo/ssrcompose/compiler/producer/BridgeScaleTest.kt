@@ -3,14 +3,14 @@ package dev.tonholo.ssrcompose.compiler.producer
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogBundleReader
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogBundleWriter
+import dev.tonholo.ssrcompose.catalog.index.CatalogIndex
+import dev.tonholo.ssrcompose.catalog.index.CatalogIndexReader
+import dev.tonholo.ssrcompose.catalog.index.CatalogIndexWriter
 import dev.tonholo.ssrcompose.catalog.model.Catalog
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.testing.ParameterPalette
 import dev.tonholo.ssrcompose.catalog.testing.SyntheticCatalog
 import dev.tonholo.ssrcompose.catalog.testing.SyntheticCatalogShape
-import dev.tonholo.ssrcompose.catalog.testing.indexformat.CandidateIndex
-import dev.tonholo.ssrcompose.catalog.testing.indexformat.CandidateIndexFormat
-import dev.tonholo.ssrcompose.catalog.testing.indexformat.CandidateIndexFormats
 import dev.tonholo.ssrcompose.catalog.testing.measure.MeasurementPlan
 import dev.tonholo.ssrcompose.catalog.testing.measure.SCALE_TAG
 import dev.tonholo.ssrcompose.catalog.testing.measure.ScaleMeasurement
@@ -135,18 +135,16 @@ class BridgeScaleTest {
     }
 
     @Test
-    fun `given a small catalog, when each index format is built and read, then it finds every component`() {
+    fun `given a small catalog, when its index is built and read, then it finds every component`() {
         // Arrange
         val catalog = SyntheticCatalog.generate(shape = fullPaletteShape(components = SMALL_COMPONENTS))
 
-        CandidateIndexFormats.all.forEach { format ->
-            // Act
-            val index = format.open(bytes = format.write(catalog = catalog))
+        // Act
+        val index = CatalogIndexReader.read(bytes = CatalogIndexWriter.write(catalog = catalog))
 
-            // Assert
-            assertEquals(expected = SMALL_COMPONENTS, actual = index.componentNames.size, message = format.name)
-            assertEquals(expected = descriptorsOf(catalog), actual = decodedComponents(index), message = format.name)
-        }
+        // Assert
+        assertEquals(expected = SMALL_COMPONENTS, actual = index.componentNames.size)
+        assertEquals(expected = descriptorsOf(catalog), actual = decodedComponents(index))
     }
 
     @Tag(SCALE_TAG)
@@ -156,17 +154,15 @@ class BridgeScaleTest {
         val catalog = SyntheticCatalog.generate(shape = fullPaletteShape(components = FULL_COMPONENTS))
         val files = CatalogBundleWriter.write(catalog = catalog)
 
-        CandidateIndexFormats.all.forEach { format ->
-            // Act
-            val indexBytes = measureFormat(format = format, catalog = catalog) {
-                CatalogBundleReader.read(manifest = files.manifest, readPart = files.parts::getValue)
-            }
-
-            // Assert
-            val index = format.open(bytes = indexBytes)
-            assertEquals(expected = FULL_COMPONENTS, actual = index.componentNames.size, message = format.name)
-            assertEquals(expected = descriptorsOf(catalog), actual = decodedComponents(index), message = format.name)
+        // Act
+        val indexBytes = measureIndex(catalog = catalog) {
+            CatalogBundleReader.read(manifest = files.manifest, readPart = files.parts::getValue)
         }
+
+        // Assert
+        val index = CatalogIndexReader.read(bytes = indexBytes)
+        assertEquals(expected = FULL_COMPONENTS, actual = index.componentNames.size)
+        assertEquals(expected = descriptorsOf(catalog), actual = decodedComponents(index))
     }
 
     @Tag(SCALE_TAG)
@@ -228,31 +224,32 @@ class BridgeScaleTest {
         assertEquals(expected = FULL_CALLED, actual = namedCreated)
     }
 
-    private fun measureFormat(format: CandidateIndexFormat, catalog: Catalog, readBundle: () -> Catalog): ByteArray {
-        val bytes = format.write(catalog = catalog)
-        val allNames = format.open(bytes = bytes).componentNames
+    private fun measureIndex(catalog: Catalog, readBundle: () -> Catalog): ByteArray {
+        val bytes = CatalogIndexWriter.write(catalog = catalog)
+        val allNames = CatalogIndexReader.read(bytes = bytes).componentNames
         val calledNames = allNames.take(FULL_CALLED)
         var calledParameters = 0L
         var allParameters = 0L
+        fun openIndex() = CatalogIndexReader.read(bytes = bytes)
         val reports = listOf(
-            ScaleMeasurement.measure(label = "index ${format.name} build from bundle", plan = FORMAT_PLAN) {
-                format.write(catalog = readBundle())
+            ScaleMeasurement.measure(label = "index build from bundle", plan = FORMAT_PLAN) {
+                CatalogIndexWriter.write(catalog = readBundle())
             },
-            ScaleMeasurement.measure(label = "index ${format.name} open and read 20", plan = FORMAT_PLAN) {
-                calledParameters += decodedParameters(index = format.open(bytes = bytes), names = calledNames)
+            ScaleMeasurement.measure(label = "index open and read 20", plan = FORMAT_PLAN) {
+                calledParameters += decodedParameters(index = openIndex(), names = calledNames)
             },
-            ScaleMeasurement.measure(label = "index ${format.name} open and read all", plan = FORMAT_PLAN) {
-                allParameters += decodedParameters(index = format.open(bytes = bytes), names = allNames)
+            ScaleMeasurement.measure(label = "index open and read all", plan = FORMAT_PLAN) {
+                allParameters += decodedParameters(index = openIndex(), names = allNames)
             },
         )
         reports.forEach { report -> println(report.toLine()) }
-        println("SCALE | index ${format.name} bytes | ${bytes.size}")
-        assertEquals(expected = parametersRead(catalog, calledNames), actual = calledParameters, message = format.name)
-        assertEquals(expected = parametersRead(catalog, allNames), actual = allParameters, message = format.name)
+        println("SCALE | index bytes | ${bytes.size}")
+        assertEquals(expected = parametersRead(catalog, calledNames), actual = calledParameters)
+        assertEquals(expected = parametersRead(catalog, allNames), actual = allParameters)
         return bytes
     }
 
-    private fun decodedParameters(index: CandidateIndex, names: List<String>): Long =
+    private fun decodedParameters(index: CatalogIndex, names: List<String>): Long =
         names.sumOf { name -> index.component(name = name)?.parameters?.size?.toLong() ?: 0L }
 
     private fun parametersRead(catalog: Catalog, names: List<String>): Long {
@@ -264,7 +261,7 @@ class BridgeScaleTest {
     private fun descriptorsOf(catalog: Catalog): Map<String, ComponentDescriptor> =
         catalog.parts.flatMap { it.components }.associateBy { it.name }
 
-    private fun decodedComponents(index: CandidateIndex): Map<String, ComponentDescriptor?> =
+    private fun decodedComponents(index: CatalogIndex): Map<String, ComponentDescriptor?> =
         index.componentNames.associateWith { name -> index.component(name = name) }
 
     private fun planFor(case: CompileCase): MeasurementPlan =
