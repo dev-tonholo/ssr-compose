@@ -80,6 +80,26 @@ internal class BridgeScaleScenario(
     fun compileWithOneUncalledComponentChanged(): JvmCompilationResult =
         compileBridges(catalogs = catalogsOf(index = changedIndex, count = 1)).requireSuccess()
 
+    /** Compiles a second module against a first one that created bridges only for the names it uses. */
+    fun compileSecondModuleCallingNamedComponent(): JvmCompilationResult =
+        compileSecondModule(component = calledComponents.first())
+
+    /** Compiles a second module that calls a component the first module's code never names. */
+    fun compileSecondModuleCallingUnnamedComponent(): JvmCompilationResult =
+        compileSecondModule(component = allComponents.last())
+
+    private fun compileSecondModule(component: ComponentDescriptor): JvmCompilationResult {
+        val firstModule = compile(case = CompileCase.OneFullCatalogNamedOnly)
+        return CompileTestSupport(registrars = listOf(ComposePluginRegistrar())).compileSource(
+            fileName = SECOND_MODULE_FILE,
+            source = ScaleSources.bridgeCaller(
+                components = listOf(component),
+                bridgePackage = packageOf(catalog = 0),
+            ),
+            classpath = listOf(firstModule.outputDirectory),
+        )
+    }
+
     /** How many components of the catalog have a function in the first bridge package of [result]. */
     fun createdBridgeCount(result: JvmCompilationResult): Int {
         val bridgePackage = packageOf(catalog = 0)
@@ -176,6 +196,7 @@ internal class BridgeScaleScenario(
         const val CALLS_PER_FUNCTION = 25
         const val VERSION_PREFIX = "v"
         const val SOURCE_FILE = "Screen.kt"
+        const val SECOND_MODULE_FILE = "SecondModuleScreen.kt"
         const val BRIDGE_FILES = 64
         const val FACADE_SUFFIX = "Kt.class"
         const val CALLER_FOLDER = "scale/caller"
