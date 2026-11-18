@@ -82,8 +82,8 @@ Each `catalog` block declares one held catalog: its version, the address of its 
 | Step | What it does |
 |---|---|
 | `ssrCatalogSync` | For each held catalog, fetches the manifest, checks it, fetches only the parts not already saved for that version, checks each part against its fingerprint in the manifest, and saves them in `ssr/catalogs/<version>/`. Records the location and the manifest's fingerprint in `ssr/catalogs.lock`. The plugin wires it into IDE sync via JetBrains `idea-ext` `afterSync` (unverified in Android Studio), and a developer can run it directly. |
-| `ssrCatalogIndex` | One per held catalog. Turns the saved bundle into an index the compiler plugin reads, in the build folder. Cacheable, internal, never committed and never shared between builds. Its format is settled by the scale gate, T031a. It runs before compile and is not meant to be run by hand. |
-| compile | The compiler plugin reads each index and creates one bridge per held catalog in its `bridgePackage`: one `@Composable` function per component and one `enum class` per choice list, each body carrying the catalog version as a constant. It never uses the network and never parses a catalog's JSON. The bridges are created in one module. Other modules of the server depend on that module and do not apply the producer setup themselves. |
+| `ssrCatalogIndex` | One per held catalog. Turns the saved bundle into an index the compiler plugin reads, in the build folder. Cacheable, internal, never committed and never shared between builds. Its format is binary ([research.md R16](../research.md#r16-scale-and-build-performance)). It runs before compile and is not meant to be run by hand. |
+| compile | The compiler plugin reads each index and creates one bridge per held catalog in its `bridgePackage`: one `@Composable` function for each component the module names and one `enum class` per choice list, each body carrying the catalog version as a constant. It never uses the network and never parses a catalog's JSON. Each server module that calls bridges holds the catalogs it needs and creates the bridges it names ([research.md R9](../research.md#r9-one-bridge-per-held-catalog)). The build passes the module's source folders as an internal compiler option, and the plugin scans them for those names. Created bridge functions are internal to the module, in classes named after it. |
 | `ssrCatalogVerify` | Fails when a saved manifest does not match its fingerprint in the lock file, when a saved part does not match its fingerprint in the manifest, when a part file the manifest lists is missing from the saved folder, when a declared catalog has no saved bundle, when a saved manifest's version differs from its declared version, or when the saved folder holds a part file the manifest does not list. It is part of the normal check and build. |
 
 Rules for `ssrCatalogSync`:
@@ -117,7 +117,7 @@ Rules for `ssrCatalogSync`:
 - A build with nothing changed runs no catalog step. A change in one app module runs that module's `ssrCatalogPart` and the `ssrCatalogBundle`, and nothing else.
 - The compile step of a server module has the indexes as inputs, not the catalogs' JSON.
 
-Not checked: all of the above. T114 tests it with Gradle TestKit, and T031a and T115 measure it with a catalog of 20,000 components.
+Not checked: all of the above in the finished build. T114 tests it with Gradle TestKit, and T115 measures it with a catalog of 20,000 components. T031a measured a prototype ([research.md R16](../research.md#r16-scale-and-build-performance)).
 
 ## What the build-tool plugins take care of
 
