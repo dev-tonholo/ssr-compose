@@ -4,11 +4,13 @@ package dev.tonholo.ssrcompose.compiler.producer.fir
 
 import dev.tonholo.ssrcompose.compiler.fir.buildComposableAnnotation
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
+import dev.tonholo.ssrcompose.compiler.producer.BridgeClassRule
 import dev.tonholo.ssrcompose.compiler.producer.BridgeComponent
 import dev.tonholo.ssrcompose.compiler.producer.BridgeParameter
 import dev.tonholo.ssrcompose.compiler.producer.BridgeParameterKind
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.utils.fileNameForPluginGeneratedCallable
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
@@ -53,6 +55,7 @@ internal class BridgeDeclarationGenerator(
                 )
             }
         }
+        function.fileNameForPluginGeneratedCallable = BridgeClassRule.fileNameOf(componentName = component.name)
         function.replaceAnnotations(listOf(buildComposableAnnotation()))
         unplaceableBridgeMarker.mark(function = function, component = component)
         return listOf(function.symbol)
