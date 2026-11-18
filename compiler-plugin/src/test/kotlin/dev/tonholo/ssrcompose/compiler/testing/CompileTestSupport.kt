@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.compiler.testing
 
+import androidx.compose.compiler.plugins.kotlin.ComposeCommandLineProcessor
 import androidx.compose.compiler.plugins.kotlin.ComposePluginRegistrar
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
@@ -10,6 +11,7 @@ import dev.tonholo.ssrcompose.compiler.SsrCommandLineProcessor
 import dev.tonholo.ssrcompose.compiler.SsrCompilerPluginRegistrar
 import java.io.File
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.config.JvmTarget
 
 internal class CompileTestSupport(
     private val registrars: List<CompilerPluginRegistrar> = listOf(
@@ -53,18 +55,20 @@ internal class CompileTestSupport(
         )
 
     /**
-     * Compiles inline [source] under [fileName].
+     * Compiles inline [source] under [fileName]. [composeOptions] go to the Compose compiler plugin.
      */
     fun compileSource(
         fileName: String,
         source: String,
         options: List<Pair<String, String>> = emptyList(),
         classpath: List<File> = emptyList(),
+        composeOptions: List<Pair<String, String>> = emptyList(),
     ): JvmCompilationResult =
         compileSources(
             sources = listOf(SourceFile.kotlin(name = fileName, contents = source)),
             options = options,
             classpath = classpath,
+            composeOptions = composeOptions,
         )
 
     private fun sourceFile(fixtureName: String, fileName: String): SourceFile {
@@ -77,19 +81,24 @@ internal class CompileTestSupport(
         options: List<Pair<String, String>>,
         classpath: List<File>,
         friendPaths: List<File> = emptyList(),
+        composeOptions: List<Pair<String, String>> = emptyList(),
     ): JvmCompilationResult =
         KotlinCompilation().apply {
+            val composeProcessor = ComposeCommandLineProcessor()
+            jvmTarget = JvmTarget.JVM_17.description
             classpaths = classpath
             this.friendPaths = friendPaths
             this.sources = sources
             compilerPluginRegistrars = registrars
-            commandLineProcessors = if (runsSsrPlugin) listOf(SsrCommandLineProcessor()) else emptyList()
+            commandLineProcessors = listOfNotNull(SsrCommandLineProcessor().takeIf { runsSsrPlugin }, composeProcessor)
             pluginOptions = options.map { (name, value) ->
                 PluginOption(
                     pluginId = CompilerPluginBuildConfig.COMPILER_PLUGIN_ID,
                     optionName = name,
                     optionValue = value,
                 )
+            } + composeOptions.map { (name, value) ->
+                PluginOption(pluginId = composeProcessor.pluginId, optionName = name, optionValue = value)
             }
             inheritClassPath = true
         }.compile()

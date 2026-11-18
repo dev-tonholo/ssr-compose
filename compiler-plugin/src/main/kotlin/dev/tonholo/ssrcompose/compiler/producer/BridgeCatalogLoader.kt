@@ -20,11 +20,17 @@ internal object BridgeCatalogLoader {
         val results = options.map(::loadCatalog)
         return BridgeCatalogLoad(
             catalogs = results.mapNotNull { it.catalog },
-            problems = results.flatMap { it.problems },
+            problems = BridgeLimits.sharedPackageProblems(options = options) + results.flatMap { it.problems },
         )
     }
 
-    private fun loadCatalog(option: CatalogOptionValue): CatalogResult =
+    private fun loadCatalog(option: CatalogOptionValue): CatalogResult {
+        val optionProblems = BridgeLimits.optionProblems(option = option)
+        if (optionProblems.isNotEmpty()) return CatalogResult(catalog = null, problems = optionProblems)
+        return readCatalog(option = option)
+    }
+
+    private fun readCatalog(option: CatalogOptionValue): CatalogResult =
         try {
             val index = File(option.indexPath).inputStream().use { stream -> CatalogIndexReader.read(stream = stream) }
             if (index.version.value == option.version) {
@@ -40,12 +46,14 @@ internal object BridgeCatalogLoader {
 
     private fun resultOf(option: CatalogOptionValue, index: CatalogIndex): CatalogResult {
         val descriptors = index.componentNames.mapNotNull(index::component)
-        val problems = descriptors.flatMap(::refusedParameters)
+        val components = descriptors.map(::bridgeComponent)
+        val refused = descriptors.flatMap(::refusedParameters)
+        val problems = refused + BridgeLimits.componentProblems(components = components)
         if (problems.isNotEmpty()) return CatalogResult(catalog = null, problems = problems)
         val catalog = BridgeCatalog(
             key = BridgeKey(catalogVersion = option.version),
             bridgePackage = FqName(option.bridgePackage),
-            components = descriptors.map(::bridgeComponent),
+            components = components,
         )
         return CatalogResult(catalog = catalog, problems = emptyList())
     }
