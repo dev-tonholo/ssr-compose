@@ -26,7 +26,7 @@ internal class NamedOnlyProbeFixture(private val directory: File) {
             .replace(oldValue = CATALOG_PLACEHOLDER, newValue = catalog.encode())
         project
             .addFile(relativePath = "build.gradle.kts", text = buildScript)
-            .addFile(relativePath = INDEX_PATH, text = INDEX_TEXT)
+            .addFile(relativePath = INDEX_PATH, bytes = FixtureIndexes.withComponents(names = listOf("Alpha", "Beta")))
             .addFile(relativePath = ALPHA_SCREEN_PATH, text = screenSource(component = "Alpha", title = "first"))
             .addFile(relativePath = BETA_SCREEN_PATH, text = screenSource(component = "Beta", title = "first"))
             .addFile(relativePath = PLAIN_SOURCE_PATH, text = PLAIN_SOURCE)
@@ -87,7 +87,6 @@ internal class NamedOnlyProbeFixture(private val directory: File) {
 
         // language=kotlin
         const val PLAIN_SOURCE = "package app.screens\n\nfun plain(): Int = 1\n"
-        const val INDEX_TEXT = "component Alpha\nparam title text required\ncomponent Beta\nparam title text required\n"
 
         // language=kotlin
         const val BUILD_TEMPLATE = """

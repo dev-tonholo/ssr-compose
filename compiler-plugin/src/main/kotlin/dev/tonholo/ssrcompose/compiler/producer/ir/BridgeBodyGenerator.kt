@@ -3,11 +3,11 @@
 package dev.tonholo.ssrcompose.compiler.producer.ir
 
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
+import dev.tonholo.ssrcompose.compiler.producer.BridgeComponent
 import dev.tonholo.ssrcompose.compiler.producer.BridgeKey
+import dev.tonholo.ssrcompose.compiler.producer.BridgeParameterKind
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
 import dev.tonholo.ssrcompose.compiler.producer.UnplaceableComponent
-import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayComponent
-import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayParameterKind
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.ir.IrStatement
@@ -63,7 +63,7 @@ internal class BridgeBodyGenerator(
         return super.visitSimpleFunction(declaration)
     }
 
-    private fun IrSimpleFunction.defaultOptionalParametersToNull(component: ThrowawayComponent) {
+    private fun IrSimpleFunction.defaultOptionalParametersToNull(component: BridgeComponent) {
         val builder = DeclarationIrBuilder(context, symbol)
         val optionalNames = component.parameters.filterNot { it.isRequired }.map { it.name }.toSet()
         parameters.filter { it.name.asString() in optionalNames }.forEach { parameter ->
@@ -73,17 +73,17 @@ internal class BridgeBodyGenerator(
 
     private fun IrBuilderWithScope.consumerComponentCall(
         function: IrSimpleFunction,
-        component: ThrowawayComponent,
+        component: BridgeComponent,
         key: BridgeKey,
     ): IrExpression {
         val parameters = function.parameters.associateBy { it.name.asString() }
 
-        fun parametersOf(kind: ThrowawayParameterKind): List<IrValueParameter> =
+        fun parametersOf(kind: BridgeParameterKind): List<IrValueParameter> =
             component.parameters.filter { it.kind == kind }.map { parameters.getValue(it.name) }
 
-        val values = parametersOf(kind = ThrowawayParameterKind.Text)
-        val actions = parametersOf(kind = ThrowawayParameterKind.ActionOfText)
-        val slots = parametersOf(kind = ThrowawayParameterKind.Slot)
+        val values = parametersOf(kind = BridgeParameterKind.Text)
+        val actions = parametersOf(kind = BridgeParameterKind.ActionOfText)
+        val slots = parametersOf(kind = BridgeParameterKind.Slot)
         val calleeParameters = consumerComponent.owner.parameters
         return irCall(consumerComponent).apply {
             arguments[CATALOG_VERSION_INDEX] = irString(key.catalogVersion)

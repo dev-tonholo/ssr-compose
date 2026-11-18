@@ -2,6 +2,7 @@ package dev.tonholo.ssrcompose.gradle
 
 import dev.tonholo.ssrcompose.catalog.testing.measure.SCALE_TAG
 import dev.tonholo.ssrcompose.gradle.testing.BridgeModulesFixture
+import dev.tonholo.ssrcompose.gradle.testing.FixtureIndexes
 import dev.tonholo.ssrcompose.gradle.testing.FixtureProject
 import dev.tonholo.ssrcompose.gradle.testing.FixtureSources
 import org.gradle.testkit.runner.TaskOutcome
@@ -23,7 +24,10 @@ class CatalogRebuildScopeTest {
     fun `given a compiled module, when only its index changes, then the whole module is rebuilt`() {
         // Arrange
         val fixture = compiledSingleModule()
-        fixture.addFile(relativePath = FixtureSources.indexPath(), text = CHANGED_INDEX)
+        fixture.addFile(
+            relativePath = FixtureSources.indexPath(),
+            bytes = FixtureIndexes.withoutComponents(marker = CHANGED_INDEX),
+        )
 
         // Act
         val output = fixture.run(task = COMPILE_TASK, INFO_FLAG).output
@@ -87,7 +91,10 @@ class CatalogRebuildScopeTest {
             .configure(ssrComposeBlock = FixtureSources.producerBlock())
             .addFile(relativePath = FixtureSources.MARKED_SOURCE_PATH, text = FixtureSources.MARKED_SOURCE)
             .addFile(relativePath = OTHER_SOURCE_PATH, text = OTHER_SOURCE)
-            .addFile(relativePath = FixtureSources.indexPath(), text = FIRST_INDEX)
+            .addFile(
+                relativePath = FixtureSources.indexPath(),
+                bytes = FixtureIndexes.withoutComponents(marker = FIRST_INDEX),
+            )
         fixture.compile()
         return fixture
     }
@@ -98,8 +105,8 @@ class CatalogRebuildScopeTest {
         const val INFO_FLAG = "--info"
         const val OTHER_SOURCE_PATH = "src/main/kotlin/app/Other.kt"
         const val MARKED_CLASS_PATH = "build/classes/kotlin/main/MarkedKt.class"
-        const val FIRST_INDEX = "# first content"
-        const val CHANGED_INDEX = "# second content"
+        const val FIRST_INDEX = "FirstContent"
+        const val CHANGED_INDEX = "SecondContent"
         const val ALPHA_SCREEN_CLASS = "AlphaScreenKt.class"
         const val BETA_SCREEN_CLASS = "BetaScreenKt.class"
 

@@ -36,7 +36,7 @@ class BridgeScaleTest {
         val scenario = smallScenario()
 
         // Act
-        val result = scenario.compileFullCatalogInOneClass()
+        val result = scenario.compileFullCatalog()
 
         // Assert
         assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
@@ -96,7 +96,7 @@ class BridgeScaleTest {
     fun `given a change to a component nobody calls, when compiled again, then the caller classes stay the same`() {
         // Arrange
         val scenario = smallScenario()
-        val before = scenario.callerClasses(result = scenario.compileFullCatalogInOneClass())
+        val before = scenario.callerClasses(result = scenario.compileFullCatalog())
 
         // Act
         val after = scenario.callerClasses(result = scenario.compileWithOneUncalledComponentChanged())
@@ -112,12 +112,13 @@ class BridgeScaleTest {
     fun `given a change to one component, when compiled again, then the bridge classes change`() {
         // Arrange
         val scenario = smallScenario()
-        val before = scenario.bridgeClasses(result = scenario.compileFullCatalogInOneClass())
+        val before = scenario.bridgeClasses(result = scenario.compileFullCatalog())
 
         // Act
         val after = scenario.bridgeClasses(result = scenario.compileWithOneUncalledComponentChanged())
 
         // Assert
+        assertEquals(expected = before.keys, actual = after.keys)
         val changed = before.keys.filterNot { name -> before.getValue(name).contentEquals(after[name]) }
         assertFalse(actual = changed.isEmpty(), message = "No bridge class changed")
     }
@@ -167,7 +168,7 @@ class BridgeScaleTest {
 
     @Tag(SCALE_TAG)
     @Test
-    fun `given the full catalog, when the plugin puts every function in one class, then the compile fails`() {
+    fun `given the full catalog, when every function is put in one class, then the compile fails`() {
         // Arrange
         val scenario = fullScenario()
 
@@ -225,7 +226,7 @@ class BridgeScaleTest {
     }
 
     private fun measureIndex(catalog: Catalog, readBundle: () -> Catalog): ByteArray {
-        val bytes = CatalogIndexWriter.write(catalog = catalog)
+        val bytes = CatalogIndexWriter.write(catalog = readBundle())
         val allNames = CatalogIndexReader.read(bytes = bytes).componentNames
         val calledNames = allNames.take(FULL_CALLED)
         var calledParameters = 0L

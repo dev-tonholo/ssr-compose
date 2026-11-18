@@ -1,8 +1,8 @@
 package dev.tonholo.ssrcompose.compiler.producer.fir
 
+import dev.tonholo.ssrcompose.compiler.producer.BridgeComponent
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
 import dev.tonholo.ssrcompose.compiler.producer.UnplaceableComponent
-import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayComponent
 import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.types.ConstantValueKind
  * server cannot place. The annotation is saved in the compiled bridge, so a module that depends on it can read it.
  */
 internal class UnplaceableBridgeMarker {
-    fun mark(function: FirNamedFunction, component: ThrowawayComponent) {
+    fun mark(function: FirNamedFunction, component: BridgeComponent) {
         val message = UnplaceableComponent.messageOf(component) ?: return
         function.replaceAnnotations(function.annotations + unplaceableBridge(message = message))
     }

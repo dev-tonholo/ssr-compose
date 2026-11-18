@@ -16,7 +16,7 @@ internal class BridgeModulesFixture(private val directory: File) {
             .addFile(relativePath = "build.gradle.kts", text = ROOT_BUILD)
             .addFile(relativePath = "bridge/build.gradle.kts", text = BRIDGE_BUILD)
             .addFile(relativePath = "bridge/src/main/kotlin/app/anchor/Anchor.kt", text = ANCHOR_SOURCE)
-            .addFile(relativePath = INDEX_PATH, text = indexText(changedComponent = null))
+            .addFile(relativePath = INDEX_PATH, bytes = FixtureIndexes.withComponents(names = COMPONENTS))
             .addFile(relativePath = "screens/build.gradle.kts", text = SCREENS_BUILD)
             .addFile(relativePath = "$SCREENS_SOURCES/AlphaScreen.kt", text = screenSource(component = "Alpha"))
             .addFile(relativePath = "$SCREENS_SOURCES/BetaScreen.kt", text = screenSource(component = "Beta"))
@@ -26,7 +26,10 @@ internal class BridgeModulesFixture(private val directory: File) {
 
     /** Gives [component] one more optional parameter in the index of the catalog. */
     fun changeComponent(component: String) {
-        project.addFile(relativePath = INDEX_PATH, text = indexText(changedComponent = component))
+        project.addFile(
+            relativePath = INDEX_PATH,
+            bytes = FixtureIndexes.withComponents(names = COMPONENTS, changedComponent = component),
+        )
     }
 
     /** The time each compiled class of `:screens` was last written, by file name. */
@@ -34,12 +37,6 @@ internal class BridgeModulesFixture(private val directory: File) {
         directory.resolve(SCREENS_CLASSES).walkTopDown()
             .filter { it.isFile && it.extension == "class" }
             .associate { it.name to it.lastModified() }
-
-    private fun indexText(changedComponent: String?): String =
-        COMPONENTS.joinToString(separator = "\n", postfix = "\n") { component ->
-            val extra = if (component == changedComponent) "\nparam extra text optional" else ""
-            "component $component\nparam title text required$extra"
-        }
 
     private fun screenSource(component: String): String =
         FixtureSources.bridgeScreenSource(component = component, title = "text")

@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.gradle
 
+import dev.tonholo.ssrcompose.gradle.testing.FixtureIndexes
 import dev.tonholo.ssrcompose.gradle.testing.FixtureProject
 import dev.tonholo.ssrcompose.gradle.testing.FixtureSources
 import org.gradle.testkit.runner.TaskOutcome
@@ -52,7 +53,10 @@ class SyncHookTest {
         // Arrange
         val fixture = FixtureProject(projectDir)
             .configure(ssrComposeBlock = FixtureSources.producerBlock())
-            .addFile(relativePath = FixtureSources.indexPath(), text = INDEX_CONTENT)
+            .addFile(
+                relativePath = FixtureSources.indexPath(),
+                bytes = FixtureIndexes.withoutComponents(marker = INDEX_MARKER),
+            )
             .addFile(relativePath = PRODUCER_SOURCE_PATH, text = PRODUCER_SOURCE)
 
         // Act
@@ -158,7 +162,7 @@ class SyncHookTest {
         const val IDEA_EXT_PLUGIN_ID = "org.jetbrains.gradle.plugin.idea-ext"
         const val MISSING_TRIGGER_API_WARNING = "its taskTriggers API was not found"
         const val CONFIGURATION_CACHE_FLAG = "--configuration-cache"
-        const val INDEX_CONTENT = "# index content"
+        const val INDEX_MARKER = "IndexContent"
         const val PRODUCER_SOURCE_PATH = "src/main/kotlin/ServerScreen.kt"
         // language=kotlin
         val PRODUCER_SOURCE = """

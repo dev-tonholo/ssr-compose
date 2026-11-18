@@ -7,6 +7,7 @@ import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.checkOptions
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
+import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
 import dev.tonholo.ssrcompose.compiler.testing.UnplaceableExpectation
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,7 +17,7 @@ import kotlin.test.assertTrue
 class UnplaceableComponentTest {
     private val support = CompileTestSupport()
     private val options = producerOptions(
-        catalog(indexName = CATALOG_INDEX, version = CATALOG_VERSION, bridgePackage = BRIDGE_PACKAGE),
+        catalog(catalog = TestCatalogs.unplaceable, bridgePackage = BRIDGE_PACKAGE),
     )
 
     @Test
@@ -154,7 +155,7 @@ class UnplaceableComponentTest {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
         val ownOptions = producerOptions(
-            catalog(indexName = OWN_CATALOG_INDEX, version = OWN_CATALOG_VERSION, bridgePackage = OWN_BRIDGE_PACKAGE),
+            catalog(catalog = TestCatalogs.first, bridgePackage = OWN_BRIDGE_PACKAGE),
         )
 
         // Act
@@ -199,11 +200,7 @@ class UnplaceableComponentTest {
         messages.lines().filter { it.startsWith(ERROR_PREFIX) }
 
     private companion object {
-        const val CATALOG_INDEX = "unplaceable-catalog.throwaway-index"
-        const val CATALOG_VERSION = "3"
         const val BRIDGE_PACKAGE = "app.bridge.unplaceable"
-        const val OWN_CATALOG_INDEX = "first-catalog.throwaway-index"
-        const val OWN_CATALOG_VERSION = "1"
         const val OWN_BRIDGE_PACKAGE = "app.bridge.v1"
         const val UNPLACEABLE_CALLER = "UnplaceableCaller"
         const val UNPLACEABLE_REFERENCE_CALLER = "UnplaceableReferenceCaller"

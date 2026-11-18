@@ -3,8 +3,11 @@ package dev.tonholo.ssrcompose.compiler.producer
 import androidx.compose.compiler.plugins.kotlin.ComposePluginRegistrar
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
+import dev.tonholo.ssrcompose.catalog.index.CatalogIndexWriter
+import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
+import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
 import dev.tonholo.ssrcompose.compiler.testing.scale.BridgeCreation
 import dev.tonholo.ssrcompose.compiler.testing.scale.ExperimentBridgeRegistrar
 import org.junit.jupiter.api.io.TempDir
@@ -101,7 +104,9 @@ class TwoModuleBridgeTest {
         moduleName: String?,
         classpath: List<File> = emptyList(),
     ): JvmCompilationResult {
-        val index = workDir.resolve("catalog.index").apply { writeText(text = INDEX) }
+        val index = workDir.resolve("catalog.index").apply {
+            writeBytes(array = CatalogIndexWriter.write(catalog = TWO_COMPONENT_CATALOG))
+        }
         val catalog = CatalogOptionValue(version = "1", indexPath = index.absolutePath, bridgePackage = BRIDGE_PACKAGE)
         val source = callerSource(component = component)
         val registrar = ExperimentBridgeRegistrar(
@@ -150,6 +155,10 @@ class TwoModuleBridgeTest {
         const val CALLER_FILE = "Screen.kt"
         const val ENUM_FILE = "Tone.kt"
         const val ENUM_CLASS_FILE = "Tone.class"
-        const val INDEX = "component Alpha\nparam title text required\ncomponent Beta\nparam title text required\n"
+        val TWO_COMPONENT_CATALOG = TestCatalogs.catalogOf(
+            version = "1",
+            ComponentDescriptor(name = ALPHA, parameters = listOf(TestCatalogs.requiredTitle)),
+            ComponentDescriptor(name = BETA, parameters = listOf(TestCatalogs.requiredTitle)),
+        )
     }
 }

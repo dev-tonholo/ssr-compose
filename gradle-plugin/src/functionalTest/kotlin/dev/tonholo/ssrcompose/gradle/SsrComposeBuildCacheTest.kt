@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.gradle
 
+import dev.tonholo.ssrcompose.gradle.testing.FixtureIndexes
 import dev.tonholo.ssrcompose.gradle.testing.FixtureProject
 import dev.tonholo.ssrcompose.gradle.testing.FixtureSources
 import org.gradle.testkit.runner.TaskOutcome
@@ -37,9 +38,12 @@ class SsrComposeBuildCacheTest {
         FixtureProject(directory = folder, buildCacheDirectory = cacheFolder)
             .configure(ssrComposeBlock = FixtureSources.producerBlock())
             .addFile(relativePath = FixtureSources.MARKED_SOURCE_PATH, text = FixtureSources.MARKED_SOURCE)
-            .addFile(relativePath = FixtureSources.indexPath(), text = INDEX_CONTENT)
+            .addFile(
+                relativePath = FixtureSources.indexPath(),
+                bytes = FixtureIndexes.withoutComponents(marker = INDEX_MARKER),
+            )
 
     private companion object {
-        const val INDEX_CONTENT = "# index content"
+        const val INDEX_MARKER = "IndexContent"
     }
 }

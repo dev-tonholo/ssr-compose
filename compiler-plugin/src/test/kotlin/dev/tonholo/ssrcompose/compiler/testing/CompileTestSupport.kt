@@ -21,18 +21,20 @@ internal class CompileTestSupport(
 
     /**
      * Compiles the fixture as a source file named [fileName], which is the fixture's name unless a test needs
-     * two fixtures to be the same file in two compilations.
+     * two fixtures to be the same file in two compilations. The fixture can read the internals of [friendPaths].
      */
     fun compile(
         fixtureName: String,
         fileName: String = fixtureName,
         options: List<Pair<String, String>> = emptyList(),
         classpath: List<File> = emptyList(),
+        friendPaths: List<File> = emptyList(),
     ): JvmCompilationResult =
         compileSources(
             sources = listOf(sourceFile(fixtureName = fixtureName, fileName = fileName)),
             options = options,
             classpath = classpath,
+            friendPaths = friendPaths,
         )
 
     /** Compiles several fixtures together in one compilation. */
@@ -74,9 +76,11 @@ internal class CompileTestSupport(
         sources: List<SourceFile>,
         options: List<Pair<String, String>>,
         classpath: List<File>,
+        friendPaths: List<File> = emptyList(),
     ): JvmCompilationResult =
         KotlinCompilation().apply {
             classpaths = classpath
+            this.friendPaths = friendPaths
             this.sources = sources
             compilerPluginRegistrars = registrars
             commandLineProcessors = if (runsSsrPlugin) listOf(SsrCommandLineProcessor()) else emptyList()
