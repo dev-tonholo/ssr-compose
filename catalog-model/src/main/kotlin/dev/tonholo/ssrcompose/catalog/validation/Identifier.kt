@@ -14,17 +14,25 @@ private fun Char.continuesIdentifier(): Boolean = isLetterOrDigit() || this == U
 
 private fun String.isOnlyUnderscores(): Boolean = all { it == UNDERSCORE }
 
+private fun hasIdentifierShape(text: String): Boolean =
+    text.isNotEmpty() &&
+        text.first().startsIdentifier() &&
+        text.all { it.continuesIdentifier() } &&
+        !text.isOnlyUnderscores()
+
 /**
  * True when [text] is a non-empty plain Kotlin identifier of at most [CatalogLimits.MAX_NAME_LENGTH] characters,
  * not made only of underscores, and not a hard keyword.
  */
 public fun isKotlinIdentifier(text: String): Boolean =
-    text.isNotEmpty() &&
-        text.length <= CatalogLimits.MAX_NAME_LENGTH &&
-        text.first().startsIdentifier() &&
-        text.all { it.continuesIdentifier() } &&
-        !text.isOnlyUnderscores() &&
-        text !in HARD_KEYWORDS
+    text.length <= CatalogLimits.MAX_NAME_LENGTH && hasIdentifierShape(text = text) && text !in HARD_KEYWORDS
+
+/**
+ * True when [text] is segments of any length separated by single dots, each with the shape of a Kotlin identifier.
+ * A segment may be a hard keyword, as in `in.acme.bridge`, because source code can name it with backticks.
+ */
+public fun isKotlinPackageName(text: String): Boolean =
+    text.split('.').all { segment -> hasIdentifierShape(text = segment) }
 
 internal fun requireIdentifier(text: String, what: String) {
     require(isKotlinIdentifier(text = text)) {
