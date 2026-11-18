@@ -8,6 +8,10 @@ plugins {
 }
 
 val functionalTest: SourceSet = sourceSets.create("functionalTest")
+val namedOnlyProbe = configurations.dependencyScope("namedOnlyProbe")
+val namedOnlyProbeClasspath = configurations.resolvable("namedOnlyProbeClasspath") {
+    extendsFrom(namedOnlyProbe.get())
+}
 
 dependencies {
     implementation(projects.tooling)
@@ -23,6 +27,8 @@ dependencies {
     "functionalTestRuntimeOnly"(projects.compilerPlugin)
     "functionalTestRuntimeOnly"(projects.catalogModel)
     "functionalTestRuntimeOnly"(projects.core)
+
+    "namedOnlyProbe"(project(path = ":compiler-plugin", configuration = "namedOnlyProbe"))
 }
 
 kotlin {
@@ -74,6 +80,11 @@ tasks.register<Test>("functionalScaleTest") {
     description = "Runs the Gradle TestKit probes of the scale experiment. `check` does not run them."
     runsFunctionalTests()
     runsOnlyScaleTests()
+    val probeJar: FileCollection = namedOnlyProbeClasspath.get()
+    inputs.files(probeJar).withPropertyName("namedOnlyProbeJar").withNormalizer(ClasspathNormalizer::class)
+    jvmArgumentProviders.add(
+        CommandLineArgumentProvider { listOf("-Dssrcompose.namedOnlyProbeJar=${probeJar.singleFile.absolutePath}") },
+    )
 }
 
 tasks.check {
