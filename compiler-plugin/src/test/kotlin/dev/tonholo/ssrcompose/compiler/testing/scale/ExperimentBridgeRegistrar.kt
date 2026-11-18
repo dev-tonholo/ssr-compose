@@ -9,7 +9,9 @@ import dev.tonholo.ssrcompose.compiler.producer.ir.BridgeIrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.copy
 import org.jetbrains.kotlin.fir.declarations.utils.fileNameForPluginGeneratedCallable
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -30,8 +32,10 @@ private val IDENTIFIER = Regex("[A-Za-z_][A-Za-z0-9_]*")
  * creates every function a plugin declares, so limiting what is declared is the only way to limit what is created.
  * @property files how many source files the functions of one bridge are spread over. One JVM class cannot hold the
  * functions of a full catalog.
+ * @property moduleName when set, the functions are internal to the module and their classes carry this name, so two
+ * modules that create the same bridge do not clash.
  */
-internal data class BridgeCreation(val namedIn: String?, val files: Int)
+internal data class BridgeCreation(val namedIn: String?, val files: Int, val moduleName: String? = null)
 
 /** Registers the bridge of each catalog with the changes of [creation]. */
 internal class ExperimentBridgeRegistrar(
@@ -56,7 +60,7 @@ internal fun CompilerPluginRegistrar.ExtensionStorage.registerExperimentBridges(
     }
     val bridgeCatalogs = catalogs.map(BridgeCatalog::from)
     FirExtensionRegistrarAdapter.registerExtension(
-        ExperimentFirRegistrar(catalogs = bridgeCatalogs, namesInSource = namesInSource, files = creation.files),
+        ExperimentFirRegistrar(catalogs = bridgeCatalogs, namesInSource = namesInSource, creation = creation),
     )
     IrGenerationExtension.registerExtension(BridgeIrGenerationExtension(catalogs = bridgeCatalogs))
 }
@@ -64,7 +68,7 @@ internal fun CompilerPluginRegistrar.ExtensionStorage.registerExperimentBridges(
 private class ExperimentFirRegistrar(
     private val catalogs: List<BridgeCatalog>,
     private val namesInSource: Set<String>?,
-    private val files: Int,
+    private val creation: BridgeCreation,
 ) : FirExtensionRegistrar() {
     override fun ExtensionRegistrarContext.configurePlugin() {
         catalogs.forEach { catalog ->
@@ -73,7 +77,7 @@ private class ExperimentFirRegistrar(
                     session = session,
                     catalog = catalog,
                     namesInSource = namesInSource,
-                    files = files,
+                    creation = creation,
                 )
             }
         }
@@ -84,7 +88,7 @@ private class ExperimentBridgeGenerator(
     session: FirSession,
     catalog: BridgeCatalog,
     private val namesInSource: Set<String>?,
-    private val files: Int,
+    private val creation: BridgeCreation,
 ) : FirDeclarationGenerationExtension(session) {
     private val allBridges = BridgeDeclarationGenerator(session = session, catalog = catalog)
 
@@ -101,7 +105,11 @@ private class ExperimentBridgeGenerator(
         context: MemberGenerationContext?,
     ): List<FirNamedFunctionSymbol> =
         allBridges.generateFunctions(callableId = callableId, context = context).onEach { function ->
-            val file = Math.floorMod(callableId.callableName.asString().hashCode(), files)
-            function.fir.fileNameForPluginGeneratedCallable = "Bridge$file"
+            val file = Math.floorMod(callableId.callableName.asString().hashCode(), creation.files)
+            val moduleName = creation.moduleName
+            function.fir.fileNameForPluginGeneratedCallable = "Bridge$file${moduleName.orEmpty()}"
+            if (moduleName != null) {
+                function.fir.replaceStatus(function.fir.status.copy(visibility = Visibilities.Internal))
+            }
         }
 }
