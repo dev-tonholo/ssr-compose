@@ -12,10 +12,10 @@ internal enum class CompileCase(val isHeavy: Boolean = false) {
     /** A catalog that holds only the called composables. */
     CalledComponentsCatalog,
 
-    /** One held catalog of every component, with a bridge function for each. */
+    /** One held catalog of every component, with a bridge function for each, spread over several classes. */
     OneFullCatalog,
 
-    /** Ten held catalogs of every component, with a bridge function for each. */
+    /** Ten held catalogs of every component, with a bridge function for each, spread over several classes. */
     TenFullCatalogs(isHeavy = true),
 
     /** One held catalog of every component, with bridge functions only for the names the code uses. */

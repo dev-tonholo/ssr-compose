@@ -23,6 +23,8 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class BridgeScaleTest {
     @TempDir
@@ -30,6 +32,19 @@ class BridgeScaleTest {
 
     @Test
     fun `given code that names two components, when the plugin compiles it, then every component gets a function`() {
+        // Arrange
+        val scenario = smallScenario()
+
+        // Act
+        val result = scenario.compileFullCatalogInOneClass()
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(expected = SMALL_COMPONENTS, actual = scenario.createdBridgeCount(result = result))
+    }
+
+    @Test
+    fun `given bridge functions spread over classes, when compiled, then every component still gets a function`() {
         // Arrange
         val scenario = smallScenario()
 
@@ -56,7 +71,7 @@ class BridgeScaleTest {
     fun `given a change to a component nobody calls, when compiled again, then the caller classes stay the same`() {
         // Arrange
         val scenario = smallScenario()
-        val before = scenario.callerClasses(result = scenario.compile(case = CompileCase.OneFullCatalog))
+        val before = scenario.callerClasses(result = scenario.compileFullCatalogInOneClass())
 
         // Act
         val after = scenario.callerClasses(result = scenario.compileWithOneUncalledComponentChanged())
@@ -72,7 +87,7 @@ class BridgeScaleTest {
     fun `given a change to one component, when compiled again, then the bridge classes change`() {
         // Arrange
         val scenario = smallScenario()
-        val before = scenario.bridgeClasses(result = scenario.compile(case = CompileCase.OneFullCatalog))
+        val before = scenario.bridgeClasses(result = scenario.compileFullCatalogInOneClass())
 
         // Act
         val after = scenario.bridgeClasses(result = scenario.compileWithOneUncalledComponentChanged())
@@ -127,6 +142,21 @@ class BridgeScaleTest {
             assertEquals(expected = FULL_COMPONENTS, actual = index.componentNames.size, message = format.name)
             assertEquals(expected = descriptorsOf(catalog), actual = decodedComponents(index), message = format.name)
         }
+    }
+
+    @Tag(SCALE_TAG)
+    @Test
+    fun `given the full catalog, when the plugin puts every function in one class, then the compile fails`() {
+        // Arrange
+        val scenario = fullScenario()
+
+        // Act
+        val result = scenario.compileFullCatalogInOneClass()
+
+        // Assert
+        println("SCALE | one class for every function | exit code ${result.exitCode}")
+        assertNotEquals(illegal = ExitCode.OK, actual = result.exitCode)
+        assertTrue(actual = result.messages.contains(CLASS_TOO_LARGE), message = result.messages.take(MESSAGE_START))
     }
 
     @Tag(SCALE_TAG)
@@ -240,6 +270,8 @@ class BridgeScaleTest {
 
     private companion object {
         const val SEED = 20_000L
+        const val CLASS_TOO_LARGE = "Class too large"
+        const val MESSAGE_START = 2_000
         const val SMALL_COMPONENTS = 60
         const val SMALL_PARTS = 3
         const val SMALL_CALLED = 2
