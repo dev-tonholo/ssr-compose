@@ -104,7 +104,7 @@ Its fingerprint is the SHA-256 of the manifest's bytes. A reader refuses a manif
 
 ### CatalogIndex (`catalog-model`, internal)
 
-What the compiler plugin reads to create one bridge, produced from one saved catalog by a cacheable build step. Internal, never shared between builds and never committed. Its format is settled by the scale gate, T031a, and is not fixed here.
+What the compiler plugin reads to create one bridge, produced from one saved catalog by a cacheable build step. Internal, never shared between builds and never committed. Its format is binary ([research.md R16](research.md#r16-scale-and-build-performance)).
 
 ### SavedCatalog and lock file (server project)
 
