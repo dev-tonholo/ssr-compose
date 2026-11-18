@@ -68,6 +68,31 @@ class BridgeScaleTest {
     }
 
     @Test
+    fun `given named only creation, when a second module calls a name the first names, then it compiles`() {
+        // Arrange
+        val scenario = smallScenario()
+
+        // Act
+        val result = scenario.compileSecondModuleCallingNamedComponent()
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+    }
+
+    @Test
+    fun `given named only creation, when a second module calls a name the first does not name, then it fails`() {
+        // Arrange
+        val scenario = smallScenario()
+
+        // Act
+        val result = scenario.compileSecondModuleCallingUnnamedComponent()
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        assertTrue(actual = result.messages.contains(UNRESOLVED_REFERENCE), message = result.messages)
+    }
+
+    @Test
     fun `given a change to a component nobody calls, when compiled again, then the caller classes stay the same`() {
         // Arrange
         val scenario = smallScenario()
@@ -271,6 +296,7 @@ class BridgeScaleTest {
     private companion object {
         const val SEED = 20_000L
         const val CLASS_TOO_LARGE = "Class too large"
+        const val UNRESOLVED_REFERENCE = "Unresolved reference"
         const val MESSAGE_START = 2_000
         const val SMALL_COMPONENTS = 60
         const val SMALL_PARTS = 3
