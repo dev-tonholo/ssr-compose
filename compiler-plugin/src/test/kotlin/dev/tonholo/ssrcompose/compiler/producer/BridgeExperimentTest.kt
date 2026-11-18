@@ -6,6 +6,7 @@ import dev.tonholo.ssrcompose.compiler.SsrCompilerPluginRegistrar
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
+import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -14,11 +15,11 @@ import kotlin.test.assertTrue
 class BridgeExperimentTest {
     private val support = CompileTestSupport()
     private val firstCatalogOptions = producerOptions(
-        catalog(indexName = FIRST_INDEX, version = FIRST_VERSION, bridgePackage = FIRST_PACKAGE),
+        catalog(catalog = TestCatalogs.first, bridgePackage = FIRST_PACKAGE),
     )
     private val twoCatalogOptions = producerOptions(
-        catalog(indexName = FIRST_INDEX, version = FIRST_VERSION, bridgePackage = FIRST_PACKAGE),
-        catalog(indexName = SECOND_INDEX, version = SECOND_VERSION, bridgePackage = SECOND_PACKAGE),
+        catalog(catalog = TestCatalogs.first, bridgePackage = FIRST_PACKAGE),
+        catalog(catalog = TestCatalogs.second, bridgePackage = SECOND_PACKAGE),
     )
 
     @Test
@@ -111,11 +112,7 @@ class BridgeExperimentTest {
     }
 
     private companion object {
-        const val FIRST_INDEX = "first-catalog.throwaway-index"
-        const val FIRST_VERSION = "1"
         const val FIRST_PACKAGE = "app.bridge.v1"
-        const val SECOND_INDEX = "second-catalog.throwaway-index"
-        const val SECOND_VERSION = "2"
         const val SECOND_PACKAGE = "app.bridge.v2"
         const val TWO_BRIDGES_CALLER = "TwoBridgesCaller"
         const val TWO_BRIDGES_WRONG_PARAMETER_CALLER = "TwoBridgesWrongParameterCaller"

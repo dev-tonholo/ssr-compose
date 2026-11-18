@@ -3,6 +3,7 @@ package dev.tonholo.ssrcompose.compiler.testing.scale
 import androidx.compose.compiler.plugins.kotlin.ComposePluginRegistrar
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
+import dev.tonholo.ssrcompose.catalog.index.CatalogIndexWriter
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.model.Parameter
 import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
@@ -11,6 +12,7 @@ import dev.tonholo.ssrcompose.catalog.testing.SyntheticCatalog
 import dev.tonholo.ssrcompose.catalog.testing.SyntheticCatalogShape
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions
+import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
 import dev.tonholo.ssrcompose.core.data.ValueKind
 import java.io.File
 
@@ -40,9 +42,10 @@ internal class BridgeScaleScenario(
     private val calledComponents = allComponents.take(called)
     private val bridgeCallerSource =
         ScaleSources.bridgeCaller(components = calledComponents, bridgePackage = packageOf(catalog = 0))
-    private val fullIndex by lazy { writeIndex(name = "full", components = allComponents) }
-    private val calledIndex by lazy { writeIndex(name = "called", components = calledComponents) }
-    private val changedIndex by lazy { writeIndex(name = "changed", components = withOneUncalledChanged()) }
+    private val fullIndex = HeldComponents(name = "full") { allComponents }
+    private val calledIndex = HeldComponents(name = "called") { calledComponents }
+    private val changedIndex = HeldComponents(name = "changed") { withOneUncalledChanged() }
+    private val writtenIndexes = HashMap<String, File>()
 
     fun compile(case: CompileCase): JvmCompilationResult {
         val result = when (case) {
@@ -72,9 +75,16 @@ internal class BridgeScaleScenario(
         return result.requireSuccess()
     }
 
-    /** Compiles one full catalog with the plugin as it is, which puts every bridge function in one class. */
+    /** Compiles one full catalog with the plugin as it is, which spreads the functions over its classes. */
+    fun compileFullCatalog(): JvmCompilationResult =
+        compileBridges(catalogs = catalogsOf(index = fullIndex, count = 1)).requireSuccess()
+
+    /** Compiles one full catalog with every bridge function in one class, as the plugin did before the class rule. */
     fun compileFullCatalogInOneClass(): JvmCompilationResult =
-        compileBridges(catalogs = catalogsOf(index = fullIndex, count = 1))
+        compileExperiment(
+            catalogs = catalogsOf(index = fullIndex, count = 1),
+            creation = BridgeCreation(namedIn = null, files = ONE_CLASS_FILE_COUNT),
+        )
 
     /** Compiles against a catalog where one component the screen does not call has one more parameter. */
     fun compileWithOneUncalledComponentChanged(): JvmCompilationResult =
@@ -157,17 +167,28 @@ internal class BridgeScaleScenario(
         CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
             .compileSource(fileName = SOURCE_FILE, source = source)
 
-    private fun catalogsOf(index: File, count: Int): List<CatalogOptionValue> =
+    private fun catalogsOf(index: HeldComponents, count: Int): List<CatalogOptionValue> =
         List(size = count) { catalog ->
+            val version = "$VERSION_PREFIX$catalog"
             CatalogOptionValue(
-                version = "$VERSION_PREFIX$catalog",
-                indexPath = index.absolutePath,
+                version = version,
+                indexPath = indexFileOf(held = index, version = version).absolutePath,
                 bridgePackage = packageOf(catalog = catalog),
             )
         }
 
-    private fun writeIndex(name: String, components: List<ComponentDescriptor>): File =
-        workDir.resolve("$name.index").apply { writeText(text = ThrowawayIndexText.of(components = components)) }
+    private fun indexFileOf(held: HeldComponents, version: String): File =
+        writtenIndexes.getOrPut(key = "${held.name}-$version") {
+            workDir.resolve("${held.name}-$version.index").apply {
+                val components = held.components.toTypedArray()
+                val catalog = TestCatalogs.catalogOf(version = version, components = components)
+                writeBytes(array = CatalogIndexWriter.write(catalog = catalog))
+            }
+        }
+
+    private class HeldComponents(val name: String, components: () -> List<ComponentDescriptor>) {
+        val components: List<ComponentDescriptor> by lazy(components)
+    }
 
     private fun withOneUncalledChanged(): List<ComponentDescriptor> {
         val changed = allComponents.last()
@@ -198,6 +219,7 @@ internal class BridgeScaleScenario(
         const val SOURCE_FILE = "Screen.kt"
         const val SECOND_MODULE_FILE = "SecondModuleScreen.kt"
         const val BRIDGE_FILES = 64
+        const val ONE_CLASS_FILE_COUNT = 1
         const val FACADE_SUFFIX = "Kt.class"
         const val CALLER_FOLDER = "scale/caller"
         const val BRIDGE_FOLDER = "scale/bridge"

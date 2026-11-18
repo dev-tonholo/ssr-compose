@@ -34,6 +34,13 @@ internal class FixtureProject(
         return this
     }
 
+    fun addFile(relativePath: String, bytes: ByteArray): FixtureProject {
+        val file = File(directory, relativePath)
+        file.parentFile.mkdirs()
+        file.writeBytes(array = bytes)
+        return this
+    }
+
     fun readCompilerSetup(): CompilerSetup {
         val output = run(task = PRINT_TASK).output
         return CompilerSetup(

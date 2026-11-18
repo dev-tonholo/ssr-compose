@@ -5,6 +5,7 @@ import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
+import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
 import dev.tonholo.ssrcompose.compiler.testing.UnplaceableExpectation
 import java.lang.reflect.InvocationTargetException
 import java.net.URLClassLoader
@@ -16,7 +17,7 @@ class UnplaceableBridgeRunTimeTest {
     private val bridgeSupport = CompileTestSupport()
     private val callerSupport = CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
     private val bridgeOptions = producerOptions(
-        catalog(indexName = CATALOG_INDEX, version = CATALOG_VERSION, bridgePackage = BRIDGE_PACKAGE),
+        catalog(catalog = TestCatalogs.unplaceable, bridgePackage = BRIDGE_PACKAGE),
     )
 
     @Test
@@ -43,8 +44,6 @@ class UnplaceableBridgeRunTimeTest {
     private fun Throwable.rootCause(): Throwable = cause?.rootCause() ?: this
 
     private companion object {
-        const val CATALOG_INDEX = "unplaceable-catalog.throwaway-index"
-        const val CATALOG_VERSION = "3"
         const val BRIDGE_PACKAGE = "app.bridge.unplaceable"
         const val BRIDGE_MODULE = "PlaceableNextToUnplaceableCaller"
         const val CALLER_RUNNER = "UnplaceableCallerRunner"

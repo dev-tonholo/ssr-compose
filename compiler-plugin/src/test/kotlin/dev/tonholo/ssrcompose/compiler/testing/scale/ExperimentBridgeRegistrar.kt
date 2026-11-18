@@ -4,6 +4,7 @@ package dev.tonholo.ssrcompose.compiler.testing.scale
 
 import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
+import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalogLoader
 import dev.tonholo.ssrcompose.compiler.producer.fir.BridgeDeclarationGenerator
 import dev.tonholo.ssrcompose.compiler.producer.ir.BridgeIrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
@@ -58,7 +59,9 @@ internal fun CompilerPluginRegistrar.ExtensionStorage.registerExperimentBridges(
     val namesInSource = creation.namedIn?.let { source ->
         IDENTIFIER.findAll(source).mapTo(destination = HashSet()) { it.value }
     }
-    val bridgeCatalogs = catalogs.map(BridgeCatalog::from)
+    val load = BridgeCatalogLoader.load(options = catalogs)
+    check(load.problems.isEmpty()) { load.problems.joinToString(separator = "\n") }
+    val bridgeCatalogs = load.catalogs
     FirExtensionRegistrarAdapter.registerExtension(
         ExperimentFirRegistrar(catalogs = bridgeCatalogs, namesInSource = namesInSource, creation = creation),
     )

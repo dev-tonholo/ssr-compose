@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.gradle
 
+import dev.tonholo.ssrcompose.gradle.testing.FixtureIndexes
 import dev.tonholo.ssrcompose.gradle.testing.FixtureProject
 import dev.tonholo.ssrcompose.gradle.testing.FixtureSources
 import org.gradle.testkit.runner.BuildResult
@@ -29,8 +30,11 @@ class SsrComposeCompileInputsTest {
     fun `given a compiled catalog, when only its version changes, then the compile runs again`() {
         // Arrange
         val fixture = compiledFixtureWith(producerBlock = FixtureSources.producerBlock(version = "2"))
-        fixture.addFile(relativePath = FixtureSources.indexPath(version = "3"), text = INDEX_CONTENT)
-        fixture.configure(ssrComposeBlock = FixtureSources.producerBlock(version = "3"))
+        fixture.addFile(
+            relativePath = FixtureSources.indexPath(version = CHANGED_VERSION),
+            bytes = FixtureIndexes.withoutComponents(marker = INDEX_MARKER, version = CHANGED_VERSION),
+        )
+        fixture.configure(ssrComposeBlock = FixtureSources.producerBlock(version = CHANGED_VERSION))
 
         // Act
         val result = fixture.compile()
@@ -69,7 +73,10 @@ class SsrComposeCompileInputsTest {
     fun `given a compiled catalog, when the content of its index changes, then the compile runs again`() {
         // Arrange
         val fixture = compiledFixtureWith(producerBlock = FixtureSources.producerBlock())
-        fixture.addFile(relativePath = FixtureSources.indexPath(), text = CHANGED_INDEX_CONTENT)
+        fixture.addFile(
+            relativePath = FixtureSources.indexPath(),
+            bytes = FixtureIndexes.withoutComponents(marker = CHANGED_INDEX_MARKER),
+        )
 
         // Act
         val result = fixture.compile()
@@ -82,10 +89,12 @@ class SsrComposeCompileInputsTest {
         val fixture = FixtureProject(projectDir)
             .configure(ssrComposeBlock = producerBlock)
             .addFile(relativePath = FixtureSources.MARKED_SOURCE_PATH, text = FixtureSources.MARKED_SOURCE)
-            .addFile(relativePath = FixtureSources.indexPath(), text = INDEX_CONTENT)
+            .addFile(relativePath = FixtureSources.indexPath(), bytes = firstIndex())
         fixture.compile()
         return fixture
     }
+
+    private fun firstIndex(): ByteArray = FixtureIndexes.withoutComponents(marker = INDEX_MARKER)
 
     private fun BuildResult.compileOutcome(): TaskOutcome? = task(":compileKotlin")?.outcome
 
@@ -96,7 +105,8 @@ class SsrComposeCompileInputsTest {
     }
 
     private companion object {
-        const val INDEX_CONTENT = "# first content"
-        const val CHANGED_INDEX_CONTENT = "# second content"
+        const val CHANGED_VERSION = "3"
+        const val INDEX_MARKER = "FirstContent"
+        const val CHANGED_INDEX_MARKER = "SecondContent"
     }
 }

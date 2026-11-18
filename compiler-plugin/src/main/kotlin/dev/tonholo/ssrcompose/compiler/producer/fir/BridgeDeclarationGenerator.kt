@@ -4,10 +4,10 @@ package dev.tonholo.ssrcompose.compiler.producer.fir
 
 import dev.tonholo.ssrcompose.compiler.fir.buildComposableAnnotation
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
+import dev.tonholo.ssrcompose.compiler.producer.BridgeComponent
+import dev.tonholo.ssrcompose.compiler.producer.BridgeParameter
+import dev.tonholo.ssrcompose.compiler.producer.BridgeParameterKind
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
-import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayComponent
-import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayParameter
-import dev.tonholo.ssrcompose.compiler.producer.throwaway.ThrowawayParameterKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -28,8 +28,8 @@ internal class BridgeDeclarationGenerator(
     private val catalog: BridgeCatalog,
     private val unplaceableBridgeMarker: UnplaceableBridgeMarker = UnplaceableBridgeMarker(),
 ) : FirDeclarationGenerationExtension(session) {
-    private val componentsById: Map<CallableId, ThrowawayComponent> =
-        catalog.index.components.associateBy { CallableId(catalog.bridgePackage, Name.identifier(it.name)) }
+    private val componentsById: Map<CallableId, BridgeComponent> =
+        catalog.components.associateBy { CallableId(catalog.bridgePackage, Name.identifier(it.name)) }
 
     override fun hasPackage(packageFqName: FqName): Boolean = packageFqName == catalog.bridgePackage
 
@@ -58,22 +58,22 @@ internal class BridgeDeclarationGenerator(
         return listOf(function.symbol)
     }
 
-    private fun ThrowawayParameter.coneType(): ConeKotlinType =
+    private fun BridgeParameter.coneType(): ConeKotlinType =
         when (kind) {
-            ThrowawayParameterKind.Text ->
+            BridgeParameterKind.Text ->
                 StandardClassIds.String.constructClassLikeType(isMarkedNullable = !isRequired)
 
-            ThrowawayParameterKind.ActionOfText -> ProducerNames.remoteAction1.constructClassLikeType(
+            BridgeParameterKind.ActionOfText -> ProducerNames.remoteAction1.constructClassLikeType(
                 typeArguments = arrayOf(session.builtinTypes.stringType.coneType),
             )
 
-            ThrowawayParameterKind.Slot -> ProducerNames.composableFunction0.constructClassLikeType(
+            BridgeParameterKind.Slot -> ProducerNames.composableFunction0.constructClassLikeType(
                 typeArguments = arrayOf(session.builtinTypes.unitType.coneType),
                 isMarkedNullable = !isRequired,
                 attributes = composableTypeAttributes(),
             )
 
-            ThrowawayParameterKind.SlotOfText -> ProducerNames.composableFunction1.constructClassLikeType(
+            BridgeParameterKind.SlotOfText -> ProducerNames.composableFunction1.constructClassLikeType(
                 typeArguments = arrayOf(
                     session.builtinTypes.stringType.coneType,
                     session.builtinTypes.unitType.coneType,

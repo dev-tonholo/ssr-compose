@@ -27,7 +27,9 @@ internal class SsrCompilerPluginRegistrar : CompilerPluginRegistrar() {
             severity = CompilerMessageSeverity.INFO,
             message = "SSR Compose compiler plugin received $options",
         )
-        if (options.mode == CompilerPluginMode.Producer) registerBridgeExtensions(options.catalogs)
+        if (options.mode == CompilerPluginMode.Producer) {
+            registerBridgeExtensions(catalogs = options.catalogs, messages = configuration.messageCollector)
+        }
         if (options.mode == CompilerPluginMode.Check) registerUnplaceableBridgeCheck()
         ConsumerFirRegistrar.from(options = options, messages = configuration.messageCollector)?.let { registrar ->
             FirExtensionRegistrarAdapter.registerExtension(registrar)

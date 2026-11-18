@@ -1,5 +1,0 @@
-component PaymentSection
-param title text required
-param methodPicker slot-of-text required
-component Receipt
-param title text required
