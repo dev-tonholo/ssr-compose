@@ -76,6 +76,48 @@ class ConsumerParameterErrorsTest {
     }
 
     @Test
+    fun `given set, vararg and star projected list parameters, when compiled, then each fails at its parameter`() {
+        // Arrange
+        // language=kotlin
+        val source = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            @ConsumerComposable
+            @Composable
+            fun CollectionsCard(
+                tags: Set<String>,
+                vararg words: String,
+                anything: List<*>,
+            ) {
+            }
+        """.trimIndent()
+
+        // Act
+        val result = support.compileSource(
+            fileName = "CollectionsCard.fixture.kt",
+            source = source,
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val lines = result.errorLines()
+        assertEquals(expected = COLLECTION_PARAMETER_LOCATIONS.size, actual = lines.size, message = result.messages)
+        COLLECTION_PARAMETER_LOCATIONS.forEach { (location, parameter) ->
+            val line = lines.single { it.contains(other = location) }
+            assertTrue(
+                actual = line.contains(other = "of the marked composable CollectionsCard"),
+                message = result.messages,
+            )
+            assertTrue(actual = line.contains(other = "The parameter $parameter"), message = result.messages)
+        }
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
+    @Test
     fun `given an enum with no entries, when compiled, then it fails at the parameter naming the enum`() {
         // Arrange
         val fixtureName = "EmptyEnumCard"
@@ -93,44 +135,6 @@ class ConsumerParameterErrorsTest {
             message = result.messages,
         )
         assertTrue(actual = line.contains(other = EMPTY_ENUM_REASON), message = result.messages)
-        assertEquals(expected = emptyList(), actual = readFragments())
-    }
-
-    @Test
-    fun `given an enum with a backtick entry in a marked composable, when compiled, then it fails at the parameter`() {
-        // Arrange
-        // language=kotlin
-        val source = """
-            package fixtures.consumer
-
-            import androidx.compose.runtime.Composable
-            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
-
-            enum class BadStyle { `body-medium` }
-
-            @ConsumerComposable
-            @Composable
-            fun BadEnumCard(style: BadStyle) {
-            }
-        """.trimIndent()
-
-        // Act
-        val result = support.compileSource(
-            fileName = "BadEnumCard.fixture.kt",
-            source = source,
-            options = consumerOptions(),
-        )
-
-        // Assert
-        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
-        val line = result.errorLines().single()
-        assertTrue(actual = line.contains(other = BAD_ENUM_LOCATION), message = result.messages)
-        assertTrue(
-            actual = line.contains(other = "of the marked composable BadEnumCard"),
-            message = result.messages,
-        )
-        assertTrue(actual = line.contains(other = "style"), message = result.messages)
-        assertTrue(actual = line.contains(other = BAD_ENUM_REASON), message = result.messages)
         assertEquals(expected = emptyList(), actual = readFragments())
     }
 
@@ -178,6 +182,44 @@ class ConsumerParameterErrorsTest {
         assertEquals(expected = emptyList(), actual = readFragments())
     }
 
+    @Test
+    fun `given an enum with a backtick entry in a marked composable, when compiled, then it fails at the parameter`() {
+        // Arrange
+        // language=kotlin
+        val source = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            enum class BadStyle { `body-medium` }
+
+            @ConsumerComposable
+            @Composable
+            fun BadEnumCard(style: BadStyle) {
+            }
+        """.trimIndent()
+
+        // Act
+        val result = support.compileSource(
+            fileName = "BadEnumCard.fixture.kt",
+            source = source,
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val line = result.errorLines().single()
+        assertTrue(actual = line.contains(other = BAD_ENUM_LOCATION), message = result.messages)
+        assertTrue(
+            actual = line.contains(other = "of the marked composable BadEnumCard"),
+            message = result.messages,
+        )
+        assertTrue(actual = line.contains(other = "style"), message = result.messages)
+        assertTrue(actual = line.contains(other = BAD_ENUM_REASON), message = result.messages)
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
     private fun compile(fixtureName: String) =
         support.compile(
             fixtureName = fixtureName,
@@ -199,15 +241,20 @@ class ConsumerParameterErrorsTest {
         const val NULLABLE_ELEMENT_LIST_LOCATION = "NullableElementListCard.fixture.kt:9:5"
         const val NULLABLE_ELEMENT_LIST_REASON =
             "cannot be described in the catalog: list elements must not be nullable"
+        val COLLECTION_PARAMETER_LOCATIONS = listOf(
+            "CollectionsCard.fixture.kt:9:5" to "tags",
+            "CollectionsCard.fixture.kt:10:5" to "words",
+            "CollectionsCard.fixture.kt:11:5" to "anything",
+        )
         const val EMPTY_ENUM_LOCATION = "EmptyEnumCard.fixture.kt:11:5"
         const val EMPTY_ENUM_REASON =
             "cannot be described in the catalog: the enum EmptyChoice has no entries, and a choice list must have " +
                 "at least one entry"
+        const val CONFLICTING_CHOICE_LOCATION = "ClashCard.fixture.kt:16:35"
+        const val CONFLICTING_CHOICE_REASON = "two different enums with that name are used in the same file"
         const val BAD_ENUM_LOCATION = "BadEnumCard.fixture.kt:10:17"
         const val BAD_ENUM_REASON =
             "cannot be described in the catalog: the enum BadStyle or one of its entries is not a plain Kotlin " +
                 "identifier of at most 64 characters"
-        const val CONFLICTING_CHOICE_LOCATION = "ClashCard.fixture.kt:16:35"
-        const val CONFLICTING_CHOICE_REASON = "two different enums with that name are used in the same file"
     }
 }
