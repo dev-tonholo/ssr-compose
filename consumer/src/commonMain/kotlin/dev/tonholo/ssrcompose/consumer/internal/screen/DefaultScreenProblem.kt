@@ -23,6 +23,8 @@ import dev.tonholo.ssrcompose.consumer.ScreenProblem
 
 private const val RETRY_LABEL = "Try again"
 private const val MISMATCH_MESSAGE = "This screen cannot be shown right now."
+private const val CONNECTION_ENDED_MESSAGE = "The connection to the server ended. Please try again."
+private const val ANSWER_UNREADABLE_MESSAGE = "The app could not read the answer from the server."
 private val MessagePadding = 24.dp
 private val MessageSpacing = 16.dp
 private val MessageMaxWidth = 480.dp
@@ -66,5 +68,7 @@ internal fun DefaultScreenProblem(problem: ScreenProblem, retry: () -> Unit, mod
 private fun ScreenProblem.message(): String = when (this) {
     is ScreenProblem.Refused -> reason
     is ScreenProblem.Unavailable -> reason
+    ScreenProblem.ConnectionEnded -> CONNECTION_ENDED_MESSAGE
+    ScreenProblem.AnswerUnreadable -> ANSWER_UNREADABLE_MESSAGE
     is ScreenProblem.Mismatch -> MISMATCH_MESSAGE
 }
