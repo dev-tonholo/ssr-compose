@@ -17,6 +17,8 @@ Deliverables, module boundaries and shared contracts. The source is principles I
 11. A public API change is its own piece of work. Never mix it into a cleanup.
 12. Library code never depends on `poc/`. Carry a lesson over through a spec, not by copying code.
 13. A library or architecture choice gets an ADR. See [the ADR blueprint](../blueprints/adr.md).
+14. The core is server-side rendering, never server-driven rendering (principle I). The wire content model (`ScreenContent`, `PlacedComponent.slots` and any screen or slot payload) never hardens a screen or slot that holds only consumer catalog components. The consumer library never owns screen arrangement in its public API. A top-to-bottom fallback stays inside an internal renderer and is marked temporary until server-rendered documents own layout.
+15. The zero-catalog path and two-way referencing stay open in every feature. An app with no `@ConsumerComposable` (an empty catalog and an empty renderer index) still connects and renders server screens. Consumer slots that accept `any` or `@ProducerComposable` content stay able to receive server-rendered content. `producer` handles every node kind, so it never filters for catalog components only.
 
 ## Known violations (do not copy them)
 
@@ -33,5 +35,7 @@ The proof of concept breaks several of these on purpose. It proved the idea and 
 - A new module's build file does not name the other side's library.
 - `grep -rn 'androidx.compose.remote' --include='*.kt' --include='*.kts' --include='*.toml' .` only finds files under `poc/`.
 - Each new library or architecture choice has a file in `docs/adr/` and a row in its index.
+- No public KDoc or contract says the app arranges screen components or that structure comes only from consumer composables. `ScreenContent` and `PlacedComponent.slots` are not a bare `List<PlacedComponent>` in a final contract version. `SsrScreen.kt` imports no layout container such as `Column` or `Row`.
+- Renderer loading and screen registration have a test for an app with no `@ConsumerComposable`. Generated renderers reach slot content through `PlacedComponentScope.slot`, never by looping over `List<PlacedComponent>`. `PlacedNodeContent` uses an exhaustive `when` over `PlacedNode`, not `filterIsInstance<PlacedNode.Component>()`.
 
 Templates: [adr](../blueprints/adr.md). Agent: [reviewer](../agents/reviewer.md).
