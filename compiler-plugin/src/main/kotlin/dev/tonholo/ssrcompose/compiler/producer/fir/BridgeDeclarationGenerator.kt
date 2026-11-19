@@ -30,6 +30,7 @@ internal class BridgeDeclarationGenerator(
     private val catalog: BridgeCatalog,
     private val unplaceableBridgeMarker: UnplaceableBridgeMarker = UnplaceableBridgeMarker(),
 ) : FirDeclarationGenerationExtension(session) {
+    private val internalApiOptIn = InternalApiOptIn(session = session)
     private val componentsById: Map<CallableId, BridgeComponent> =
         catalog.components.associateBy { CallableId(catalog.bridgePackage, Name.identifier(it.name)) }
 
@@ -57,7 +58,7 @@ internal class BridgeDeclarationGenerator(
             }
         }
         function.fileNameForPluginGeneratedCallable = catalog.classRule.fileNameOf(componentName = component.name)
-        function.replaceAnnotations(listOf(buildComposableAnnotation()))
+        function.replaceAnnotations(listOfNotNull(buildComposableAnnotation(), internalApiOptIn.annotationOrNull()))
         unplaceableBridgeMarker.mark(function = function, component = component)
         return listOf(function.symbol)
     }

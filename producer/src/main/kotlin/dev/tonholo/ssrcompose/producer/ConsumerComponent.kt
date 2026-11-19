@@ -20,6 +20,7 @@ import dev.tonholo.ssrcompose.producer.internal.ScreenApplier
  * @param actions the callback parameters by name.
  * @param slots the slot parameters by name.
  */
+@InternalSsrComposeApi
 @Composable
 public fun ConsumerComponent(
     catalogVersion: CatalogVersion,

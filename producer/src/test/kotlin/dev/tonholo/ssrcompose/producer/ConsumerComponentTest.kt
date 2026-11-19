@@ -1,3 +1,5 @@
+@file:OptIn(InternalSsrComposeApi::class)
+
 package dev.tonholo.ssrcompose.producer
 
 import androidx.compose.runtime.Composable
