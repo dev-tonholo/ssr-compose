@@ -82,33 +82,52 @@ internal class MarkedComposables(private val session: FirSession) {
         val nameError = if (isKotlinIdentifier(text = composableName)) {
             emptyList()
         } else {
-            listOf(UnsupportedName(composable = composableName))
+            listOf(UnsupportedName(composable = composableName, sourceElement = function.source))
         }
         return nameError + parameterErrorsOf(function = function, composableName = composableName)
     }
 
     private fun parameterErrorsOf(function: FirNamedFunction, composableName: String): List<ConsumerError> =
         function.valueParameters.mapNotNull { parameter ->
-            val parameterName = parameter.name.asString()
-            when {
-                !isKotlinIdentifier(text = parameterName) ->
-                    UnsupportedName(composable = composableName, parameter = parameterName)
-                SlotParameterMapper.hasConflictingAnnotations(parameter = parameter, session = session) ->
-                    ConflictingSlotAnnotations(
-                        composable = composableName,
-                        parameter = parameterName,
-                    )
-                isUnsupported(parameter = parameter) ->
-                    UnsupportedParameter(
-                        composable = composableName,
-                        parameter = parameterName,
-                    )
-                else -> null
-            }
+            parameterErrorOf(parameter = parameter, composableName = composableName)
         }
 
-    private fun isUnsupported(parameter: FirValueParameter): Boolean =
-        ParameterKindMapper.map(parameter = parameter, session = session) is ParameterMappingResult.Unsupported
+    private fun parameterErrorOf(parameter: FirValueParameter, composableName: String): ConsumerError? {
+        val parameterName = parameter.name.asString()
+        return when {
+            !isKotlinIdentifier(text = parameterName) ->
+                UnsupportedName(
+                    composable = composableName,
+                    parameter = parameterName,
+                    sourceElement = parameter.source,
+                )
+            SlotParameterMapper.hasConflictingAnnotations(parameter = parameter, session = session) ->
+                ConflictingSlotAnnotations(
+                    composable = composableName,
+                    parameter = parameterName,
+                    sourceElement = parameter.source,
+                )
+            else -> unsupportedParameterErrorOrNull(
+                parameter = parameter,
+                composableName = composableName,
+                parameterName = parameterName,
+            )
+        }
+    }
+
+    private fun unsupportedParameterErrorOrNull(
+        parameter: FirValueParameter,
+        composableName: String,
+        parameterName: String,
+    ): UnsupportedParameter? {
+        val result = ParameterKindMapper.map(parameter = parameter, session = session)
+        if (result !is ParameterMappingResult.Unsupported) return null
+        return UnsupportedParameter(
+            composable = composableName,
+            parameter = parameterName,
+            sourceElement = parameter.source,
+        )
+    }
 
     private data class DescribedComponent(
         val component: ComponentDescriptor,

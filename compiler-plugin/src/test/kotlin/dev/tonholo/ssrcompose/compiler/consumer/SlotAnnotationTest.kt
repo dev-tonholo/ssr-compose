@@ -15,6 +15,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.io.TempDir
 
+private const val CONFLICTING_SLOT_LOCATION = "SlotBothAnnotations.fixture.kt:10:5"
+private const val NULLABLE_SLOT_LOCATION = "SlotNullable.fixture.kt:9:5"
+
 class SlotAnnotationTest {
     @TempDir
     lateinit var fragmentsDir: File
@@ -112,6 +115,7 @@ class SlotAnnotationTest {
         assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
         val expectedMessage = "The slot content of the marked composable ConflictingSlotContainer " +
             "has both @ConsumerComposable and @ProducerComposable"
+        assertTrue(actual = result.messages.contains(other = CONFLICTING_SLOT_LOCATION), message = result.messages)
         assertTrue(actual = result.messages.contains(other = expectedMessage), message = result.messages)
         val ruleMessage = "accepts consumer composables, producer composables or either, not both"
         assertTrue(actual = result.messages.contains(other = ruleMessage), message = result.messages)
@@ -130,6 +134,7 @@ class SlotAnnotationTest {
         assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
         val expectedMessage = "The parameter content of the marked composable NullableSlotContainer " +
             "is not text or a composable slot."
+        assertTrue(actual = result.messages.contains(other = NULLABLE_SLOT_LOCATION), message = result.messages)
         assertTrue(actual = result.messages.contains(other = expectedMessage), message = result.messages)
         assertEquals(expected = emptyList(), actual = readFragments())
     }
