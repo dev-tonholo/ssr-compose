@@ -29,6 +29,70 @@ class ConsumerParameterErrorsTest {
         assertTrue(actual = line.contains(other = UNSUPPORTED_PARAMETER_LOCATION), message = result.messages)
         assertTrue(actual = line.contains(other = "PriceCard"), message = result.messages)
         assertTrue(actual = line.contains(other = "price"), message = result.messages)
+        assertTrue(actual = line.contains(other = UNSUPPORTED_PARAMETER_REASON), message = result.messages)
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
+    @Test
+    fun `given a nested list parameter, when compiled, then it fails at the parameter with reason`() {
+        // Arrange
+        val fixtureName = "NestedListCard"
+
+        // Act
+        val result = compile(fixtureName = fixtureName)
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val line = result.errorLines().single()
+        assertTrue(actual = line.contains(other = NESTED_LIST_LOCATION), message = result.messages)
+        assertTrue(actual = line.contains(other = "NestedListCard"), message = result.messages)
+        assertTrue(
+            actual = line.contains(other = "The parameter rows of the marked composable NestedListCard"),
+            message = result.messages,
+        )
+        assertTrue(actual = line.contains(other = NESTED_LIST_REASON), message = result.messages)
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
+    @Test
+    fun `given a list with nullable elements, when compiled, then it fails at the parameter with reason`() {
+        // Arrange
+        val fixtureName = "NullableElementListCard"
+
+        // Act
+        val result = compile(fixtureName = fixtureName)
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val line = result.errorLines().single()
+        assertTrue(actual = line.contains(other = NULLABLE_ELEMENT_LIST_LOCATION), message = result.messages)
+        assertTrue(actual = line.contains(other = "NullableElementListCard"), message = result.messages)
+        assertTrue(
+            actual = line.contains(other = "The parameter labels of the marked composable NullableElementListCard"),
+            message = result.messages,
+        )
+        assertTrue(actual = line.contains(other = NULLABLE_ELEMENT_LIST_REASON), message = result.messages)
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
+    @Test
+    fun `given an enum with no entries, when compiled, then it fails at the parameter naming the enum`() {
+        // Arrange
+        val fixtureName = "EmptyEnumCard"
+
+        // Act
+        val result = compile(fixtureName = fixtureName)
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val line = result.errorLines().single()
+        assertTrue(actual = line.contains(other = EMPTY_ENUM_LOCATION), message = result.messages)
+        assertTrue(actual = line.contains(other = "EmptyEnumCard"), message = result.messages)
+        assertTrue(
+            actual = line.contains(other = "The parameter choice of the marked composable EmptyEnumCard"),
+            message = result.messages,
+        )
+        assertTrue(actual = line.contains(other = EMPTY_ENUM_REASON), message = result.messages)
         assertEquals(expected = emptyList(), actual = readFragments())
     }
 
@@ -44,5 +108,18 @@ class ConsumerParameterErrorsTest {
 
     private companion object {
         const val UNSUPPORTED_PARAMETER_LOCATION = "UnsupportedParameterCard.fixture.kt:12:5"
+        const val UNSUPPORTED_PARAMETER_REASON =
+            "cannot be described in the catalog: its type is not a supported value, choice, list or composable slot"
+        const val NESTED_LIST_LOCATION = "NestedListCard.fixture.kt:9:5"
+        const val NESTED_LIST_REASON =
+            "cannot be described in the catalog: a list holds text, whole numbers, decimal numbers, flags or " +
+                "choices, never another list"
+        const val NULLABLE_ELEMENT_LIST_LOCATION = "NullableElementListCard.fixture.kt:9:5"
+        const val NULLABLE_ELEMENT_LIST_REASON =
+            "cannot be described in the catalog: list elements must not be nullable"
+        const val EMPTY_ENUM_LOCATION = "EmptyEnumCard.fixture.kt:11:5"
+        const val EMPTY_ENUM_REASON =
+            "cannot be described in the catalog: the enum EmptyChoice has no entries, and a choice list must have " +
+                "at least one entry"
     }
 }

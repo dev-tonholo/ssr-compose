@@ -133,7 +133,7 @@ class SlotAnnotationTest {
         // Assert
         assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
         val expectedMessage = "The parameter content of the marked composable NullableSlotContainer " +
-            "is not text or a composable slot."
+            "cannot be described in the catalog: its type is not a supported value, choice, list or composable slot"
         assertTrue(actual = result.messages.contains(other = NULLABLE_SLOT_LOCATION), message = result.messages)
         assertTrue(actual = result.messages.contains(other = expectedMessage), message = result.messages)
         assertEquals(expected = emptyList(), actual = readFragments())
