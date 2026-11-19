@@ -44,7 +44,7 @@ SsrScreen(
 - The library collects density, orientation, screen size, theme and language, and tells the producer when one changes.
 - The catalog version comes from the build. The developer supplies only `app`.
 - The renderers for the marked composables are found by the library. Nothing has to be registered by hand.
-- `connection` gives a `Connection`. The library never names a transport.
+- `connection` gives a new `Connection` for this screen alone. The library never names a transport. Two screens must not share one, because the producer refuses a second introduction.
 - `unavailable` is optional. Without it, a plain English message with a retry button is shown. `retry` asks for the same screen again, or introduces the app again after a refusal.
 
 ## Doing it by hand
@@ -70,6 +70,8 @@ val bindings = ComponentBindings {
 SsrScreen(screen = "checkout", bindings = bindings, catalogVersion = CatalogVersion("3"), ...)
 ```
 
+Only this by-hand form exists for now. The form without `bindings` and `catalogVersion` needs `CatalogVersionLoader` (T047) and the renderer index (T055).
+
 ## Reading values
 
 A binding reads a parameter by name from its `PlacedComponentScope`. Each kind has a strict read, which is a member of the scope, and an `OrNull` twin, which is an extension function in the same package, so a binding imports it:
@@ -83,11 +85,13 @@ A binding reads a parameter by name from its `PlacedComponentScope`. Each kind h
 | choice | `choice<E>(name): E` | `choiceOrNull<E>(name): E?` |
 | list | `list(name): List<DataValue>` | `listOrNull(name): List<DataValue>?` |
 
-- A parameter the screen did not give is absent. A parameter the screen set to nothing is `DataValue.None`. The strict read throws for both. The `OrNull` read returns null for both.
-- Both reads throw for a value of another kind. There is no conversion: a whole number is not read as a decimal.
-- `choice` and `choiceOrNull` take the enum as a type argument, and throw for an entry the enum does not have.
-- Every failure is a `PlacedValueException`. Its message names the component, the parameter, the expected kind and the found kind. It has no component or parameter field.
-- A `PlacedValueException` is thrown while the binding composes, and a `try/catch` cannot wrap a composable call, so it leaves the whole composition. How it becomes a `ScreenProblem.Mismatch`, which needs the component, is not decided. T054 must find a way to catch a failure thrown during a binding's composition and decide what happens to the rest of the screen.
+- A parameter the screen did not give is absent. A parameter the screen set to nothing is `DataValue.None`. The strict read fails for both. The `OrNull` read returns null for both.
+- Both reads fail for a value of another kind. There is no conversion: a whole number is not read as a decimal.
+- `choice` and `choiceOrNull` take the enum as a type argument, and fail for an entry the enum does not have.
+- Outside `SsrScreen`, every failure throws a `PlacedValueException`. Its message names the component, the parameter, the expected kind and the found kind. It has no component or parameter field.
+- Inside `SsrScreen`, a failed read does not throw, because an exception during composition stops the app's recomposer. The read reports the component and returns a stand-in: an empty text or list, zero, false, or the first entry of the enum. An `OrNull` read returns null.
+- Content with a reported problem is never drawn in the screen's window, so the user never sees a stand-in there. Content in a `Dialog` or `Popup` of a failing binding has its own window and can show the stand-in briefly, until the problem replaces the screen (2 draws measured in a `Dialog`, 1 in a `Popup`). #189 removes this limit. The whole screen is replaced by `unavailable` with `ScreenProblem.Mismatch` for the topmost component that failed. The next `Screen` message or a retry clears it.
+- Three limits remain. Effects in a binding that failed can run once. Code that fails on a stand-in, such as `list.first()`, can still crash the app. A `choice` read on an enum with no entries still throws, because no stand-in exists.
 - Two scopes over equal placed components are equal, so a binding is skipped when its component did not change.
 
 ## Problems the user can be shown
@@ -100,7 +104,9 @@ sealed interface ScreenProblem {
 }
 ```
 
-`Mismatch` means the app received something it cannot draw. It should not happen. The app does not crash and shows no developer placeholder.
+`Refused` also covers a message the app cannot read, a `Screen` or `ScreenUnavailable` that arrives before `Accepted`, and an `Accepted` with another contract version. All three use the kind `IntroductionNotValid`.
+
+`Mismatch` means the app received something it cannot draw: a value a binding cannot read, or a component with no binding. It should not happen. The app shows no developer placeholder.
 
 ## What is public
 
