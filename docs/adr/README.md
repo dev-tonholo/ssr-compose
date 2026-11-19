@@ -21,3 +21,4 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0009](0009-androidx-compose-test-libraries-for-device-tests.md) | Use the AndroidX Compose test libraries for consumer device tests | Accepted |
 | [0011](0011-replaceable-text-through-a-string-manager.md) | Replace the consumer's text through a string manager | Accepted |
 | [0012](0012-problem-message-style-parameters.md) | Style the default problem message with Material's shape of style parameters | Accepted |
+| [0013](0013-preview-annotation-as-compile-only.md) | Set up Compose previews as the Kotlin Multiplatform guide shows, off what apps receive | Accepted |
