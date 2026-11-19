@@ -159,6 +159,8 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 
 - Before each dispatch, search the owner's knowledge base (the clarividente tools, when this session has them) and the owner's earlier review comments on related pull requests for the area the item touches. Put every matching pattern, rule and check into the brief.
 - A brief is accurate when the role needs nothing outside it to pass review. A finding that the brief could have prevented is your miss; note it for the retrospective.
+- Give each item at most one new mechanism. Split work that holds more, at every size.
+- A repair brief names every place the change makes stale, and sends any new mechanism for a design before it is built.
 - Every reviewer brief asks for one deep pass over the whole change, with every finding reported together, as the reviewer's Project notes describe.
 
 ### Review rounds
@@ -166,6 +168,7 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 - A review round is one reviewer verdict on the item, including a review after a QA `NO-GO` repair.
 - Send every finding of a review, at every severity, to the worker in one repair brief.
 - This replaces "a full re-review" in Gates. After `CHANGES REQUESTED`, the re-review is the one in the reviewer's Project notes: it checks the earlier findings and the fix commits, and the reviewer still runs every gate on the whole `<base>..<head>` range.
+- Nits never start a review round. When only nits are left, the worker fixes them and you confirm with `git range-diff` that only those lines changed and that the gates pass. That check closes gate 2 for the item, with no new reviewer verdict.
 - A third review round on the same item is a stop point, in addition to the guideline stop points: stop and report to the owner with the findings of each round.
 
 ### Retrospectives
