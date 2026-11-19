@@ -91,7 +91,7 @@ An app composable has a callback, such as "pay was clicked". On the server, that
 
 An app composable has a slot: a place where it shows content given to it. The server developer fills that slot on the server with other catalog composables. In the app, that content appears exactly where the composable puts its slot, drawn by the app's own code, and it can be nested.
 
-**Why this priority**: This is what makes it server-side rendering and not a list of widgets: the server decides the structure, including what goes inside the app's own containers.
+**Why this priority**: It shows that server content can sit inside the app's own containers, drawn by the app's code. It is only part of server-side rendering. Feature 2, server-rendered documents, adds content the app has no component for, and that content can embed placed composables and fill these slots.
 
 **Independent Test**: A sample app container with a slot, and a server screen that puts two other catalog composables inside it. See them inside the container on a device.
 
@@ -219,7 +219,7 @@ Connecting and introducing:
 Showing a screen:
 
 - **FR-033**: A screen MUST have a name the server developer gives it, and MUST be registered for one catalog version. The same name can be registered for several catalog versions, each with its own screen. The app asks for a screen by name, and the producer serves the screen registered under that name for the session's catalog version. A session has at most one open screen, and asking for another replaces it.
-- **FR-034**: The app MUST draw each composable the server placed with the app's own code for it, in the place and order the server put it, with the values the server gave. When a screen places more than one composable at its top level, they are shown top to bottom. This arrangement is provisional until layout has its own feature.
+- **FR-034**: The app MUST draw each composable the server placed with the app's own code for it, in the place and order the server put it, with the values the server gave. When a screen places more than one composable at its top level, they are shown top to bottom. This arrangement is provisional until Feature 2, server-rendered documents, arranges the screen.
 - **FR-035**: Content the server put in a slot MUST appear where the app's composable places that slot, and slots inside slots MUST keep their nesting.
 - **FR-036**: In this feature, a slot can be filled only with the app's own catalog composables, and a slot whose content receives arguments cannot be filled at all. When such a slot can be left out, the server has no way to give it and the app uses its own default. When it cannot be left out, the composable cannot be placed by the server, and trying to MUST fail the server build with a message that names the composable and the slot, and says that slots with arguments are not supported yet. The compiler plugin reports it on every call and every reference in each module where it runs, and the build tool plugin MUST run it in every module that can call a bridge. A call that still gets past the compiler fails with the same message when the bridge is composed, so a component that cannot be placed is never placed without its slot.
 - **FR-037**: If the app receives something it cannot draw, the library MUST NOT crash the app and MUST NOT show a developer placeholder. It tells the user the screen cannot be shown. A crash in the app's own binding code, for example code that fails on a stand-in value, is the app's responsibility. Reporting the mismatch outside the screen is follow-up work (#186). A choice read on an enum with no entries will be rejected by the build (#188); until then it throws as a last guard.
@@ -288,7 +288,7 @@ Build time and build performance:
 - **App identity**: the app's version, variant and flavor. Fixed for a session and not proven.
 - **Contract version**: the version of what the two sides say to each other.
 - **Answer**: an acceptance, or a refusal with a kind and a reason.
-- **Screen**: what the app asks for by name and the producer builds for that app, as placed composables with their values, their slot content and their callbacks. It is registered for one catalog version and uses that version's bridge.
+- **Screen**: what the app asks for by name and the producer builds for that app, as placed composables with their values, their slot content and their callbacks. This content model is provisional: Feature 2 adds server-rendered documents that can hold placed composables and fill slots (#194). It is registered for one catalog version and uses that version's bridge.
 - **Session**: one accepted connection between one app and the producer. It has at most one open screen, and holds that screen's state.
 
 ## Success Criteria *(mandatory)*
