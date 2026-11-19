@@ -1,9 +1,9 @@
 package dev.tonholo.ssrcompose.consumer
 
 import androidx.compose.runtime.Immutable
-import dev.tonholo.ssrcompose.consumer.internal.KindName
-import dev.tonholo.ssrcompose.consumer.internal.absent
-import dev.tonholo.ssrcompose.consumer.internal.absentChoice
+import dev.tonholo.ssrcompose.consumer.internal.read.KindName
+import dev.tonholo.ssrcompose.consumer.internal.read.absent
+import dev.tonholo.ssrcompose.consumer.internal.read.absentChoice
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.message.PlacedComponent
 

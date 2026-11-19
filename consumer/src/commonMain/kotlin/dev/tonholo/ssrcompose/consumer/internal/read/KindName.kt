@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.consumer.internal
+package dev.tonholo.ssrcompose.consumer.internal.read
 
 import dev.tonholo.ssrcompose.core.data.DataValue
 

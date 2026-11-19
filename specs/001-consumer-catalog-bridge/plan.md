@@ -130,7 +130,7 @@ consumer/                            # Kotlin Multiplatform: android
     │   ├── SsrScreen.kt
     │   ├── ComponentBindings.kt
     │   ├── ScreenProblem.kt
-    │   └── internal/                # session, device values, rendering, renderer index
+    │   └── internal/                # session/, screen/, read/ and device/ by role, renderer index
     ├── androidMain/
     ├── commonTest/
     └── androidDeviceTest/
