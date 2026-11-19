@@ -13,7 +13,7 @@ Deliverables, module boundaries and shared contracts. The source is principles I
 7. The producer never sends a reference to a component that is not in the consumer's catalog.
 8. The contract is versioned. A producer keeps serving every consumer version it still supports, and refuses the others with a clear error.
 9. No public API exposes a transport type, or a third-party type that is alpha, experimental or restricted.
-10. Keep public API small. Implementations are internal, behind interfaces or factories. Inject dependencies through constructors and depend on abstractions.
+10. Keep public API small. Implementations are internal, behind interfaces or factories. Inject dependencies through constructors and depend on abstractions. Every published module builds in Kotlin explicit API mode, turned on by the publishing convention plugin, so every public declaration says `public` and its type.
 11. A public API change is its own piece of work. Never mix it into a cleanup.
 12. Library code never depends on `poc/`. Carry a lesson over through a spec, not by copying code.
 13. A library or architecture choice gets an ADR. See [the ADR blueprint](../blueprints/adr.md).

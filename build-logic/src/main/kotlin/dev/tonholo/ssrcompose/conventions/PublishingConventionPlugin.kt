@@ -12,6 +12,7 @@ import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withType
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.plugin.devel.plugins.JavaGradlePluginPlugin
+import org.jetbrains.kotlin.gradle.dsl.KotlinBaseExtension
 
 private const val JAVA_COMPONENT_NAME = "java"
 private const val MAVEN_PUBLICATION_NAME = "maven"
@@ -20,8 +21,8 @@ private const val VERIFY_PUBLICATIONS_DESCRIPTION = "Verifies that the module de
 
 /**
  * Applies the Maven publishing plugin, sets the group shared by every published module, registers a Maven
- * publication for plain Kotlin JVM libraries, enables sources jars for JVM modules, and wires a verification task into
- * `check`. Kotlin Multiplatform and Gradle plugin modules already receive their publications from their own plugins.
+ * publication for plain Kotlin JVM libraries, enables sources jars for JVM modules, turns on Kotlin explicit API mode
+ * for every Kotlin module, and wires a verification task into `check`. Kotlin Multiplatform and Gradle plugin modules already receive their publications from their own plugins.
  *
  * Suppressed unused: Gradle creates this plugin from the declaration in `build-logic/build.gradle.kts`.
  */
@@ -30,11 +31,20 @@ internal abstract class PublishingConventionPlugin : Plugin<Project> {
     override fun apply(target: Project): Unit = with(target) {
         pluginManager.apply(MavenPublishPlugin::class.java)
         group = PROJECT_GROUP
+        enableExplicitApiForKotlinPlugins()
         pluginManager.withPlugin(libs.plugins.kotlin.jvm.get().pluginId) {
             configureJvmSourcesJar()
             registerJvmPublicationIfNeeded()
         }
         registerVerifyPublicationsTask()
+    }
+}
+
+private fun Project.enableExplicitApiForKotlinPlugins() {
+    listOf(libs.plugins.kotlin.jvm, libs.plugins.kotlin.multiplatform).forEach { kotlinPlugin ->
+        pluginManager.withPlugin(kotlinPlugin.get().pluginId) {
+            extensions.configure<KotlinBaseExtension> { explicitApi() }
+        }
     }
 }
 
