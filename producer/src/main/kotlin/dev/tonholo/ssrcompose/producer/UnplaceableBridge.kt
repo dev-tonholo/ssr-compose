@@ -6,6 +6,7 @@ package dev.tonholo.ssrcompose.producer
  *
  * @property message the error the compiler plugin reports for each use of the function.
  */
+@InternalSsrComposeApi
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
 public annotation class UnplaceableBridge(public val message: String)
