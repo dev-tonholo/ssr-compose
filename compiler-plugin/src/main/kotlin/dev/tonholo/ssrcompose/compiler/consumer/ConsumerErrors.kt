@@ -78,13 +78,17 @@ internal enum class FunctionProblem(private val template: String) {
     CONTEXT_PARAMETERS("The marked composable '%s' has context parameters. $CONTEXT_PARAMETERS_RULE"),
     TYPE_PARAMETERS("The marked composable '%s' has type parameters. $TOP_LEVEL_RULE"),
     PRIVATE("The marked composable '%s' is private. Only internal or public composables can be marked."),
+    UNMARKED_ACTUAL(
+        "The actual composable '%s' must be marked @ConsumerComposable because its expect declaration is " +
+            "marked @ConsumerComposable.",
+    ),
     ;
 
     fun messageFor(function: String): String = template.format(function)
 }
 
 /**
- * A marked function whose shape the catalog cannot describe.
+ * A function that is marked, or must be marked, but whose shape the catalog cannot describe.
  */
 internal data class UnmarkableFunction(
     val function: String,

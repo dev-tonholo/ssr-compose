@@ -4,6 +4,7 @@ import dev.tonholo.ssrcompose.compiler.SsrNames
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
+import org.jetbrains.kotlin.fir.declarations.getSingleMatchedExpectForActualOrNull
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
 import org.jetbrains.kotlin.name.ClassId
 
@@ -31,11 +32,13 @@ internal class MarkableFunction(private val session: FirSession) {
      */
     fun problemsOf(function: FirNamedFunction): List<FunctionProblem> =
         when {
+            isUnmarkedActualForMarkedExpect(function = function) -> listOf(FunctionProblem.UNMARKED_ACTUAL)
             isMarked(function = function) -> shapeProblemsOf(function = function)
             else -> emptyList()
         }
 
-    fun concerns(function: FirNamedFunction): Boolean = isMarked(function = function)
+    fun concerns(function: FirNamedFunction): Boolean =
+        isMarked(function = function) || isUnmarkedActualForMarkedExpect(function = function)
 
     private fun shapeProblemsOf(function: FirNamedFunction): List<FunctionProblem> =
         listOfNotNull(
@@ -46,6 +49,12 @@ internal class MarkableFunction(private val session: FirSession) {
             FunctionProblem.TYPE_PARAMETERS.takeIf { function.typeParameters.isNotEmpty() },
             FunctionProblem.PRIVATE.takeIf { function.status.visibility == Visibilities.Private },
         )
+
+    private fun isUnmarkedActualForMarkedExpect(function: FirNamedFunction): Boolean =
+        function.status.isActual &&
+            !function.isAnnotated(classId = SsrNames.consumerComposable) &&
+            function.symbol.getSingleMatchedExpectForActualOrNull()
+                ?.hasAnnotation(classId = SsrNames.consumerComposable, session = session) == true
 
     private fun FirNamedFunction.isAnnotated(classId: ClassId): Boolean =
         hasAnnotation(classId = classId, session = session)
