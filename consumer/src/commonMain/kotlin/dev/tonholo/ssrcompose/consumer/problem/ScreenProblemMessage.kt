@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.Dp
 import dev.tonholo.ssrcompose.consumer.ScreenProblem
 import dev.tonholo.ssrcompose.consumer.internal.screen.problemTexts
@@ -73,4 +74,10 @@ public fun ScreenProblemMessage(
             )
         }
     }
+}
+
+@PreviewLightDark
+@Composable
+private fun ScreenProblemMessagePreview() {
+    ScreenProblemMessage(problem = ScreenProblem.ConnectionEnded, retry = {})
 }
