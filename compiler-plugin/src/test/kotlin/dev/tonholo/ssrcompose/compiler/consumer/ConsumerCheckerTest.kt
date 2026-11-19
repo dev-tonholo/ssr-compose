@@ -125,6 +125,41 @@ class ConsumerCheckerTest {
         assertEquals(expected = listOf(expected), actual = readFragments())
     }
 
+    @Test
+    fun `given type aliases from another module, when a marked composable uses them, then kinds are described`() {
+        // Arrange
+        val externalModule = plainSupport.compile(fixtures = listOf("ExternalTheme", "ExternalAliases"))
+        assertEquals(expected = ExitCode.OK, actual = externalModule.exitCode, message = externalModule.messages)
+        val expected = CatalogFragment(
+            source = "fixtures/consumer/ExternalAliasCard.fixture.kt",
+            choices = listOf(ChoiceList(name = "ExternalTheme", entries = listOf("light", "dark"))),
+            components = listOf(
+                ComponentDescriptor(
+                    name = "ExternalAliasCard",
+                    parameters = listOf(
+                        requiredValue(name = "label", kind = ValueKind.Text),
+                        optionalValue(
+                            name = "themes",
+                            kind = ValueKind.ListOf(element = ValueKind.Choice(listName = "ExternalTheme")),
+                            nullable = true,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        // Act
+        val result = support.compile(
+            fixtureName = "ExternalAliasCard",
+            options = consumerOptions(),
+            classpath = listOf(externalModule.outputDirectory),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(expected = listOf(expected), actual = readFragments())
+    }
+
     private fun compile(fixtureName: String) =
         support.compile(
             fixtureName = fixtureName,
