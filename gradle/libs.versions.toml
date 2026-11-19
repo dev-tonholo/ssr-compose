@@ -5,6 +5,7 @@ compose-multiplatform = "1.12.2"
 kotlinx-serialization = "1.13.0"
 kotlinx-coroutines = "1.11.0"
 kctfork = "0.14.0"
+ksp = "2.3.14"
 turbine = "1.2.1"
 detekt = "2.0.0-alpha.6"
 buildconfig = "6.1.2"
@@ -39,7 +40,10 @@ ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 
+ksp-symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+
 [plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
