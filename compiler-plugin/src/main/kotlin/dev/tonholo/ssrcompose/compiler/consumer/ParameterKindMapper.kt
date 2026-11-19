@@ -2,6 +2,7 @@ package dev.tonholo.ssrcompose.compiler.consumer
 
 import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.Parameter
+import dev.tonholo.ssrcompose.catalog.validation.CatalogLimits
 import dev.tonholo.ssrcompose.catalog.validation.isKotlinIdentifier
 import dev.tonholo.ssrcompose.compiler.SsrNames
 import dev.tonholo.ssrcompose.compiler.consumer.slot.SlotParameterMapper
@@ -26,13 +27,21 @@ import org.jetbrains.kotlin.name.StandardClassIds
 internal sealed interface ParameterMappingResult {
     data class Supported(val parameter: Parameter, val choice: ChoiceList? = null) : ParameterMappingResult
     data object Skipped : ParameterMappingResult
-    data object Unsupported : ParameterMappingResult
+    data class Unsupported(val reason: String) : ParameterMappingResult
 }
 
 /**
  * Turns the parameter of a marked composable into a catalog parameter.
  */
 internal object ParameterKindMapper {
+    private const val UNSUPPORTED_TYPE_REASON =
+        "its type is not a supported value, choice, list or composable slot"
+    private const val NULLABLE_LIST_ELEMENT_REASON = "list elements must not be nullable"
+    private const val NESTED_LIST_REASON =
+        "a list holds text, whole numbers, decimal numbers, flags or choices, never another list"
+    private const val UNSUPPORTED_LIST_ELEMENT_REASON =
+        "a list holds text, whole numbers, decimal numbers, flags or choices"
+
     fun map(parameter: FirValueParameter, session: FirSession): ParameterMappingResult {
         val expandedType = parameter.returnTypeRef.coneType
         return when {
@@ -49,59 +58,105 @@ internal object ParameterKindMapper {
         parameter: FirValueParameter,
         expandedType: ConeKotlinType,
         session: FirSession,
-    ): ParameterMappingResult {
-        val valueKind = valueKindOf(expandedType = expandedType, session = session)
-            ?: return ParameterMappingResult.Unsupported
-        return ParameterMappingResult.Supported(
-            parameter = Parameter.Value(
-                name = parameter.name.asString(),
-                kind = valueKind.kind,
-                required = parameter.defaultValue == null,
-                nullable = expandedType.isMarkedNullable,
-            ),
-            choice = valueKind.choice,
-        )
-    }
+    ): ParameterMappingResult =
+        when (val valueKind = valueKindOf(expandedType = expandedType, session = session)) {
+            is ValueKindMapping.Supported -> ParameterMappingResult.Supported(
+                parameter = Parameter.Value(
+                    name = parameter.name.asString(),
+                    kind = valueKind.kind,
+                    required = parameter.defaultValue == null,
+                    nullable = expandedType.isMarkedNullable,
+                ),
+                choice = valueKind.choice,
+            )
+            is ValueKindMapping.Unsupported -> ParameterMappingResult.Unsupported(reason = valueKind.reason)
+        }
 
-    private fun valueKindOf(expandedType: ConeKotlinType, session: FirSession): MappedValueKind? =
+    private fun valueKindOf(expandedType: ConeKotlinType, session: FirSession): ValueKindMapping =
         if (expandedType.classId == StandardClassIds.List) {
             listValueKindOf(listType = expandedType, session = session)
         } else {
-            elementValueKindOf(expandedType = expandedType, session = session)
+            elementValueKindOf(
+                expandedType = expandedType,
+                session = session,
+                unsupportedReason = UNSUPPORTED_TYPE_REASON,
+            )
         }
 
-    private fun listValueKindOf(listType: ConeKotlinType, session: FirSession): MappedValueKind? =
-        listType.typeArguments.singleOrNull()?.type
-            ?.fullyExpandedType(useSiteSession = session)
-            ?.takeUnless { it.isMarkedNullable }
-            ?.let { itemType -> elementValueKindOf(expandedType = itemType, session = session) }
-            ?.let { element ->
-                MappedValueKind(kind = ValueKind.ListOf(element = element.kind), choice = element.choice)
-            }
-
-    private fun elementValueKindOf(expandedType: ConeKotlinType, session: FirSession): MappedValueKind? =
-        when (expandedType.classId) {
-            StandardClassIds.String -> MappedValueKind(kind = ValueKind.Text)
-            StandardClassIds.Int, StandardClassIds.Long -> MappedValueKind(kind = ValueKind.Whole)
-            StandardClassIds.Float, StandardClassIds.Double -> MappedValueKind(kind = ValueKind.Decimal)
-            StandardClassIds.Boolean -> MappedValueKind(kind = ValueKind.Flag)
-            else -> choiceValueKindOf(expandedType = expandedType, session = session)
+    private fun listValueKindOf(listType: ConeKotlinType, session: FirSession): ValueKindMapping {
+        val itemType = listType.typeArguments.singleOrNull()?.type?.fullyExpandedType(useSiteSession = session)
+        return when {
+            itemType == null -> ValueKindMapping.Unsupported(reason = UNSUPPORTED_LIST_ELEMENT_REASON)
+            itemType.isMarkedNullable -> ValueKindMapping.Unsupported(reason = NULLABLE_LIST_ELEMENT_REASON)
+            itemType.classId == StandardClassIds.List -> ValueKindMapping.Unsupported(reason = NESTED_LIST_REASON)
+            else -> listElementKindOf(itemType = itemType, session = session)
         }
-
-    private fun choiceValueKindOf(expandedType: ConeKotlinType, session: FirSession): MappedValueKind? =
-        expandedType.toRegularClassSymbol(session = session)
-            ?.takeIf { it.classKind == ClassKind.ENUM_CLASS }
-            ?.let { symbol -> choiceListOf(symbol = symbol, session = session) }
-            ?.let { choice -> MappedValueKind(kind = ValueKind.Choice(listName = choice.name), choice = choice) }
-
-    private fun choiceListOf(symbol: FirRegularClassSymbol, session: FirSession): ChoiceList? {
-        val name = symbol.name.asString()
-        val entries = symbol.collectEnumEntries(session = session).map { entry -> entry.name.asString() }
-        val isValid = isKotlinIdentifier(text = name) &&
-            entries.isNotEmpty() &&
-            entries.all { entry -> isKotlinIdentifier(text = entry) }
-        return if (isValid) ChoiceList(name = name, entries = entries) else null
     }
 
-    private data class MappedValueKind(val kind: ValueKind, val choice: ChoiceList? = null)
+    private fun listElementKindOf(itemType: ConeKotlinType, session: FirSession): ValueKindMapping =
+        when (
+            val element = elementValueKindOf(
+                expandedType = itemType,
+                session = session,
+                unsupportedReason = UNSUPPORTED_LIST_ELEMENT_REASON,
+            )
+        ) {
+            is ValueKindMapping.Supported -> ValueKindMapping.Supported(
+                kind = ValueKind.ListOf(element = element.kind),
+                choice = element.choice,
+            )
+            is ValueKindMapping.Unsupported -> element
+        }
+
+    private fun elementValueKindOf(
+        expandedType: ConeKotlinType,
+        session: FirSession,
+        unsupportedReason: String,
+    ): ValueKindMapping =
+        when (expandedType.classId) {
+            StandardClassIds.String -> ValueKindMapping.Supported(kind = ValueKind.Text)
+            StandardClassIds.Int, StandardClassIds.Long -> ValueKindMapping.Supported(kind = ValueKind.Whole)
+            StandardClassIds.Float, StandardClassIds.Double -> ValueKindMapping.Supported(kind = ValueKind.Decimal)
+            StandardClassIds.Boolean -> ValueKindMapping.Supported(kind = ValueKind.Flag)
+            else -> choiceValueKindOf(
+                expandedType = expandedType,
+                session = session,
+                unsupportedReason = unsupportedReason,
+            )
+        }
+
+    private fun choiceValueKindOf(
+        expandedType: ConeKotlinType,
+        session: FirSession,
+        unsupportedReason: String,
+    ): ValueKindMapping {
+        val symbol = expandedType.toRegularClassSymbol(session = session)
+            ?.takeIf { it.classKind == ClassKind.ENUM_CLASS }
+            ?: return ValueKindMapping.Unsupported(reason = unsupportedReason)
+        return choiceListOf(symbol = symbol, session = session)
+    }
+
+    private fun choiceListOf(symbol: FirRegularClassSymbol, session: FirSession): ValueKindMapping {
+        val name = symbol.name.asString()
+        val entries = symbol.collectEnumEntries(session = session).map { entry -> entry.name.asString() }
+        return when {
+            entries.isEmpty() -> ValueKindMapping.Unsupported(
+                reason = "the enum $name has no entries, and a choice list must have at least one entry",
+            )
+            !isKotlinIdentifier(text = name) || !entries.all { entry -> isKotlinIdentifier(text = entry) } ->
+                ValueKindMapping.Unsupported(
+                    reason = "the enum $name or one of its entries is not a plain Kotlin identifier of at most " +
+                        "${CatalogLimits.MAX_NAME_LENGTH} characters",
+                )
+            else -> ValueKindMapping.Supported(
+                kind = ValueKind.Choice(listName = name),
+                choice = ChoiceList(name = name, entries = entries),
+            )
+        }
+    }
+
+    private sealed interface ValueKindMapping {
+        data class Supported(val kind: ValueKind, val choice: ChoiceList? = null) : ValueKindMapping
+        data class Unsupported(val reason: String) : ValueKindMapping
+    }
 }

@@ -121,10 +121,12 @@ internal class MarkedComposables(private val session: FirSession) {
         parameterName: String,
     ): UnsupportedParameter? {
         val result = ParameterKindMapper.map(parameter = parameter, session = session)
-        if (result !is ParameterMappingResult.Unsupported) return null
+            as? ParameterMappingResult.Unsupported
+            ?: return null
         return UnsupportedParameter(
             composable = composableName,
             parameter = parameterName,
+            reason = result.reason,
             sourceElement = parameter.source,
         )
     }

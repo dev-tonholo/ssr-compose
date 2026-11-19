@@ -30,17 +30,16 @@ internal data class UnsupportedName(
 }
 
 /**
- * A parameter of a marked composable that is not text or a composable slot,
- * which is all a fragment can describe so far.
+ * A parameter of a marked composable that the catalog cannot describe.
  */
 internal data class UnsupportedParameter(
     val composable: String,
     val parameter: String,
+    val reason: String,
     override val sourceElement: KtSourceElement? = null,
 ) : ConsumerError {
     override val message: String =
-        "The parameter $parameter of the marked composable $composable is not text or a composable slot. " +
-            "Only text and composable slot parameters are supported so far"
+        "The parameter $parameter of the marked composable $composable cannot be described in the catalog: $reason"
 }
 
 /**
