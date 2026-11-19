@@ -36,7 +36,8 @@ import kotlinx.coroutines.withContext
  * @param app who the app says it is.
  * @param unavailable shows a [ScreenProblem]. Its `retry` asks for the same screen again, or introduces the app again
  * after [ScreenProblem.Refused], [ScreenProblem.ConnectionEnded] or [ScreenProblem.AnswerUnreadable].
- * Without it, a plain English message with a retry button is shown.
+ * Without it, a plain message with a retry button is shown. Its texts come from
+ * `LocalSsrComposeStringResourceManager`, in English unless the app provides its own.
  */
 @Composable
 public fun SsrScreen(
