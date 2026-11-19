@@ -19,7 +19,7 @@ internal class SsrSubpluginOptions(
         val modeOption = SubpluginOption(key = CompilerPluginOptions.MODE, value = mode.optionValue)
         return when (mode) {
             CompilerPluginMode.Consumer -> listOf(modeOption, fragmentsDirOption(compilation))
-            CompilerPluginMode.Producer -> listOf(modeOption) + catalogOptions()
+            CompilerPluginMode.Producer -> listOf(modeOption) + catalogOptions() + sourceFolderOptions(compilation)
             CompilerPluginMode.Check -> listOf(modeOption)
         }
     }
@@ -50,6 +50,21 @@ internal class SsrSubpluginOptions(
                 ),
             )
         }
+
+    private fun sourceFolderOptions(compilation: KotlinCompilation<*>): List<SubpluginOption> {
+        if (extension.producerSettings.heldCatalogs.isEmpty()) return emptyList()
+        val folders = compilation.allKotlinSourceSets
+            .flatMap { sourceSet -> sourceSet.kotlin.srcDirs }
+            .distinct()
+            .map { folder ->
+                InternalSubpluginOption(key = CompilerPluginOptions.SOURCE_FOLDER, value = folder.absolutePath)
+            }
+        val excludedList = ExcludedSourcesListFile.fileOf(project = project, compilation = compilation).get().asFile
+        return folders + InternalSubpluginOption(
+            key = CompilerPluginOptions.EXCLUDED_SOURCES,
+            value = excludedList.absolutePath,
+        )
+    }
 
     private companion object {
         const val FRAGMENTS_FOLDER = "ssr/fragments"

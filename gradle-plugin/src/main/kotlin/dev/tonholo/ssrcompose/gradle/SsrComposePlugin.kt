@@ -1,6 +1,7 @@
 package dev.tonholo.ssrcompose.gradle
 
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginBuildConfig
+import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.PathSensitivity
@@ -8,6 +9,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
 import org.jetbrains.kotlin.gradle.plugin.SubpluginArtifact
 import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompileTool
 
 internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
     private val coordinates = PluginCoordinates.load()
@@ -36,6 +38,7 @@ internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
         addCoreToImplementation(kotlinCompilation)
         runBeforeComposeCompiler(kotlinCompilation)
         declareIndexesAsInputs(kotlinCompilation = kotlinCompilation, extension = extension)
+        listExcludedSources(kotlinCompilation = kotlinCompilation, extension = extension)
         val subpluginOptions = SsrSubpluginOptions(project = project, extension = extension)
         return project.provider { subpluginOptions.forCompilation(kotlinCompilation) }
     }
@@ -66,6 +69,30 @@ internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
             compileTask.inputs.files(indexes)
                 .withPropertyName(INDEXES_INPUT_NAME)
                 .withPathSensitivity(PathSensitivity.RELATIVE)
+        }
+    }
+
+    private fun listExcludedSources(kotlinCompilation: KotlinCompilation<*>, extension: SsrComposeExtension) {
+        val project = kotlinCompilation.project
+        val sourceFolders = project.objects.fileCollection().from(
+            project.provider { kotlinCompilation.allKotlinSourceSets.flatMap { it.kotlin.srcDirs } },
+        )
+        val listFile = ExcludedSourcesListFile.fileOf(project = project, compilation = kotlinCompilation)
+        val isNeeded = project.provider {
+            val isProducer = extension.resolveMode() == CompilerPluginMode.Producer
+            isProducer && extension.producerSettings.heldCatalogs.isNotEmpty()
+        }
+        kotlinCompilation.compileTaskProvider.configure { compileTask ->
+            if (compileTask is KotlinCompileTool) {
+                compileTask.doFirst(
+                    ExcludedSourcesWriter(
+                        sourceFolders = sourceFolders,
+                        compiledSources = compileTask.sources,
+                        listFile = listFile,
+                        isNeeded = isNeeded,
+                    ),
+                )
+            }
         }
     }
 
