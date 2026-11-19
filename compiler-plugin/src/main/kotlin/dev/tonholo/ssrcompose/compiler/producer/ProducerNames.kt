@@ -8,6 +8,10 @@ import org.jetbrains.kotlin.name.Name
 internal object ProducerNames {
     private val producerPackage = FqName("dev.tonholo.ssrcompose.producer")
     private val composeInternalPackage = FqName("androidx.compose.runtime.internal")
+    private val coreCatalogPackage = FqName("dev.tonholo.ssrcompose.core.catalog")
+    private val coreDataPackage = FqName("dev.tonholo.ssrcompose.core.data")
+    private val kotlinPackage = FqName("kotlin")
+    private val collectionsPackage = FqName("kotlin.collections")
 
     val composableFunction0 = ClassId(composeInternalPackage, Name.identifier("ComposableFunction0"))
     val composableFunction1 = ClassId(composeInternalPackage, Name.identifier("ComposableFunction1"))
@@ -15,6 +19,11 @@ internal object ProducerNames {
     val unplaceableBridge = ClassId(producerPackage, Name.identifier("UnplaceableBridge"))
     val message: Name = Name.identifier("message")
     val consumerComponent = CallableId(producerPackage, Name.identifier("ConsumerComponent"))
-    val error = CallableId(FqName("kotlin"), Name.identifier("error"))
-    val arrayOf = CallableId(FqName("kotlin"), Name.identifier("arrayOf"))
+    val catalogVersion = ClassId(coreCatalogPackage, Name.identifier("CatalogVersion"))
+    val textValue = ClassId(coreDataPackage, FqName("DataValue.Text"), isLocal = false)
+    val pair = ClassId(kotlinPackage, Name.identifier("Pair"))
+    val to = CallableId(kotlinPackage, Name.identifier("to"))
+    val mapOf = CallableId(collectionsPackage, Name.identifier("mapOf"))
+    val emptyMap = CallableId(collectionsPackage, Name.identifier("emptyMap"))
+    val error = CallableId(kotlinPackage, Name.identifier("error"))
 }
