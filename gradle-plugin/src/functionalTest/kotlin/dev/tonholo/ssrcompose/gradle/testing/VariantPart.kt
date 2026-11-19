@@ -25,12 +25,14 @@ internal object VariantPart {
     /**
      * @throws IllegalArgumentException when two fragments hold the same component name.
      */
-    fun partFrom(folder: File): CatalogPart =
-        CatalogPart(
+    fun partFrom(folder: File): CatalogPart {
+        val fragments = fragmentsIn(folder = folder)
+        return CatalogPart(
             name = PartName(value = PART_NAME),
-            choices = emptyList(),
-            components = fragmentsIn(folder = folder).flatMap { it.components },
+            choices = fragments.flatMap { it.choices }.distinct(),
+            components = fragments.flatMap { it.components },
         )
+    }
 
     fun bytesFrom(folder: File): ByteArray {
         val catalog = Catalog(version = CatalogVersion(value = VERSION), parts = listOf(partFrom(folder = folder)))
