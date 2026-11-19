@@ -55,15 +55,9 @@ internal class BridgeScaleScenario(
             CompileCase.CalledComponentsCatalog ->
                 compileBridges(catalogs = catalogsOf(index = calledIndex, count = 1))
 
-            CompileCase.OneFullCatalog -> compileSpread(catalogs = catalogsOf(index = fullIndex, count = 1))
+            CompileCase.OneFullCatalog -> compileBridges(catalogs = catalogsOf(index = fullIndex, count = 1))
             CompileCase.TenFullCatalogs ->
-                compileSpread(catalogs = catalogsOf(index = fullIndex, count = HELD_CATALOGS))
-
-            CompileCase.OneFullCatalogNamedOnly ->
-                compileNamedOnly(catalogs = catalogsOf(index = fullIndex, count = 1))
-
-            CompileCase.TenFullCatalogsNamedOnly ->
-                compileNamedOnly(catalogs = catalogsOf(index = fullIndex, count = HELD_CATALOGS))
+                compileBridges(catalogs = catalogsOf(index = fullIndex, count = HELD_CATALOGS))
 
             CompileCase.ManyCallsWithoutPlugin -> compileWithComposeOnly(source = manyCallsSource())
             CompileCase.ManyCallsWithCheckMode -> CompileTestSupport().compileSource(
@@ -75,40 +69,21 @@ internal class BridgeScaleScenario(
         return result.requireSuccess()
     }
 
-    /** Compiles one full catalog with the plugin as it is, which spreads the functions over its classes. */
-    fun compileFullCatalog(): JvmCompilationResult =
-        compileBridges(catalogs = catalogsOf(index = fullIndex, count = 1)).requireSuccess()
-
-    /** Compiles one full catalog with every bridge function in one class, as the plugin did before the class rule. */
-    fun compileFullCatalogInOneClass(): JvmCompilationResult =
-        compileExperiment(
-            catalogs = catalogsOf(index = fullIndex, count = 1),
-            creation = BridgeCreation(namedIn = null, files = ONE_CLASS_FILE_COUNT),
-        )
-
     /** Compiles against a catalog where one component the screen does not call has one more parameter. */
     fun compileWithOneUncalledComponentChanged(): JvmCompilationResult =
         compileBridges(catalogs = catalogsOf(index = changedIndex, count = 1)).requireSuccess()
 
-    /** Compiles a second module against a first one that created bridges only for the names it uses. */
-    fun compileSecondModuleCallingNamedComponent(): JvmCompilationResult =
-        compileSecondModule(component = calledComponents.first())
+    /** The screen that calls the bridges of the first held catalog. */
+    val callerSource: String get() = bridgeCallerSource
 
-    /** Compiles a second module that calls a component the first module's code never names. */
-    fun compileSecondModuleCallingUnnamedComponent(): JvmCompilationResult =
-        compileSecondModule(component = allComponents.last())
+    /** The same screen with hand-written stand-ins for the bridges. */
+    val standInSource: String get() = ScaleSources.standInCaller(components = calledComponents)
 
-    private fun compileSecondModule(component: ComponentDescriptor): JvmCompilationResult {
-        val firstModule = compile(case = CompileCase.OneFullCatalogNamedOnly)
-        return CompileTestSupport(registrars = listOf(ComposePluginRegistrar())).compileSource(
-            fileName = SECOND_MODULE_FILE,
-            source = ScaleSources.bridgeCaller(
-                components = listOf(component),
-                bridgePackage = packageOf(catalog = 0),
-            ),
-            classpath = listOf(firstModule.outputDirectory),
-        )
-    }
+    /** The name of every component of the catalog. */
+    val componentNames: Set<String> get() = allComponents.mapTo(destination = HashSet()) { it.name }
+
+    /** The options of [count] held catalogs of every component. */
+    fun fullCatalogs(count: Int): List<CatalogOptionValue> = catalogsOf(index = fullIndex, count = count)
 
     /** How many components of the catalog have a function in the first bridge package of [result]. */
     fun createdBridgeCount(result: JvmCompilationResult): Int {
@@ -145,23 +120,6 @@ internal class BridgeScaleScenario(
             source = bridgeCallerSource,
             options = ProducerTestOptions.producerOptions(*catalogs.toTypedArray()),
         )
-
-    private fun compileSpread(catalogs: List<CatalogOptionValue>): JvmCompilationResult =
-        compileExperiment(catalogs = catalogs, creation = BridgeCreation(namedIn = null, files = BRIDGE_FILES))
-
-    private fun compileNamedOnly(catalogs: List<CatalogOptionValue>): JvmCompilationResult =
-        compileExperiment(catalogs = catalogs, creation = BridgeCreation(namedIn = bridgeCallerSource, files = 1))
-
-    private fun compileExperiment(
-        catalogs: List<CatalogOptionValue>,
-        creation: BridgeCreation,
-    ): JvmCompilationResult =
-        CompileTestSupport(
-            registrars = listOf(
-                ExperimentBridgeRegistrar(catalogs = catalogs, creation = creation),
-                ComposePluginRegistrar(),
-            ),
-        ).compileSource(fileName = SOURCE_FILE, source = bridgeCallerSource)
 
     private fun compileWithComposeOnly(source: String): JvmCompilationResult =
         CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
@@ -217,9 +175,6 @@ internal class BridgeScaleScenario(
         const val CALLS_PER_FUNCTION = 25
         const val VERSION_PREFIX = "v"
         const val SOURCE_FILE = "Screen.kt"
-        const val SECOND_MODULE_FILE = "SecondModuleScreen.kt"
-        const val BRIDGE_FILES = 64
-        const val ONE_CLASS_FILE_COUNT = 1
         const val FACADE_SUFFIX = "Kt.class"
         const val CALLER_FOLDER = "scale/caller"
         const val BRIDGE_FOLDER = "scale/bridge"

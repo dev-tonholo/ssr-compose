@@ -3,8 +3,8 @@ package dev.tonholo.ssrcompose.compiler.producer
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
 import dev.tonholo.ssrcompose.catalog.index.CatalogIndex
 import dev.tonholo.ssrcompose.catalog.index.CatalogIndexReader
-import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
+import dev.tonholo.ssrcompose.compiler.producer.scan.ComponentNameSource
 import java.io.File
 import java.io.IOException
 import org.jetbrains.kotlin.name.FqName
@@ -15,75 +15,75 @@ internal data class BridgeCatalogLoad(
     val problems: List<String>,
 )
 
-internal object BridgeCatalogLoader {
+/** Reads the held catalogs of the module called [moduleName], keeping only the components [nameSource] finds. */
+internal class BridgeCatalogLoader(
+    private val nameSource: ComponentNameSource,
+    moduleName: String,
+) {
+    private val classRule = BridgeClassRule(moduleName = moduleName)
+    private val namedComponents = NamedBridgeComponents(classRule = classRule)
+
     fun load(options: List<CatalogOptionValue>): BridgeCatalogLoad {
-        val results = options.map(::loadCatalog)
+        val opened = options.map(::open)
+        val indexes = opened.mapNotNull { it.index }
+        val named = nameSource.namedAmong(names = indexes.flatMapTo(destination = HashSet()) { it.componentNames })
+        val results = opened.map { result -> catalogOf(opened = result, named = named) }
         return BridgeCatalogLoad(
             catalogs = results.mapNotNull { it.catalog },
             problems = BridgeLimits.sharedPackageProblems(options = options) + results.flatMap { it.problems },
         )
     }
 
-    private fun loadCatalog(option: CatalogOptionValue): CatalogResult {
+    private fun open(option: CatalogOptionValue): OpenedCatalog {
         val optionProblems = BridgeLimits.optionProblems(option = option)
-        if (optionProblems.isNotEmpty()) return CatalogResult(catalog = null, problems = optionProblems)
-        return readCatalog(option = option)
+        if (optionProblems.isNotEmpty()) return OpenedCatalog(option = option, problems = optionProblems)
+        return readIndex(option = option)
     }
 
-    private fun readCatalog(option: CatalogOptionValue): CatalogResult =
+    private fun readIndex(option: CatalogOptionValue): OpenedCatalog =
         try {
             val index = File(option.indexPath).inputStream().use { stream -> CatalogIndexReader.read(stream = stream) }
             if (index.version.value == option.version) {
-                resultOf(option = option, index = index)
+                OpenedCatalog(option = option, index = index)
             } else {
-                versionMismatch(option = option, index = index)
+                OpenedCatalog(option = option, problems = listOf(versionMismatch(option = option, index = index)))
             }
         } catch (exception: CatalogFileException) {
-            unreadable(option = option, reason = exception.message.orEmpty())
+            OpenedCatalog(option = option, problems = listOf(unreadable(option = option, exception = exception)))
         } catch (exception: IOException) {
-            unreadable(option = option, reason = exception.message.orEmpty())
+            OpenedCatalog(option = option, problems = listOf(unreadable(option = option, exception = exception)))
         }
 
-    private fun resultOf(option: CatalogOptionValue, index: CatalogIndex): CatalogResult {
-        val descriptors = index.componentNames.mapNotNull(index::component)
-        val components = descriptors.map(::bridgeComponent)
-        val refused = descriptors.flatMap(::refusedParameters)
-        val problems = refused + BridgeLimits.componentProblems(components = components)
-        if (problems.isNotEmpty()) return CatalogResult(catalog = null, problems = problems)
-        val catalog = BridgeCatalog(
-            key = BridgeKey(catalogVersion = option.version),
-            bridgePackage = FqName(option.bridgePackage),
-            components = components,
-        )
-        return CatalogResult(catalog = catalog, problems = emptyList())
+    private fun catalogOf(opened: OpenedCatalog, named: Set<String>): CatalogResult {
+        val index = opened.index ?: return CatalogResult(catalog = null, problems = opened.problems)
+        val option = opened.option
+        return try {
+            val components = namedComponents.of(index = index, named = named)
+            val catalog = BridgeCatalog(
+                key = BridgeKey(catalogVersion = option.version),
+                bridgePackage = FqName(option.bridgePackage),
+                components = components.created,
+                refusals = components.refusals,
+                classRule = classRule,
+            )
+            CatalogResult(catalog = catalog, problems = emptyList())
+        } catch (exception: CatalogFileException) {
+            CatalogResult(catalog = null, problems = listOf(unreadable(option = option, exception = exception)))
+        }
     }
 
-    private fun refusedParameters(component: ComponentDescriptor): List<String> =
-        component.parameters.filter { it.toBridgeParameter() == null }.map { parameter ->
-            "The composable '${component.name}' cannot get a bridge: its parameter '${parameter.name}' " +
-                "${parameter.shapeDescription()} is not supported yet."
-        }
+    private fun versionMismatch(option: CatalogOptionValue, index: CatalogIndex): String =
+        "The catalog option names version ${option.version}, " +
+            "but its index was written from version ${index.version.value}."
 
-    private fun bridgeComponent(component: ComponentDescriptor): BridgeComponent =
-        BridgeComponent(
-            name = component.name,
-            parameters = component.parameters.mapNotNull { it.toBridgeParameter() },
-        )
+    private fun unreadable(option: CatalogOptionValue, exception: Exception): String =
+        "The index of catalog version ${option.version} cannot be read: ${exception.message.orEmpty()}"
 
-    private fun versionMismatch(option: CatalogOptionValue, index: CatalogIndex): CatalogResult =
-        CatalogResult(
-            catalog = null,
-            problems = listOf(
-                "The catalog option names version ${option.version}, " +
-                    "but its index was written from version ${index.version.value}.",
-            ),
-        )
-
-    private fun unreadable(option: CatalogOptionValue, reason: String): CatalogResult =
-        CatalogResult(
-            catalog = null,
-            problems = listOf("The index of catalog version ${option.version} cannot be read: $reason"),
-        )
+    private class OpenedCatalog(
+        val option: CatalogOptionValue,
+        val index: CatalogIndex? = null,
+        val problems: List<String> = emptyList(),
+    )
 
     private class CatalogResult(val catalog: BridgeCatalog?, val problems: List<String>)
 }

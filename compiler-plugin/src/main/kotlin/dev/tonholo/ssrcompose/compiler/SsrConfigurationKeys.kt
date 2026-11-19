@@ -12,4 +12,8 @@ internal object SsrConfigurationKeys {
         CompilerConfigurationKey.create(CompilerPluginOptions.FRAGMENTS_DIR)
     val CATALOGS: CompilerConfigurationKey<MutableList<CatalogOptionValue>> =
         CompilerConfigurationKey.create(CompilerPluginOptions.CATALOG)
+    val SOURCE_FOLDERS: CompilerConfigurationKey<MutableList<String>> =
+        CompilerConfigurationKey.create(CompilerPluginOptions.SOURCE_FOLDER)
+    val EXCLUDED_SOURCES: CompilerConfigurationKey<String> =
+        CompilerConfigurationKey.create(CompilerPluginOptions.EXCLUDED_SOURCES)
 }

@@ -8,4 +8,6 @@ public object CompilerPluginOptions {
     public const val MODE: String = "mode"
     public const val FRAGMENTS_DIR: String = "fragmentsDir"
     public const val CATALOG: String = "catalog"
+    public const val SOURCE_FOLDER: String = "sourceFolder"
+    public const val EXCLUDED_SOURCES: String = "excludedSources"
 }

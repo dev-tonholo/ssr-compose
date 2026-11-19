@@ -66,7 +66,7 @@ class BridgeLimitsTest {
         val component = componentOf(name = COMPONENT, parameters = MAX_PARAMETERS + 1, shape = OPTIONAL_TEXT)
 
         // Act
-        val result = compileHolding(components = listOf(component))
+        val result = compileHolding(components = listOf(component), source = callerOf(component = COMPONENT))
 
         // Assert
         assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
@@ -143,7 +143,8 @@ class BridgeLimitsTest {
         }
 
     private fun assertFullestClassFits(result: JvmCompilationResult, shapeName: String) {
-        val fullest = ClassFileSizes.of(directory = result.outputDirectory).single { it.path.endsWith(SAME_CLASS_FILE) }
+        val fullest = ClassFileSizes.of(directory = result.outputDirectory)
+            .single { it.path.contains("/$SAME_CLASS_PREFIX") }
         val methods = fullest.methods
         println(
             "SCALE | fullest bridge class | $shapeName | constant pool ${fullest.constantPoolCount} | " +
@@ -163,7 +164,7 @@ class BridgeLimitsTest {
     }
 
     private fun longestMetadataChunkBytes(result: JvmCompilationResult): Int =
-        result.classLoader.loadClass("$BRIDGE_PACKAGE.$SAME_CLASS").getAnnotation(Metadata::class.java)
+        sameClass(result = result).getAnnotation(Metadata::class.java)
             .data1
             .maxOf { chunk -> chunk.sumOf(::modifiedUtf8Bytes) }
 
@@ -181,6 +182,7 @@ class BridgeLimitsTest {
             fileName = CALLER_FILE,
             source = caller,
             classpath = listOf(result.outputDirectory),
+            friendPaths = listOf(result.outputDirectory),
         )
 
         assertEquals(expected = ExitCode.OK, actual = readBack.exitCode, message = readBack.messages)
@@ -452,7 +454,7 @@ class BridgeLimitsTest {
                 // Act
                 val result = CompileTestSupport().compileSource(
                     fileName = ANCHOR_FILE,
-                    source = ANCHOR_SOURCE,
+                    source = TestCatalogs.sourceNaming(names = listOf(multibyteText(bytes = bytes))),
                     options = producerOptions(option),
                 )
 
@@ -473,7 +475,7 @@ class BridgeLimitsTest {
         )
 
     private fun createdFunctions(result: JvmCompilationResult): Set<String> =
-        result.classLoader.loadClass("$BRIDGE_PACKAGE.$SAME_CLASS").declaredMethods
+        sameClass(result = result).declaredMethods
             .map { it.name }
             .filter { it.startsWith(SAME_CLASS_NAME_PREFIX) && '$' !in it }
             .toSet()
@@ -486,19 +488,56 @@ class BridgeLimitsTest {
         }
 
         // Act
-        val result = compileHolding(components = components)
+        val result = compileHolding(
+            components = components,
+            source = callerOf(component = components.first().name) + commentNaming(components = components),
+        )
 
         // Assert
         assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
-        assertTrue(actual = result.messages.contains(SAME_CLASS), message = result.messages)
+        assertTrue(actual = result.messages.contains(SAME_CLASS_PREFIX), message = result.messages)
         assertTrue(actual = result.messages.contains("at most $MAX_FUNCTIONS_PER_CLASS"), message = result.messages)
+    }
+
+    @Test
+    fun `given a class over the limit only in comments, when compiled, then the build passes`() {
+        // Arrange
+        val components = sameClassNames().take(MAX_FUNCTIONS_PER_CLASS + 1).map { name ->
+            ComponentDescriptor(name = name, parameters = listOf(TestCatalogs.requiredTitle))
+        }
+
+        // Act
+        val result = compileHolding(components = components)
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+    }
+
+    @Test
+    fun `given a catalog over the class limit, when code names only the limit, then each named bridge exists`() {
+        // Arrange
+        val components = sameClassNames().take(MAX_FUNCTIONS_PER_CLASS + 1).map { name ->
+            ComponentDescriptor(name = name, parameters = listOf(TestCatalogs.requiredTitle))
+        }
+        val named = components.take(MAX_FUNCTIONS_PER_CLASS)
+
+        // Act
+        val result = compileHolding(
+            components = components,
+            source = callerOf(component = named.first().name, arguments = TITLE_ARGUMENT) +
+                commentNaming(components = named),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(expected = MAX_FUNCTIONS_PER_CLASS, actual = createdFunctions(result = result).size)
     }
 
     private fun compileHolding(
         components: List<ComponentDescriptor>,
         bridgePackage: String = BRIDGE_PACKAGE,
         composeOptions: List<Pair<String, String>> = emptyList(),
-        source: String = ANCHOR_SOURCE,
+        source: String = TestCatalogs.sourceNaming(names = components.map { it.name }),
     ): JvmCompilationResult {
         val held = TestCatalogs.catalogOf(version = VERSION, components = components.toTypedArray())
         return CompileTestSupport().compileSource(
@@ -508,6 +547,29 @@ class BridgeLimitsTest {
             composeOptions = composeOptions,
         )
     }
+
+    private fun sameClass(result: JvmCompilationResult): Class<*> {
+        val classFile = result.outputDirectory.resolve(BRIDGE_PACKAGE.replace('.', '/')).listFiles().orEmpty()
+            .single { it.name.startsWith(SAME_CLASS_PREFIX) }
+        return result.classLoader.loadClass("$BRIDGE_PACKAGE.${classFile.nameWithoutExtension}")
+    }
+
+    private fun commentNaming(components: List<ComponentDescriptor>): String =
+        components.joinToString(separator = " ", prefix = "\n// ") { it.name }
+
+    private fun callerOf(component: String, arguments: String = ""): String =
+        // language=kotlin
+        """
+        package app.caller
+
+        import androidx.compose.runtime.Composable
+        import $BRIDGE_PACKAGE.$component
+
+        @Composable
+        fun Screen() {
+            $component($arguments)
+        }
+        """.trimIndent()
 
     private fun composeOnly() = CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
 
@@ -575,7 +637,6 @@ class BridgeLimitsTest {
         const val JVM_RESERVED = "which the JVM keeps for itself"
         const val WINDOWS_RESERVED = "which Windows reserves for a device"
         const val LONG_COMPONENT_NAME_ID = 1
-        const val SAME_CLASS_FILE = "Bridge93Kt.class"
         const val LONGEST_NAME = 64
         const val COMPONENT = "Largest"
         const val VERSION = "1"
@@ -584,7 +645,8 @@ class BridgeLimitsTest {
         const val MIDDLE_SIGMA_PACKAGE = "app.σ"
         const val FINAL_SIGMA_PACKAGE = "app.ς"
         const val KEYWORD_PACKAGE = "in.acme.bridge"
-        const val SAME_CLASS = "Bridge93Kt"
+        const val SAME_CLASS_PREFIX = "Bridge93_"
+        const val TITLE_ARGUMENT = "title = \"text\""
         const val SAME_CLASS_NAME_PREFIX = "Same"
         const val SAME_CLASS_NAMES = "bridge-limits/same-class-component-names.txt"
         const val ANCHOR_FILE = "Anchor.kt"

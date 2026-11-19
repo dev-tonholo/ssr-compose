@@ -83,7 +83,7 @@ class UnplaceableComponentTest {
     }
 
     @Test
-    fun `given a bridge from another module, when a check caller calls it, then the error names both`() {
+    fun `given a bridge of a friend module, when a check caller calls it, then the error names both`() {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
 
@@ -92,6 +92,7 @@ class UnplaceableComponentTest {
             fixtureName = UNPLACEABLE_CALLER,
             options = checkOptions(),
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
 
         // Assert
@@ -100,7 +101,7 @@ class UnplaceableComponentTest {
     }
 
     @Test
-    fun `given a bridge from another module, when a check caller references it, then the error names both`() {
+    fun `given a bridge of a friend module, when a check caller references it, then the error names both`() {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
 
@@ -109,6 +110,7 @@ class UnplaceableComponentTest {
             fixtureName = UNPLACEABLE_REFERENCE_CALLER,
             options = checkOptions(),
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
 
         // Assert
@@ -117,7 +119,7 @@ class UnplaceableComponentTest {
     }
 
     @Test
-    fun `given a bridge from another module, when a check caller calls a placeable one, then it compiles`() {
+    fun `given a bridge of a friend module, when a check caller calls a placeable one, then it compiles`() {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
 
@@ -126,6 +128,7 @@ class UnplaceableComponentTest {
             fixtureName = RECEIPT_CALLER,
             options = checkOptions(),
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
 
         // Assert
@@ -134,7 +137,7 @@ class UnplaceableComponentTest {
     }
 
     @Test
-    fun `given an external bridge, when a producer with no catalog calls it, then the error names both`() {
+    fun `given a friend bridge, when a producer with no catalog calls it, then the error names both`() {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
 
@@ -143,6 +146,7 @@ class UnplaceableComponentTest {
             fixtureName = UNPLACEABLE_CALLER,
             options = producerOptions(),
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
 
         // Assert
@@ -151,7 +155,7 @@ class UnplaceableComponentTest {
     }
 
     @Test
-    fun `given an external bridge, when a producer with a catalog calls it, then its bridge resolves and it fails`() {
+    fun `given a friend bridge, when a producer with a catalog calls it, then its bridge resolves and it fails`() {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
         val ownOptions = producerOptions(
@@ -163,6 +167,7 @@ class UnplaceableComponentTest {
             fixtureName = OWN_BRIDGE_AND_UNPLACEABLE_CALLER,
             options = ownOptions,
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
 
         // Assert
@@ -174,7 +179,7 @@ class UnplaceableComponentTest {
     }
 
     @Test
-    fun `given a bridge from another module, when a caller running no plugin calls it, then it compiles`() {
+    fun `given a bridge of a friend module, when a caller running no plugin calls it, then it compiles`() {
         // Arrange
         val bridgeModule = support.compile(fixtureName = PLACEABLE_CALLER, options = options)
         val callerSupport = CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
@@ -183,6 +188,7 @@ class UnplaceableComponentTest {
         val result = callerSupport.compile(
             fixtureName = UNPLACEABLE_CALLER,
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
 
         // Assert

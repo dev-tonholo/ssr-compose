@@ -63,12 +63,24 @@ internal class CompileTestSupport(
         options: List<Pair<String, String>> = emptyList(),
         classpath: List<File> = emptyList(),
         composeOptions: List<Pair<String, String>> = emptyList(),
+        friendPaths: List<File> = emptyList(),
+        moduleName: String? = null,
     ): JvmCompilationResult =
         compileSources(
             sources = listOf(SourceFile.kotlin(name = fileName, contents = source)),
             options = options,
             classpath = classpath,
+            friendPaths = friendPaths,
             composeOptions = composeOptions,
+            moduleName = moduleName,
+        )
+
+    /** Compiles the Kotlin [files] from disk in one compilation. */
+    fun compileFiles(files: List<File>, options: List<Pair<String, String>> = emptyList()): JvmCompilationResult =
+        compileSources(
+            sources = files.map { file -> SourceFile.fromPath(path = file) },
+            options = options,
+            classpath = emptyList(),
         )
 
     private fun sourceFile(fixtureName: String, fileName: String): SourceFile {
@@ -82,9 +94,11 @@ internal class CompileTestSupport(
         classpath: List<File>,
         friendPaths: List<File> = emptyList(),
         composeOptions: List<Pair<String, String>> = emptyList(),
+        moduleName: String? = null,
     ): JvmCompilationResult =
         KotlinCompilation().apply {
             val composeProcessor = ComposeCommandLineProcessor()
+            this.moduleName = moduleName
             jvmTarget = JvmTarget.JVM_17.description
             classpaths = classpath
             this.friendPaths = friendPaths

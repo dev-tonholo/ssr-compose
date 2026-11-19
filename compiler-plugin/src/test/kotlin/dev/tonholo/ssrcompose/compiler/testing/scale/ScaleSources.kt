@@ -66,6 +66,18 @@ $callers
 """
     }
 
+    /** One source file of a large module: [functions] plain functions that call no bridge. */
+    fun plainFile(fileIndex: Int, functions: Int): String {
+        val body = List(size = functions) { index ->
+            // language=kotlin
+            val function = "fun file${fileIndex}Function$index(value: Int): Int {\n" +
+                "    val doubled = value * 2\n    return doubled + $index\n}\n"
+            function
+        }.joinToString(separator = LINE_BREAK)
+        // language=kotlin
+        return "package scale.large\n\n$body"
+    }
+
     private fun screenOf(components: List<ComponentDescriptor>): String {
         val calls = components.joinToString(separator = LINE_BREAK, transform = ::callOf)
         // language=kotlin
