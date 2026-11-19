@@ -139,7 +139,7 @@ producer/                            # Kotlin JVM
 └── src/
     ├── main/kotlin/dev/tonholo/ssrcompose/producer/
     │   ├── Producer.kt, ProducerBuilder.kt, ConsumerComponent.kt
-    │   ├── RemoteAction1.kt, Callback.kt, LocalConsumer.kt   # T065 folds RemoteAction1 into RemoteAction.kt with the other four
+    │   ├── RemoteAction1.kt, Callback.kt, Consumer.kt, LocalConsumer.kt   # T065 folds RemoteAction1 into RemoteAction.kt with the other four
     │   ├── ProducerLimits.kt, ProducerObserver.kt, UnplaceableBridge.kt   # UnplaceableBridge is read by the compiler plugin
     │   └── internal/                # PlacedNode (stand-in from T025), ScreenApplier, live screen, snapshot notifier, session, screen registry, actions, guard, validation
     ├── test/
