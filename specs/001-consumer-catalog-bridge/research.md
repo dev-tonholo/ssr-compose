@@ -31,7 +31,7 @@ Checked by T025 on 2026-11-16, inside the real modules, on Kotlin 2.4.21 and Com
 
 The real plugin creates its declarations from the binary index since the second pull request of T031a, and each function's file name comes from the class rule in [R16](#r16-scale-and-build-performance).
 
-Not checked: creating a declaration only when code names it in the real plugin (the third pull request of T031a settles it, and R16 has what its prototype showed).
+The real plugin creates a declaration only when the code of the module names it. [R16](#named-bridges-in-the-real-plugin) has how and what proves it.
 
 Alternatives considered: a source generator that writes Kotlin files. Turned down by the owner: the compiler creates the definitions.
 
@@ -530,7 +530,7 @@ Limits and not checked:
 
 - `FirAdditionalCheckersExtension`, the checker base class, `getAnnotationWithResolvedArgumentsByClassId` and the diagnostic factories are public and compile without a warning, but the Kotlin documentation for FIR plugins (`docs/fir/fir-plugins.md`) only describes the extension point, and compiler plugins have no stability promise. Check them at each Kotlin upgrade.
 - Whether `@Suppress` turns this error off: not checked. The owner chose not to try it.
-- Not checked: whether the IDE shows the error; any Kotlin version other than 2.4.21; whether a module that creates no bridge still needs `mode=check` now that created bridge functions are internal to their module ([R16](#r16-scale-and-build-performance)), which T047 settles for Gradle and T101 for the Kotlin toolchain. The compile time the checker adds is measured in R16.
+- Not checked: whether the IDE shows the error; any Kotlin version other than 2.4.21; the removal of `mode=check`, which T047 decides. [R16](#named-bridges-in-the-real-plugin) found that created bridges no longer need it. The compile time the checker adds is measured in R16.
 - The plugin refuses an optional slot with arguments with a compile error, so such a slot, which gets no bridge parameter, is not made yet. A component with two required slots with arguments names only the first. T076 does both.
 - The plugin's `SlotOfText` kind is a required slot whose content receives one text, created as `ComposableFunction1<String, Unit>`. T076 builds the type from the arguments in the catalog.
 
@@ -565,7 +565,7 @@ The owner also decided that created bridge functions are internal to the module 
 
 Checked by T025 on 2026-11-16: two packages with the same component name in one module, created from two held catalogs (versions `1` and `2`), compile side by side and compose. Each bridge passes its own version, and a call that mixes the parameters of the two fails to compile. See R1 for the details.
 
-The compile time and memory of 10 bridges of 20,000 components each are measured in R16, and so is what happens when two modules create the same package. Not checked: both of these in the real plugin, which T031a settles.
+The compile time and memory of 10 held catalogs of 20,000 components each are measured on the real plugin in R16. Two modules with different module names that create the same bridge compile, load on one classpath, and each runs its own bridge (`TwoModuleBridgeTest`).
 
 Alternatives considered: one bridge from one chosen catalog, with screens adapted automatically to older catalogs. Turned down by the owner on 2026-11-15, in favour of versioned screens.
 
@@ -677,7 +677,7 @@ Checked: the version of the buildconfig Gradle plugin (`com.github.gmazzo.buildc
 
 Developers must turn off `kotlin.k2.only.bundled.compiler.plugins.enabled` in the IDE registry to see created declarations, as the owner said. It is a documented setup step.
 
-Not checked: anything in the IDE. Known risks from reading the code: the enum workaround (R3), the index being read once per plugin load so a catalog change is not seen until reload, and created declarations having no source to navigate to.
+The owner tried named bridges in IntelliJ IDEA 2026.3, and [R16](#named-bridges-in-the-real-plugin) has the results. Not checked in the IDE: the enum workaround (R3) and a catalog change while the plugin is loaded. Known risks from reading the code: the index is read once per plugin load, so a catalog change is not seen until reload, and created declarations have no source to navigate to.
 
 ## R14. What carries over from the earlier draft
 
@@ -719,17 +719,22 @@ T031a ran on 2026-11-17 and 2026-11-18. The owner decided these points on 2026-1
 - Bridge functions are spread over several classes, and each component has a stable class. The rule is a fixed 256 classes per catalog. A component's class comes from the SHA-256 of its name encoded as UTF-8: read the first 4 bytes of the hash as a big endian signed 32-bit integer, then take `Math.floorMod(value, 256)`, which is always 0 to 255. Adding or removing a component moves no other component. A class is created only for a bucket that holds a named component. One class holds at most 150 functions, and a bridge over that limit is a clear compile error. The owner first set 500. Measurement lowered it to 150, because 500 functions at the largest parameter count do not fit in one class ([Class file limits of a created bridge](#class-file-limits-of-a-created-bridge)).
 - The catalog has no limit on parameters, but the JVM allows at most 255 parameter units per method, and the Compose compiler's extra parameters use some of them. A created bridge has at most 118 parameters. A component with more is a clear compile error that names the component, and tests cover the largest count that compiles and one parameter more.
 - The plugin finds the names a module uses by scanning the module's source folders on every compile. The build passes the folders as an internal compiler option. A name list written by a build step was turned down, because it would be a compile input and a change to a compile input rebuilds the whole module. Scanning only the files the compiler receives was turned down, because each edit then recompiles every other file that calls a bridge.
-- Created bridge functions are internal to the module that creates them, in classes named after that module. Two modules that create the same bridge function then do not clash, and a module cannot expose a created bridge function to another module. This decision covers functions only. Enum classes are open, as the next section says.
+- Created bridge functions are internal to the module that creates them, in classes named after that module. Two modules with different module names that create the same bridge function then do not clash, and a module cannot expose a created bridge function to another module. This decision covers functions only. Enum classes are open, as the next section says.
 
 ### Enum classes of one catalog in two modules
 
-Each bridge also has one enum class per choice list. An enum's JVM name is its package and its name, and there is no file name to vary, so internal visibility and class names per module do not separate two copies. The prototype creates no enums, so this was not tried with created bridges. A small test with hand-written internal enums shows that two modules write the same class file, `Tone.class`, with different content when the entries differ (`TwoModuleBridgeTest`). Two modules that hold the same catalog have the same entries; whether their class files are then identical was not tested.
+Each bridge will also have one enum class per choice list. An enum's JVM name is its package and its name, so internal visibility and class names per module do not separate two copies.
 
-The third pull request chooses one of these options from a test of hand-written enums, and the later T048 work on choice parameters builds it. These are options, and none is chosen:
+The owner chose on 2026-11-18: each module gets its own enums, in a package or an outer class named after the module. The real plugin creates no enums yet. T048 builds this option and proves it on created enums. T048 also settles how test code reuses the enums of main, the exact shape of the import, and the module name rules the enum names use.
 
-- Keep one enum per choice list and accept the duplicate class when the content is the same, if a test shows the bytes are identical and the build tools accept the duplicate.
-- Give each module its own enums, in a package or an outer class named after the module, which changes what a server developer imports.
-- Create the enums of a catalog in one place that the calling modules share. This partly reverses the owner's decision that there is no separate bridge module, so it needs the owner's approval.
+The evidence comes from hand-written enums in a throwaway multi-project Gradle build, Kotlin 2.4.21 and Gradle 9.9.1, on 2026-11-18. It is not committed:
+
+- Identical entries do not give identical bytes. `Tone.class` differs between two modules only by the module name in its Kotlin metadata. With the same module name forced on both, the SHA-256 of the two files is the same.
+- With identical entries, a classpath that holds both modules runs, and a module that depends on the other and declares its own copy compiles and runs.
+- A merged jar depends on its duplicate strategy. `DuplicatesStrategy.FAIL` stops the build. `EXCLUDE` and `INCLUDE` build a jar that runs.
+- With different entries, every compile passes. The first copy on the classpath wins, and the other module fails at run time with `NoSuchFieldError: Class app.bridge.Tone does not have member field 'app.bridge.Tone Third'`.
+
+Per-module enums are the only option that cannot fail silently at run time, and they keep the decision that there is no separate bridge module. The cost is that the import depends on the module name. Keeping one enum per choice list was turned down because of the run time failure above. Creating the enums in one shared place was turned down because it partly reverses the decision that there is no separate bridge module.
 
 ### Who delivers what
 
@@ -737,26 +742,26 @@ T031a is delivered in three pull requests, and T031a is ticked with the third.
 
 1. The first holds the experiments and this record. It changes no production code.
 2. The second delivers T116 and T117 (the binary index reader and writer, and the index step), deletes the T025 format and adds the class rule of T048 to the real plugin.
-3. The third delivers the rest of T048 that T031a needs: creating only the named bridges, the source folder scan, internal bridge functions and class names per module. The limits and the unsupported parameter errors then apply only to components the module names, and a test proves that one unused component over a limit does not fail the build. The real plugin creates no enums at this point. This pull request chooses the enum option from a test of hand-written enums, including whether identical entries give identical bytes, and brings the choice to the owner. It also measures the real plugin again and ticks T031a. T048 stays open after it for the value, choice and list parameters it still owes, and its work on choice parameters builds the chosen enum option and proves it on created enums.
+3. The third delivered the rest of T048 that T031a needs: creating only the named bridges, the source folder scan, internal bridge functions and class names per module. The limits and the unsupported parameter errors now apply only to components the module names. The real plugin creates no enums yet. The owner chose the enum option from a test of hand-written enums. This pull request also measured the real plugin again and ticked T031a. T048 stays open for the value, choice and list parameters it still owes, and its work on choice parameters builds the chosen enum option and proves it on created enums.
 
-The first pull request added temporary pieces. The second removed the T025 index text and the candidate index formats. The third owns the pieces that are left:
+The first pull request added temporary pieces. The second removed the T025 index text and the candidate index formats. The third removed the pieces that were left, as this table says:
 
 | Temporary piece | Pull request | What happens to it |
 |---|---|---|
 | `ExperimentBridgeRegistrar.kt` and `SourceScanBridgePlugin.kt` | Third | Deleted, the real plugin replaces them |
 | `compiler-plugin/src/namedOnlyProbe/`, the `namedOnlyProbeJar` task and the `namedOnlyProbe` configuration in `compiler-plugin/build.gradle.kts` | Third | Deleted |
 | The `namedOnlyProbe` and `namedOnlyProbeClasspath` configurations and the probe jar wiring of `functionalScaleTest` in `gradle-plugin/build.gradle.kts` | Third | Deleted |
-| `NamedOnlyProbeFixture.kt`, `NamedOnlyIncrementalProbeTest.kt` and `TwoModuleBridgeTest.kt` | Third | Rewritten to run the real plugin |
+| `NamedOnlyProbeFixture.kt`, `NamedOnlyIncrementalProbeTest.kt` and `TwoModuleBridgeTest.kt` | Third | The first two are replaced by `NamedBridgeFixture.kt` and `NamedBridgeIncrementalTest.kt`, and `TwoModuleBridgeTest.kt` is rewritten. All three run the real plugin |
 | `BridgeModulesFixture.kt` and the two bridge module tests in `CatalogRebuildScopeTest.kt` | Third | Deleted, because the owner did not choose a separate bridge module |
 | The prototype cases in `BridgeScaleScenario.kt` and `CompileCase.kt` | Third | Moved to the real plugin, so the scale numbers measure it |
 
 ### Measurements
 
-The compile numbers in this section are prototype numbers. The bridges were created by test code, not by the real plugin. The rotation rows and the `mode=check` numbers read the binary index and compile for JVM target 17. The two rows that create every function read the T025 index and compiled for JVM target 1.8, the default of the compile test library at that time. The compiles ran in process with kotlin-compile-testing on a warm JVM, so a cold Gradle compile will differ. T115 measures the finished build.
+The numbers in the tables below measure the real plugin, unless a row says otherwise. Each compile runs in process with kotlin-compile-testing on a warm JVM and targets JVM 17, so a cold Gradle compile will differ. T115 measures the finished build.
 
-The compile numbers use `ParameterPalette.BridgeExperiment`: a text, a callback of one text and a plain slot. They hold no number, flag, choice or list parameter, and no enum class is created, so the real plugin can cost more. The index format numbers use the full mix of parameters.
+The compile numbers use `ParameterPalette.BridgeExperiment`: a text, a callback of one text and a plain slot. They hold no number, flag, choice or list parameter, and no enum class is created, so later kinds can cost more. The index format numbers use the full mix of parameters.
 
-Machine: Apple M3 Pro, 12 cores, 36 GiB of memory, macOS 26.6.2, JetBrains Runtime 25.0.4, Gradle 9.9.1, Kotlin 2.4.21. The test heap was 2 GiB for `tooling` and 12 GiB for `compiler-plugin`.
+Machine: Apple M3 Pro, 12 cores, 36 GiB of memory, macOS 26.6.2, JetBrains Runtime 25.0.4, Gradle 9.9.1, Kotlin 2.4.21. The test heap was 2 GiB for `tooling` and 12 GiB for `compiler-plugin`. Other work was running on the machine. During the `:compiler-plugin:scaleTest` run of 2026-11-18 that the tables below come from, the one minute load average was between 8.1 and 31.4, with a mean of 17.4 over 52 samples taken every 20 seconds.
 
 Memory method: allocated memory is `ThreadMXBean.getThreadAllocatedBytes` on the measuring thread. Peak heap is the sum of the peak usage of each heap pool, reset after a garbage collection right before the run. Pools peak at different times, so the sum can be higher than the real peak.
 
@@ -768,56 +773,133 @@ Commands:
 ./gradlew :gradle-plugin:functionalScaleTest
 ```
 
-The index format and compile numbers below come from three runs of `:compiler-plugin:scaleTest`, and the bundle read comes from `:tooling:scaleTest`. The binary index row, the cases that create only some functions and the `mode=check` numbers come from one run of 2026-11-18 on JVM target 17. On this revision the first filter measures the binary format only. These filters select them:
-
-```sh
-./gradlew :compiler-plugin:scaleTest --tests "*each index format is built and read, then its cost*" --tests "*cheap cases are compiled in rotation*"
-```
-
-The two rows that create every function come from the full run of 2026-11-17, which took 35 minutes and was not repeated. The machine's load was not recorded during these runs, and other builds may have been running, so a wide range can come from that.
-
-`check` runs none of them. With `--rerun-tasks` it took 1m 24s before this work and 1m 32s after it. A later run took 1m 58s while other builds kept the machine's load average above 100, so these times are rough.
+`check` runs none of them.
 
 The catalog has 20,000 components and about 80,000 parameters over 50 parts. In the `:tooling:scaleTest` run of 2026-11-17, reading and validating its bundle took a median of 176 ms (174 to 178 ms over 7 runs after 5 warmups) and allocated 211 MiB. The bundle holds 12,191,891 bytes, and its largest file holds 422,345 bytes, against the cap of 16 MiB.
 
-Index formats, as the median of 7 runs after 5 warmups, with the range in brackets. The lines format was measured on 2026-11-18 and then deleted, because the owner chose the binary format. The Lines row comes from revision `a4d606a`, the last one that holds that format, and only that revision can reproduce it. The binary row is the production reader and writer on this revision. Opening it and reading 20 components costs more than twice the prototype's 1.5 ms and 3.8 MiB, because it checks UTF-8 strictly, keeps each decoded string and checks the body offsets. This measurement opens the index from a byte array, which copies the 1.3 MB index once. The compiler plugin opens a stream and does not make that copy:
+Index formats, as the median of 7 runs after 5 warmups. The Lines row is history: that format was deleted, and only revision `a4d606a` can reproduce it. The Binary row is the production reader and writer, measured on 2026-11-18.
 
 | Format | Size in bytes | Build from the bundle | Open and read 20 components | Open and read all components |
 |---|---|---|---|---|
 | Lines (text, parsed in full on open) | 3,121,146 | 191 ms (187 to 197), 256 MiB | 27.2 ms (26.8 to 27.4), 51 MiB | 27.8 ms (26.8 to 28.5), 51 MiB |
-| Binary (string table and offsets, parameters decoded on demand) | 1,315,978 | 183 ms (181 to 193), 227 MiB | 4.1 ms (3.1 to 5.8), 10.4 MiB | 10.5 ms (10.2 to 10.9), 23 MiB |
+| Binary (string table and offsets, parameters decoded on demand) | 1,315,978 | 180.3 ms (177.5 to 187.2), 227 MiB | 3.2 ms (2.7 to 3.5), 10.4 MiB | 10.2 ms (9.7 to 11.0), 22.2 MiB |
 
-Compiling a server module that calls 20 components. The first four rows were measured in rotation: 5 warmup rounds of every case, then 12 counted rounds, each starting with the next case, so no case always runs first on a cold JVM. The time is the median of the 12 rounds.
-
-| Case | Time | Range | Allocated | Peak heap |
-|---|---|---|---|---|
-| No catalog, 20 hand-written stand-ins | 103 ms | 92 to 118 ms | 116 MiB | 165 MiB |
-| Catalog of only the 20 called components | 125 ms | 119 to 140 ms | 131 MiB | 154 MiB |
-| One full catalog, only named functions | 140 ms | 134 to 157 ms | 169 MiB | 157 MiB |
-| Ten full catalogs, only named functions | 606 ms | 567 to 731 ms | 741 MiB | 387 MiB |
-
-The two rows that create every function are the median of 5 runs, after 3 warmups for one catalog and 1 warmup for ten:
+Compiling a server module that calls 20 components. Each case was measured in rotation: 5 warmup rounds of every case, then 12 counted rounds, each starting with the next case. The time is the median of the 12 rounds. The test first checks that exactly the 20 called bridges exist.
 
 | Case | Time | Range | Allocated | Peak heap |
 |---|---|---|---|---|
-| One full catalog, every function created | 20,519 ms | 20,304 to 21,778 ms | 16,172 MiB | 2,173 MiB |
-| Ten full catalogs, every function created | 258,427 ms | 242,133 to 442,571 ms | 160,781 MiB | 14,936 MiB (above the 12 GiB heap limit, so an overestimate) |
+| No catalog, 20 hand-written stand-ins | 107.5 ms | 87.1 to 125.8 ms | 116 MiB | 165 MiB |
+| Catalog of only the 20 called components | 126.9 ms | 114.6 to 161.9 ms | 130 MiB | 171 MiB |
+| One full catalog | 135.4 ms | 120.7 to 172.9 ms | 142 MiB | 162 MiB |
+| Ten full catalogs | 469.2 ms | 444.9 to 571.8 ms | 462 MiB | 346 MiB |
 
-SC-016 does not hold when every function is created: one catalog adds about 20 seconds. In the prototype it holds when only named functions are created. Against the stand-ins, one catalog adds about 37 ms and 53 MiB of allocation, and ten catalogs add about 503 ms and 625 MiB. These are differences of medians from one run, so they are rough, and the machine's load was not recorded. The slowest of the 12 rounds took 157 ms for one catalog and 731 ms for ten, so even the whole compile stayed under the 2 second target in every counted round.
+These compiles give the compiler one file and pass no source folder, so they hold almost no scan cost. Against the stand-ins, one full catalog adds about 28 ms and 26 MiB of allocation, and ten full catalogs add about 362 ms and 346 MiB. These are differences of medians from one run, so they are rough. [What holds SC-016](#what-holds-sc-016) uses the large module below, which does scan.
 
-The check of bridge calls (`mode=check`) on a module with 10,000 calls and no bridge, measured in the same rotation, took a median of 445 ms (419 to 539 ms) against 437 ms (420 to 480 ms) without the plugin, and allocated 615 MiB against 614 MiB. The ranges overlap.
+A server module of 3,000 source files of 40 functions each. A clean compile gives the compiler every file. An edited file gives the compiler one file and still scans the whole source folder. The clean cases were measured in rotation, as the median of 6 rounds after 2 warmup rounds. The edited file cases were measured in rotation too, as the median of 7 rounds after 3 warmup rounds.
+
+| Case | Time | Range | Allocated |
+|---|---|---|---|
+| Clean, stand-ins | 24,464 ms | 19,937 to 33,121 ms | 28,058 MiB |
+| Clean, one full catalog | 25,125 ms | 20,955 to 26,863 ms | 28,304 MiB |
+| Clean, ten full catalogs | 23,589 ms | 20,880 to 30,285 ms | 28,623 MiB |
+| One edited file, stand-ins | 114.8 ms | 101.2 to 177.9 ms | 115 MiB |
+| One edited file, one full catalog | 310.9 ms | 275.8 to 352.6 ms | 332 MiB |
+| One edited file, ten full catalogs | 752.9 ms | 715.1 to 834.0 ms | 651 MiB |
+
+Scanning the 3,000 files alone takes a median of 114.9 ms (112.1 to 116.8 ms) with the names of one catalog and 115.3 ms (112.4 to 149.2 ms) with 200,000 names, and allocates 190 MiB in both. The scan keeps nothing between compiles, so the Kotlin daemon holds no state from it.
+
+#### Clean compile time cannot resolve the catalog cost
+
+Clean wall clock time on this machine cannot resolve the cost of the catalog, in either direction, so it neither proves nor disproves the 2 second limit.
+
+The first reading ran the clean cases in a fixed order and showed about 3.9 s added for one catalog (20,606 ms against 16,663 ms) and about 2.4 s for ten. Ten catalogs cannot cost less than one, so the cases moved to rotation, where no case always follows the same one. Rotation did not settle it. The independent review ran the comparison four more times, and this table adds the run of the tables above. Each cell is the time added against the stand-ins:
+
+| Run | One full catalog | Ten full catalogs |
+|---|---|---|
+| Review, rotation, machine busy | +1,147 ms | -5,303 ms |
+| Review, the old fixed order | +684 ms | -262 ms |
+| Review, the order reversed | +2,596 ms | +12,417 ms |
+| Review, rotation again | -608 ms | +83 ms |
+| The tables above, rotation | +661 ms | -875 ms |
+
+#### What holds SC-016
+
+The plugin's own work is timed directly, inside the clean compile of the 3,000 file module. `PluginStepScaleTest` runs the production steps through a test-only registrar and adds up the time and the allocation of each step on the compiling thread. Production code holds no timing code, and no test asserts on a time. Work nested in a step counts in that step too, so a total can be too high. The harness does not install the refusal checks, which run only when a module names a component that cannot get a bridge. The measured module names none, so they would not have run here. For a module with refused components, the totals leave that work out and are a lower bound for it. Each cell is the median of 6 rounds, with the range in brackets:
+
+| Step | One full catalog | Allocated | Ten full catalogs | Allocated |
+|---|---|---|---|---|
+| Read the indexes | 5.8 ms (4.0 to 12.0) | 11.3 MiB | 45.2 ms (42.3 to 94.0) | 105.3 MiB |
+| Scan the sources | 484.0 ms (151.2 to 792.6) | 190.5 MiB | 450.2 ms (147.6 to 773.9) | 190.5 MiB |
+| Decode the named components | 0.5 ms (0.4 to 4.3) | 0.0 MiB | 3.5 ms (2.0 to 5.6) | 0.5 MiB |
+| Declare the bridges | 0.3 ms (0.2 to 0.4) | 0.2 MiB | 0.6 ms (0.5 to 1.0) | 1.5 MiB |
+| Create the bridge bodies | 82.5 ms (33.6 to 276.8) | 8.2 MiB | 45.1 ms (28.9 to 120.9) | 9.0 MiB |
+| Check calls and references | 45.6 ms (40.3 to 56.5) | 14.9 MiB | 44.0 ms (43.0 to 44.7) | 14.9 MiB |
+| Total of each round | 596.8 ms (342.6 to 1,138.9) | 225.0 MiB | 608.3 ms (291.1 to 1,039.5) | 321.6 MiB |
+
+The steps do not hold the work the compiler does afterwards on the created functions, such as the Compose compiler and code generation. The edited file rows do, because that compile holds little else. They add 196 ms for one catalog and 638 ms for ten in the tables above, and 173 ms and 521 ms in the run of the independent review. Allocation does not depend on the load of the machine. A clean compile allocates 246 MiB more with one catalog and 566 MiB more with ten, on about 28,058 MiB. The review measured 251 MiB and 572 MiB on about 27,800 MiB.
+
+SC-016 holds on these numbers. Adding the slowest round of the steps to the edited file row gives about 1,335 ms for one catalog and 1,678 ms for ten, and that sum counts the scan twice. The numbers come from a warm JVM in process on a busy machine. The scan took longer inside the compile than alone, and the reason was not looked into. A cold Gradle compile is not measured here, and T115 measures it.
+
+The check of bridge calls (`mode=check`) on a module with 10,000 calls and no bridge took a median of 473.1 ms (453.8 to 524.5 ms) against 468.1 ms (435.4 to 630.7 ms) without the plugin, and allocated 592 MiB against 591 MiB. The ranges overlap.
+
+The next two rows are history. A test prototype created every function of the catalog on 2026-11-17, with JVM target 1.8 and the T025 index. The real plugin cannot create every function, so nothing can reproduce them. They are the reason the owner chose named-only creation.
+
+| Case | Time | Range | Allocated | Peak heap |
+|---|---|---|---|---|
+| One full catalog, every function created (prototype) | 20,519 ms | 20,304 to 21,778 ms | 16,172 MiB | 2,173 MiB |
+| Ten full catalogs, every function created (prototype) | 258,427 ms | 242,133 to 442,571 ms | 160,781 MiB | 14,936 MiB (above the 12 GiB heap limit, so an overestimate) |
+
+### Named bridges in the real plugin
+
+The build passes the source folders of a compilation to the compiler plugin as the internal option `sourceFolder`. They come from `KotlinCompilation.allKotlinSourceSets` and the `kotlin.srcDirs` of each source set. The option is not a compile input, so it adds no absolute path to the build cache key.
+
+A compile task can leave out files of those folders, for example with `kotlin.exclude`. Right before the compile runs, the build lists those files, and the scan skips them, so a bridge never depends on a file the compile task does not track. The internal option `excludedSources` holds the path of that list, and the list is not a compile input. A file the compiler receives always counts, whatever the list says, so an old list cannot hide it.
+
+The plugin scans those folders and the files the compiler receives on every compile, and keeps only the catalog components whose names appear as whole identifiers. Only those components are decoded and checked against the limits. The scan reads readable regular `.kt` and `.kts` files and follows folder links. A path it cannot read counts as holding no name, and it reads a file the compiler receives inside a source folder only once. It can create too many bridges, but it does not miss a name written in a scanned file. `NamedBridgeCreationTest` covers aliased imports, star imports, fully qualified calls, callable references, backticked names and two held catalogs.
+
+A name can match by accident, in a comment, a string or an unrelated class. If that component cannot be created because of an unsupported parameter, the parameter limit or the class limit, the plugin declares nothing for it. Code that only mentions the name compiles, and a user class or function with the same name does not clash, even in the bridge package. An import of the component, and a call or callable reference that Kotlin cannot resolve, fail with the error that names the component. Kotlin prints its own `Unresolved reference` error next to it.
+
+A mention counts toward the class limit, because the scan cannot tell a mention from a call. When more than 150 named components fall in one class, none of them gets a bridge, and a real use of any of them fails the build with the class limit error, even if some of the names are only mentions. A build that only mentions them passes. The owner accepted this limit on 2026-11-18. It is rare: the fullest class of the 20,000 component catalog holds 96 components, so a module of that catalog stays under the limit even if it names every component.
+
+Created functions are internal. A public inline function cannot call one, and Kotlin reports `Public-API inline function cannot access non-public-API function`. An internal inline function can. A test compilation creates its own bridges, in its own classes, next to those of main.
+
+A bridge class is named `Bridge<bucket>_<module>_<hash>Kt`. `<module>` is the module name with every character outside `A-Z`, `a-z`, `0-9` and `_` replaced by `_`, cut to 64 characters. `<hash>` is the first 8 bytes of the SHA-256 of the module name in hexadecimal, so `my-app` and `my_app` differ. The longest class file name is 99 bytes, within the 255 bytes file systems allow. The name holds no path. Gradle builds the module name from project names, so it is the same on every machine that uses the same root project name.
+
+An incremental build keeps every class file equal to a clean build when a first call is added or a last call is removed, by adding or deleting a file and by editing an existing file, when one of two callers is removed, and when an unrelated file is edited (`NamedBridgeIncrementalTest`). After the last call to a component is removed, `META-INF/<module>.kotlin_module` still lists the deleted bridge class until the next clean build. The owner accepted this on 2026-11-18. Only a test compilation was tried as a reader of that file, and it passed.
+
+Generated sources are scanned. A task-generated folder and the output of a real KSP processor (KSP 2.3.14, a test dependency only) both create the bridges they call, and the bridge stays when another file is edited. In Kotlin Multiplatform, a jvm compilation scans `commonMain` and `jvmMain`, and a bridge that both call is declared once. A shared metadata compilation with a `js` target passes when common code mentions a component. Gradle prints `KMP Dependencies Resolution Failure` for that target, because `core` publishes no `js` variant, and the compile still succeeds.
+
+`mode=check` is no longer needed for bridges created by this plugin, which is the question T047 asks. Another module cannot reach an internal bridge, because Kotlin refuses the call (`TwoModuleBridgeTest`), and a test compilation of a server module runs `mode=producer` itself. The mode stays until T047 decides.
+
+The owner tested the IDE on IntelliJ IDEA 2026.3 (IU-263.7307.200) on 2026-11-18. Command line builds are not affected by any of these results:
+
+- A component named for the first time stays unresolved until a Gradle sync. Reopening the file does not help. The IDE keeps the plugin's registered extensions until the Kotlin facet changes (`KtCompilerPluginsCache`), and the scan runs at registration.
+- After a sync, a bridge removed from the code still resolves until the next sync.
+- A name that is not in the catalog stays red, which is correct.
+- Completion offers a declared bridge under a star import of the bridge package. It does not offer it without that import, and auto-import does not offer it. JetBrains tracks these as KTIJ-27574 and KTIJ-29912.
+- Quick Documentation is empty for a bridge, and the IDE symbol search does not find it.
+
+A probe on the same IDE and date tried a possible follow-up, with a throwaway copy of the plugin that is not part of this pull request. The copy declared every catalog component when the compiler configuration had no module name, which is how IntelliJ's `KtCompilerPluginsCache` configures a plugin. The catalog held 20,003 components:
+
+- Components resolved with no Gradle sync, under a star import and under explicit imports.
+- A name not in the catalog stayed red, and a wrong argument gave the normal parameter errors.
+- Completion offered bridges under a star import of the bridge package, with no noticeable lag according to the owner. The lag was not measured.
+- Loading the catalog in the IDE took 28 to 156 ms.
+- A command line compile of the same code still created only the 5 named bridges.
+- Hover and auto-import were not changed by this.
+- The missing module name is an observed behaviour of IntelliJ, not a documented contract.
+
+This pull request does not include that behaviour. T119 and #182 track it as a follow-up.
 
 ### What the experiments showed
 
-- 20,000 components cannot compile with every function in one class. The compile fails with `Class too large`. The measurements above spread the functions over 64 classes, and the real plugin now spreads them over 256 by the class rule.
+- In the prototype, 20,000 components could not compile with every function in one class. The compile failed with `Class too large`. The real plugin spreads the functions it creates over 256 classes by the class rule.
 - Kotlin 2.4.21 creates every top-level function a plugin declares (`FrontendFilesForPluginsGenerationPipelinePhase`), so the only way to create fewer is to declare fewer names.
 - With 256 classes and the calculation above, the fullest class holds 96 of the 20,000 components.
 - A change to the index alone rebuilds the whole module that holds it. Gradle prints `The input changes require a full rebuild for incremental task`. A source edit in the same module stays incremental: Gradle prints no such line, and the class of a file that was not edited is not written again (`CatalogRebuildScopeTest`).
-- With a separate bridge module, a change to a component nobody calls recompiles no class of the calling module, and a change to a called component recompiles only the file that calls it (`CatalogRebuildScopeTest`). The owner did not choose this layout.
+- In the prototype, with a separate bridge module, a change to a component nobody calls recompiled no class of the calling module. The owner did not choose this layout, and its tests are deleted.
 - When a change does not touch a component the caller uses, the caller's class files stay byte for byte the same (`BridgeScaleTest`).
-- With named-only creation, a second module that calls a bridge the first module does not name fails to compile with `Unresolved reference` (`BridgeScaleTest`).
-- With named-only creation from the files the compiler receives, an edit to one file keeps the bridge another file calls. The other file's class is written again, its bytecode still calls the bridge function, and the bridge class still declares that function. A class that calls no bridge is not written again, and Gradle prints no full rebuild line (`NamedOnlyIncrementalProbeTest`).
-- Two modules that create public bridge functions in one package write classes with the same name and different content, and both compile. Internal functions in classes named after the module do not clash (`TwoModuleBridgeTest`).
+- Two modules with different module names that create one bridge write classes with different names, and a module without its own bridge cannot call the bridge of another (`TwoModuleBridgeTest`).
 
 ### Class file limits of a created bridge
 
@@ -833,7 +915,7 @@ The real plugin was measured at its largest classes: 150 functions of 118 parame
 
 | Limit | JVM maximum | Real plugin | Hand-written twin | How it stays safe |
 |---|---|---|---|---|
-| Constant pool entries per class | 65,535 | 55,509 | 37,544 | At most 150 functions per class. The widest shape uses 85% of the pool |
+| Constant pool entries per class | 65,534, because `constant_pool_count` is at most 65,535 and counts one extra slot ([section 4.1](https://docs.oracle.com/javase/specs/jvms/se17/html/jvms-4.html#jvms-4.1)) | 55,509 | 37,544 | At most 150 functions per class. The widest shape uses 85% of the pool |
 | Methods per class, with synthetic methods | 65,535 | 300 | 302 | Each function adds one restart lambda. No `$default` method is created |
 | Fields per class | 65,535 | 0 | 0 | The plugin creates no field |
 | Direct superinterfaces | 65,535 | 0 | 0 | The plugin adds none |
@@ -848,7 +930,7 @@ A metadata entry of exactly 65,535 bytes is safe. The length field of `CONSTANT_
 
 The parameter limit comes from the worst shape. All optional `Long` or `Double` parameters compile and load at 118. At 119 the compile succeeds and the class fails to load with `ClassFormatError: Too many arguments in method signature`, so the limit has to be a compile error. Required wide parameters stop at 120, and one-slot kinds, which are all the plugin creates today, stop at 222.
 
-The function limit comes from the constant pool. At 118 optional text parameters with a different 64 character name in every function and `sourceInformation` off, 178 functions compile and load, and 179 fail with `Class too large`. The widest shape, required slots with a text argument and `sourceInformation=true`, uses 55,509 of the 65,535 entries at 150 functions. It compiles and loads at 177 functions and fails with `Class too large` at 178. Shared parameter names reach 500, but a catalog can hold different names, so 500 is not safe. The limit is 150, which leaves room for the extra constants of the kinds T048 adds. 150 functions also pass with 255 character names on the wide twin.
+The function limit comes from the constant pool. At 118 optional text parameters with a different 64 character name in every function and `sourceInformation` off, 178 functions compile and load, and 179 fail with `Class too large`. The widest shape, required slots with a text argument and `sourceInformation=true`, uses 55,509 of the 65,534 entries at 150 functions. It compiles and loads at 177 functions and fails with `Class too large` at 178. Shared parameter names reach 500, but a catalog can hold different names, so 500 is not safe. The limit is 150, which leaves room for the extra constants of the kinds T048 adds. 150 functions also pass with 255 character names on the wide twin.
 
 Largest method of one created bridge, in bytes after the Compose compiler has run:
 
@@ -871,7 +953,7 @@ Names and text stay inside the limits by design:
 - A bridge package cannot be `java` or sit inside it, because the JVM refuses to define those classes. No segment can be a Windows device name (`CON`, `PRN`, `AUX`, `NUL`, `COM1` to `COM9`, `LPT1` to `LPT9`) in any case, because Windows cannot create that folder. Each is a clear compile error.
 - Each held catalog needs its own bridge package, because the function limit is counted per class. Packages are compared without regard to case, because `app.bridge` and `app.Bridge` write the same class files on a case-insensitive disk. The comparison folds through upper case and then lower case, so `app.σ` and `app.ς` also clash. Two catalogs in one package are a clear compile error that names both versions and each spelling of the package.
 - The version inside an index must match the version of its catalog option. A difference is a clear compile error that names both.
-- A created class file name is at most `Bridge255Kt.class`, 17 bytes, whatever the component is called.
+- A created class file name is at most 99 bytes, whatever the component or the module is called ([Named bridges in the real plugin](#named-bridges-in-the-real-plugin)).
 - The longest renderer class file, `__SsrCompose_<Name>Renderer__Kt.class`, has 223 bytes for a name of 64 three-byte characters.
 
 T048 must measure these again when it adds a kind, and before it adds enums:
@@ -883,11 +965,14 @@ T048 must measure these again when it adds a kind, and before it adds enums:
 
 Not checked:
 
-- The named-only creation, the source folder scan and the internal functions in the real plugin, which the third pull request of T031a does.
-- Two modules with internal bridge functions on one classpath at run time. The evidence above is from compiling only. The third pull request proves it.
-- Enum classes of one catalog in two modules on one classpath. The third pull request chooses the option from hand-written enums, and the later T048 work on choice parameters proves it on created enums.
+- Enum classes created by the plugin. The option is chosen from hand-written enums, and T048 proves it on created enums.
 - A created bridge with a `Long` or `Double` parameter. The plugin cannot create one yet, so the wide numbers above come from a hand-written twin, and T048 measures the real bridge.
-- The source folder scan, which the third pull request proves on each of these points: its cost fits the 2 second target, generated sources such as KSP output are seen, Kotlin Multiplatform source sets work, build cache entries stay relocatable with no absolute path in the outputs or the cache key, and how the IDE behaves when a new component name is typed.
+- Any IDE other than IntelliJ IDEA 2026.3 (IU-263.7307.200).
+- A file that stopped being excluded in the IDE. Only a Gradle compile rewrites the list of excluded files, so the IDE can keep skipping that file until the next compile. This comes from reading the code and was not tried in the IDE.
+- Two modules with the same module name on one classpath. They write the same bridge class name for a component, so one class hides the other.
+- Any reader of `META-INF/<module>.kotlin_module` other than a test compilation, while the file still lists a deleted bridge class.
+- Source files added directly to a compile task and not to a source set. A clean compile sees them, because the compiler receives them, but an incremental compile that does not recompile them does not scan them.
+- A server module with an Android target. The bridge body needs the producer library, which runs on a plain JVM only.
 - A cold Gradle compile, a shared remote build cache and the finished build, which T114 and T115 measure.
 
 ## R17. The catalog is build time only
