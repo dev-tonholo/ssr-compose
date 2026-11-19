@@ -3,6 +3,9 @@ package dev.tonholo.ssrcompose.consumer.internal.screen
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
@@ -16,6 +19,10 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.tonholo.ssrcompose.consumer.ScreenProblem
+import dev.tonholo.ssrcompose.consumer.testing.MarkedStringResourceManager
+import dev.tonholo.ssrcompose.consumer.text.LocalSsrComposeStringResourceManager
+import dev.tonholo.ssrcompose.consumer.text.SsrComposeStringResource
+import dev.tonholo.ssrcompose.core.handshake.RefusalKind
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule
@@ -26,6 +33,8 @@ private const val REASON = "The screen is not available right now."
 private const val CONNECTION_ENDED_TEXT_FROM_CONTRACT = "The connection to the server ended. Please try again."
 private const val ANSWER_UNREADABLE_TEXT_FROM_CONTRACT = "The app could not read the answer from the server."
 private const val LONG_REASON = "The screen is not available right now. Check the connection and try again in a moment."
+
+private const val MISMATCHED_COMPONENT = "Amount"
 
 private const val HALF_OF_THE_LUMINANCE_RANGE = 0.5f
 
@@ -111,6 +120,65 @@ class DefaultScreenProblemTest {
 
         // Assert
         message.assertIsDisplayed()
+    }
+
+    @Test
+    fun given_an_app_manager__when_each_library_written_problem_shows__then_it_shows_its_own_text_and_the_retry_text() {
+        // Arrange
+        val keyOfEachProblem = listOf(
+            ScreenProblem.Mismatch(component = MISMATCHED_COMPONENT) to SsrComposeStringResource.ScreenProblemMismatch,
+            ScreenProblem.ConnectionEnded to SsrComposeStringResource.ScreenProblemConnectionEnded,
+            ScreenProblem.AnswerUnreadable to SsrComposeStringResource.ScreenProblemAnswerUnreadable,
+        )
+        var problem: ScreenProblem by mutableStateOf(value = keyOfEachProblem.first().first)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalSsrComposeStringResourceManager provides MarkedStringResourceManager) {
+                DefaultScreenProblem(problem = problem, retry = {})
+            }
+        }
+
+        // Act and Assert
+        keyOfEachProblem.forEach { (next, key) ->
+            composeRule.runOnIdle { problem = next }
+            assertDisplays(key = key)
+            assertDisplays(key = SsrComposeStringResource.ScreenProblemRetry)
+        }
+    }
+
+    @Test
+    fun given_an_app_manager__when_an_unavailable_reason_shows__then_the_reason_is_shown_as_given() {
+        // Arrange
+        val problem = ScreenProblem.Unavailable(reason = REASON)
+
+        // Act
+        showWithAppManager(problem = problem)
+
+        // Assert
+        composeRule.onNodeWithText(text = REASON).assertIsDisplayed()
+    }
+
+    @Test
+    fun given_an_app_manager__when_a_refusal_reason_shows__then_the_reason_is_shown_as_given() {
+        // Arrange
+        val problem = ScreenProblem.Refused(kind = RefusalKind.CatalogVersionNotSupported, reason = REASON)
+
+        // Act
+        showWithAppManager(problem = problem)
+
+        // Assert
+        composeRule.onNodeWithText(text = REASON).assertIsDisplayed()
+    }
+
+    private fun showWithAppManager(problem: ScreenProblem) {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalSsrComposeStringResourceManager provides MarkedStringResourceManager) {
+                DefaultScreenProblem(problem = problem, retry = {})
+            }
+        }
+    }
+
+    private fun assertDisplays(key: SsrComposeStringResource) {
+        composeRule.onNodeWithText(text = MarkedStringResourceManager.markedTextOf(resource = key)).assertIsDisplayed()
     }
 
     /** The luminance range of the node with [text], leaving out a band of [inset] on each side. */

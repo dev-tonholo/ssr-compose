@@ -50,6 +50,11 @@ class FakeConnection(
 
     override suspend fun close() {
         closed = true
+        end()
+    }
+
+    /** Ends the conversation from the producer's side, as a dropped connection does. */
+    fun end() {
         inbox.close()
     }
 

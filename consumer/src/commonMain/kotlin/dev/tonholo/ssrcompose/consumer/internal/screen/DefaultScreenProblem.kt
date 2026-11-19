@@ -21,10 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.tonholo.ssrcompose.consumer.ScreenProblem
 
-private const val RETRY_LABEL = "Try again"
-private const val MISMATCH_MESSAGE = "This screen cannot be shown right now."
-private const val CONNECTION_ENDED_MESSAGE = "The connection to the server ended. Please try again."
-private const val ANSWER_UNREADABLE_MESSAGE = "The app could not read the answer from the server."
 private val MessagePadding = 24.dp
 private val MessageSpacing = 16.dp
 private val MessageMaxWidth = 480.dp
@@ -33,11 +29,12 @@ private val RetryPadding = 12.dp
 private val RetryBorderWidth = 1.dp
 
 /**
- * The plain English message `SsrScreen` shows when the app supplies no message of its own.
- * It centres the message and its retry button in the space [modifier] gives it.
+ * The plain message `SsrScreen` shows when the app supplies no message of its own.
+ * It centres the message and its retry button in the space [modifier] gives it. Its texts come from [problemTexts].
  */
 @Composable
 internal fun DefaultScreenProblem(problem: ScreenProblem, retry: () -> Unit, modifier: Modifier = Modifier) {
+    val texts = problemTexts(problem = problem)
     val dark = isSystemInDarkTheme()
     val foreground = if (dark) Color.White else Color.Black
     val style = TextStyle(color = foreground, fontSize = MessageFontSize, textAlign = TextAlign.Center)
@@ -52,9 +49,9 @@ internal fun DefaultScreenProblem(problem: ScreenProblem, retry: () -> Unit, mod
             verticalArrangement = Arrangement.spacedBy(space = MessageSpacing),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            BasicText(text = problem.message(), style = style)
+            BasicText(text = texts.message, style = style)
             BasicText(
-                text = RETRY_LABEL,
+                text = texts.retryLabel,
                 style = style,
                 modifier = Modifier
                     .border(width = RetryBorderWidth, color = foreground)
@@ -63,12 +60,4 @@ internal fun DefaultScreenProblem(problem: ScreenProblem, retry: () -> Unit, mod
             )
         }
     }
-}
-
-private fun ScreenProblem.message(): String = when (this) {
-    is ScreenProblem.Refused -> reason
-    is ScreenProblem.Unavailable -> reason
-    ScreenProblem.ConnectionEnded -> CONNECTION_ENDED_MESSAGE
-    ScreenProblem.AnswerUnreadable -> ANSWER_UNREADABLE_MESSAGE
-    is ScreenProblem.Mismatch -> MISMATCH_MESSAGE
 }
