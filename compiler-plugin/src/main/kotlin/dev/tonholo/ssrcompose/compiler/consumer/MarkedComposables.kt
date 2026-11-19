@@ -63,7 +63,10 @@ internal class MarkedComposables(private val session: FirSession) {
             }
         }
         val marked = problems.filterValues { it.isEmpty() }.keys.toList()
-        val errors = functionErrors + marked.flatMap(::errorsOf)
+        val seenChoices = mutableMapOf<String, ChoiceList>()
+        val errors = functionErrors + marked.flatMap { function ->
+            errorsOf(function = function, seenChoices = seenChoices)
+        }
         val described = if (errors.isEmpty()) marked.map(::describe) else emptyList()
         return ScannedFile(
             source = file.sourcePath(),
@@ -105,22 +108,41 @@ internal class MarkedComposables(private val session: FirSession) {
         )
     }
 
-    private fun errorsOf(function: FirNamedFunction): List<ConsumerError> {
+    private fun errorsOf(
+        function: FirNamedFunction,
+        seenChoices: MutableMap<String, ChoiceList>,
+    ): List<ConsumerError> {
         val composableName = function.name.asString()
         val nameError = if (isKotlinIdentifier(text = composableName)) {
             emptyList()
         } else {
             listOf(UnsupportedName(composable = composableName, sourceElement = function.source))
         }
-        return nameError + parameterErrorsOf(function = function, composableName = composableName)
+        return nameError + parameterErrorsOf(
+            function = function,
+            composableName = composableName,
+            seenChoices = seenChoices,
+        )
     }
 
-    private fun parameterErrorsOf(function: FirNamedFunction, composableName: String): List<ConsumerError> =
+    private fun parameterErrorsOf(
+        function: FirNamedFunction,
+        composableName: String,
+        seenChoices: MutableMap<String, ChoiceList>,
+    ): List<ConsumerError> =
         function.valueParameters.mapNotNull { parameter ->
-            parameterErrorOf(parameter = parameter, composableName = composableName)
+            parameterErrorOf(
+                parameter = parameter,
+                composableName = composableName,
+                seenChoices = seenChoices,
+            )
         }
 
-    private fun parameterErrorOf(parameter: FirValueParameter, composableName: String): ConsumerError? {
+    private fun parameterErrorOf(
+        parameter: FirValueParameter,
+        composableName: String,
+        seenChoices: MutableMap<String, ChoiceList>,
+    ): ConsumerError? {
         val parameterName = parameter.name.asString()
         return when {
             !isKotlinIdentifier(text = parameterName) ->
@@ -135,28 +157,55 @@ internal class MarkedComposables(private val session: FirSession) {
                     parameter = parameterName,
                     sourceElement = parameter.source,
                 )
-            else -> unsupportedParameterErrorOrNull(
+            else -> mappedParameterErrorOrNull(
                 parameter = parameter,
                 composableName = composableName,
                 parameterName = parameterName,
+                seenChoices = seenChoices,
             )
         }
     }
 
-    private fun unsupportedParameterErrorOrNull(
+    private fun mappedParameterErrorOrNull(
         parameter: FirValueParameter,
         composableName: String,
         parameterName: String,
+        seenChoices: MutableMap<String, ChoiceList>,
+    ): UnsupportedParameter? =
+        when (val result = ParameterKindMapper.map(parameter = parameter, session = session)) {
+            is ParameterMappingResult.Unsupported -> UnsupportedParameter(
+                composable = composableName,
+                parameter = parameterName,
+                reason = result.reason,
+                sourceElement = parameter.source,
+            )
+            is ParameterMappingResult.Supported -> conflictingChoiceErrorOrNull(
+                choice = result.choice,
+                parameter = parameter,
+                composableName = composableName,
+                parameterName = parameterName,
+                seenChoices = seenChoices,
+            )
+            ParameterMappingResult.Skipped -> null
+        }
+
+    private fun conflictingChoiceErrorOrNull(
+        choice: ChoiceList?,
+        parameter: FirValueParameter,
+        composableName: String,
+        parameterName: String,
+        seenChoices: MutableMap<String, ChoiceList>,
     ): UnsupportedParameter? {
-        val result = ParameterKindMapper.map(parameter = parameter, session = session)
-            as? ParameterMappingResult.Unsupported
-            ?: return null
-        return UnsupportedParameter(
-            composable = composableName,
-            parameter = parameterName,
-            reason = result.reason,
-            sourceElement = parameter.source,
-        )
+        val previous = choice?.let { seenChoices.putIfAbsent(it.name, it) }
+        return choice?.takeIf { previous != null && previous != it }?.let { conflicting ->
+            UnsupportedParameter(
+                composable = composableName,
+                parameter = parameterName,
+                reason = "the choice list ${conflicting.name} differs from another enum with the same name: " +
+                    "two different enums with that name are used in the same file",
+                sourceElement = parameter.source,
+            )
+        }
     }
 
     private data class DescribedComponent(
