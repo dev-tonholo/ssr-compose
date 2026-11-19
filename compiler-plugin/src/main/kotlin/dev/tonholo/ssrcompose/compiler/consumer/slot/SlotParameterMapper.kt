@@ -38,7 +38,11 @@ internal object SlotParameterMapper {
         return SsrNames.consumerComposable in annotations && SsrNames.producerComposable in annotations
     }
 
-    fun toSlot(parameter: FirValueParameter, session: FirSession): Parameter.Slot {
+    fun toSlot(
+        parameter: FirValueParameter,
+        session: FirSession,
+        hasDefault: Boolean = parameter.defaultValue != null,
+    ): Parameter.Slot {
         val annotations = parameter.returnTypeRef.coneType.annotationClassIds(session = session)
         val accepts = when {
             SsrNames.consumerComposable in annotations -> SlotAccepts.Consumer
@@ -48,7 +52,7 @@ internal object SlotParameterMapper {
         return Parameter.Slot(
             name = parameter.name.asString(),
             accepts = accepts,
-            required = parameter.defaultValue == null,
+            required = !hasDefault,
         )
     }
 

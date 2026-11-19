@@ -3,6 +3,7 @@ package dev.tonholo.ssrcompose.compiler.consumer
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
+import dev.tonholo.ssrcompose.catalog.model.Parameter
 import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.SourceText
 import dev.tonholo.ssrcompose.core.data.ValueKind
@@ -98,6 +99,84 @@ class ConsumerExpectActualTest {
     }
 
     @Test
+    fun `given a marked expect with a default and a marked actual, when compiled, then the parameter is optional`() {
+        // Arrange
+        // language=kotlin
+        val expectSource = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            @ConsumerComposable
+            @Composable
+            expect fun SharedBanner(title: String = "Welcome")
+        """.trimIndent()
+        // language=kotlin
+        val actualSource = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            @ConsumerComposable
+            @Composable
+            actual fun SharedBanner(title: String) {
+            }
+        """.trimIndent()
+
+        // Act
+        val result = support.compileExpectAndActual(
+            common = SourceText(fileName = "SharedBannerExpect.kt", contents = expectSource),
+            platform = SourceText(fileName = "SharedBannerActual.kt", contents = actualSource),
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(expected = listOf(expectedOptionalSharedBannerFragment()), actual = readFragments())
+    }
+
+    @Test
+    fun `given a marked expect with a default slot and a marked actual, when compiled, then the slot is optional`() {
+        // Arrange
+        // language=kotlin
+        val expectSource = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            @ConsumerComposable
+            @Composable
+            expect fun SharedBanner(content: @Composable () -> Unit = {})
+        """.trimIndent()
+        // language=kotlin
+        val actualSource = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            @ConsumerComposable
+            @Composable
+            actual fun SharedBanner(content: @Composable () -> Unit) {
+            }
+        """.trimIndent()
+
+        // Act
+        val result = support.compileExpectAndActual(
+            common = SourceText(fileName = "SharedBannerExpect.kt", contents = expectSource),
+            platform = SourceText(fileName = "SharedBannerActual.kt", contents = actualSource),
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(expected = listOf(expectedOptionalSlotSharedBannerFragment()), actual = readFragments())
+    }
+
+    @Test
     fun `given an unmarked expect and an unmarked actual, when compiled, then no fragment is written`() {
         // Arrange
         // language=kotlin
@@ -145,6 +224,28 @@ class ConsumerExpectActualTest {
                 ComponentDescriptor(
                     name = "SharedBanner",
                     parameters = listOf(requiredValue(name = "title", kind = ValueKind.Text)),
+                ),
+            ),
+        )
+
+    private fun expectedOptionalSharedBannerFragment(): CatalogFragment =
+        CatalogFragment(
+            source = "fixtures/consumer/SharedBannerActual.kt",
+            components = listOf(
+                ComponentDescriptor(
+                    name = "SharedBanner",
+                    parameters = listOf(optionalValue(name = "title", kind = ValueKind.Text)),
+                ),
+            ),
+        )
+
+    private fun expectedOptionalSlotSharedBannerFragment(): CatalogFragment =
+        CatalogFragment(
+            source = "fixtures/consumer/SharedBannerActual.kt",
+            components = listOf(
+                ComponentDescriptor(
+                    name = "SharedBanner",
+                    parameters = listOf(Parameter.Slot(name = "content", required = false)),
                 ),
             ),
         )

@@ -10,6 +10,8 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
+import org.jetbrains.kotlin.fir.declarations.getSingleMatchedExpectForActualOrNull
+import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 
 private const val PATH_SEPARATOR = "/"
@@ -96,8 +98,11 @@ internal class MarkedComposables(private val session: FirSession) {
     }
 
     private fun describe(function: FirNamedFunction): DescribedComponent {
+        val defaults = hasDefaultValues(function = function)
         val mapped = function.valueParameters
-            .map { parameter -> ParameterKindMapper.map(parameter = parameter, session = session) }
+            .mapIndexed { index, parameter ->
+                ParameterKindMapper.map(parameter = parameter, session = session, hasDefault = defaults[index])
+            }
             .filterIsInstance<ParameterMappingResult.Supported>()
         return DescribedComponent(
             component = ComponentDescriptor(
@@ -106,6 +111,18 @@ internal class MarkedComposables(private val session: FirSession) {
             ),
             choices = mapped.mapNotNull { it.choice },
         )
+    }
+
+    private fun hasDefaultValues(function: FirNamedFunction): List<Boolean> {
+        val expectDefaults = matchedExpectOf(function = function)?.valueParameterSymbols?.map { it.hasDefaultValue }
+        return function.valueParameters.mapIndexed { index, parameter ->
+            expectDefaults?.getOrNull(index) ?: (parameter.defaultValue != null)
+        }
+    }
+
+    private fun matchedExpectOf(function: FirNamedFunction): FirNamedFunctionSymbol? {
+        if (!function.status.isActual) return null
+        return function.symbol.getSingleMatchedExpectForActualOrNull() as? FirNamedFunctionSymbol
     }
 
     private fun errorsOf(

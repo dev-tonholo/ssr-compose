@@ -42,15 +42,28 @@ internal object ParameterKindMapper {
     private const val UNSUPPORTED_LIST_ELEMENT_REASON =
         "a list holds text, whole numbers, decimal numbers, flags or choices"
 
-    fun map(parameter: FirValueParameter, session: FirSession): ParameterMappingResult {
+    fun map(
+        parameter: FirValueParameter,
+        session: FirSession,
+        hasDefault: Boolean = parameter.defaultValue != null,
+    ): ParameterMappingResult {
         val expandedType = parameter.returnTypeRef.coneType
         return when {
             expandedType.classId == SsrNames.modifier -> ParameterMappingResult.Skipped
             SlotParameterMapper.isSlot(parameter = parameter, session = session) ->
                 ParameterMappingResult.Supported(
-                    parameter = SlotParameterMapper.toSlot(parameter = parameter, session = session),
+                    parameter = SlotParameterMapper.toSlot(
+                        parameter = parameter,
+                        session = session,
+                        hasDefault = hasDefault,
+                    ),
                 )
-            else -> mapValueParameter(parameter = parameter, expandedType = expandedType, session = session)
+            else -> mapValueParameter(
+                parameter = parameter,
+                expandedType = expandedType,
+                session = session,
+                hasDefault = hasDefault,
+            )
         }
     }
 
@@ -58,13 +71,14 @@ internal object ParameterKindMapper {
         parameter: FirValueParameter,
         expandedType: ConeKotlinType,
         session: FirSession,
+        hasDefault: Boolean,
     ): ParameterMappingResult =
         when (val valueKind = valueKindOf(expandedType = expandedType, session = session)) {
             is ValueKindMapping.Supported -> ParameterMappingResult.Supported(
                 parameter = Parameter.Value(
                     name = parameter.name.asString(),
                     kind = valueKind.kind,
-                    required = parameter.defaultValue == null,
+                    required = !hasDefault,
                     nullable = expandedType.isMarkedNullable,
                 ),
                 choice = valueKind.choice,
