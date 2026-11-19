@@ -107,7 +107,7 @@ class TwoModuleBridgeTest {
             val placed = root.children.single() as PlacedNode.Component
             composition.dispose()
             recomposer.cancel()
-            return placed.catalogVersion.toString()
+            return placed.catalogVersion.value
         }
         """.trimIndent()
 

@@ -2,28 +2,34 @@ package dev.tonholo.ssrcompose.producer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
+import androidx.compose.runtime.key
+import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
+import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.producer.internal.PlacedNode
 import dev.tonholo.ssrcompose.producer.internal.ScreenApplier
 
 /**
  * Places one component of a catalog. A bridge function calls this with its own catalog version.
  *
- * The names and the values are parallel arrays: the value at an index belongs to the name at the same index. A null
- * value or a null slot is a parameter that was not given, and nothing is placed for it.
+ * Each map keeps its parameters in the order given. A `null` entry is a parameter that was not given, and nothing is
+ * placed for it. A required nullable value given `null` is passed as [DataValue.None] and is placed.
+ *
+ * @param catalogVersion the version of the catalog whose bridge places the component.
+ * @param name the component's name in that catalog.
+ * @param values the value parameters by name.
+ * @param actions the callback parameters by name.
+ * @param slots the slot parameters by name.
  */
 @Composable
 public fun ConsumerComponent(
-    catalogVersion: String,
+    catalogVersion: CatalogVersion,
     name: String,
-    valueNames: Array<String>,
-    values: Array<String?>,
-    actionNames: Array<String>,
-    actions: Array<RemoteAction1<String>>,
-    slotNames: Array<String>,
-    slots: Array<(@Composable () -> Unit)?>,
+    values: Map<String, DataValue?> = emptyMap(),
+    actions: Map<String, RemoteAction1<String>?> = emptyMap(),
+    slots: Map<String, (@Composable () -> Unit)?> = emptyMap(),
 ) {
-    val givenValues = valueNames.zip(values).mapNotNull { (key, value) -> value?.let { key to it } }.toMap()
-    val givenActions = actionNames.zip(actions).toMap()
+    val givenValues = values.withoutOmitted()
+    val givenActions = actions.withoutOmitted()
     ComposeNode<PlacedNode.Component, ScreenApplier>(
         factory = { PlacedNode.Component(name = name, catalogVersion = catalogVersion) },
         update = {
@@ -31,8 +37,8 @@ public fun ConsumerComponent(
             set(givenActions) { this.actions = it }
         },
         content = {
-            slotNames.zip(slots).forEach { (slotName, content) ->
-                if (content != null) PlacedSlot(name = slotName, content = content)
+            slots.withoutOmitted().forEach { (slotName, content) ->
+                key(slotName) { PlacedSlot(name = slotName, content = content) }
             }
         },
     )
@@ -45,4 +51,8 @@ private fun PlacedSlot(name: String, content: @Composable () -> Unit) {
         update = {},
         content = { content() },
     )
+}
+
+private fun <V : Any> Map<String, V?>.withoutOmitted(): Map<String, V> = buildMap {
+    this@withoutOmitted.forEach { (key, value) -> if (value != null) put(key, value) }
 }

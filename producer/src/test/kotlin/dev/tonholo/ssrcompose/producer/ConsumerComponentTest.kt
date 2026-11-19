@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composition
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import app.cash.turbine.test
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
@@ -35,8 +36,8 @@ class ConsumerComponentTest {
         // Arrange
         val expectedNames = listOf(FIRST_COMPONENT, SECOND_COMPONENT)
         val expectedValues = listOf(
-            listOf(TITLE_PARAMETER to FIRST_TITLE, SUBTITLE_PARAMETER to FIRST_SUBTITLE),
-            listOf(TITLE_PARAMETER to SECOND_TITLE),
+            listOf(TITLE_PARAMETER to DataValue.Text(value = FIRST_TITLE), SUBTITLE_PARAMETER to FIRST_SUBTITLE_VALUE),
+            listOf(TITLE_PARAMETER to DataValue.Text(value = SECOND_TITLE)),
         )
 
         // Act
@@ -44,9 +45,9 @@ class ConsumerComponentTest {
             content = {
                 TestComponent(
                     name = FIRST_COMPONENT,
-                    values = listOf(TITLE_PARAMETER to FIRST_TITLE, SUBTITLE_PARAMETER to FIRST_SUBTITLE),
+                    values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE, SUBTITLE_PARAMETER to FIRST_SUBTITLE_VALUE),
                 )
-                TestComponent(name = SECOND_COMPONENT, values = listOf(TITLE_PARAMETER to SECOND_TITLE))
+                TestComponent(name = SECOND_COMPONENT, values = mapOf(TITLE_PARAMETER to SECOND_TITLE_VALUE))
             },
             observe = { root -> root.children.filterIsInstance<PlacedNode.Component>() },
         )
@@ -70,12 +71,12 @@ class ConsumerComponentTest {
                 TestComponent(
                     catalogVersion = FIRST_CATALOG_VERSION,
                     name = FIRST_COMPONENT,
-                    values = listOf(TITLE_PARAMETER to FIRST_TITLE),
+                    values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE),
                 )
                 TestComponent(
                     catalogVersion = SECOND_CATALOG_VERSION,
                     name = SECOND_COMPONENT,
-                    values = listOf(TITLE_PARAMETER to SECOND_TITLE),
+                    values = mapOf(TITLE_PARAMETER to SECOND_TITLE_VALUE),
                 )
             },
             observe = { root -> root.children.filterIsInstance<PlacedNode.Component>() },
@@ -88,14 +89,14 @@ class ConsumerComponentTest {
     @Test
     fun `given a value parameter that was not given, when composed, then that parameter is absent`() {
         // Arrange
-        val expectedValues = mapOf(TITLE_PARAMETER to FIRST_TITLE)
+        val expectedValues = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE)
 
         // Act
         val component = composeOnce(
             content = {
                 TestComponent(
                     name = FIRST_COMPONENT,
-                    values = listOf(TITLE_PARAMETER to FIRST_TITLE, SUBTITLE_PARAMETER to null),
+                    values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE, SUBTITLE_PARAMETER to null),
                 )
             },
             observe = { root -> root.children.filterIsInstance<PlacedNode.Component>().single() },
@@ -103,6 +104,53 @@ class ConsumerComponentTest {
 
         // Assert
         assertEquals(expected = expectedValues, actual = component.values)
+    }
+
+    @Test
+    fun `given a required nullable value given null, when converted to screen content, then it is sent as None`() {
+        // Arrange
+        val expected = ScreenContent(
+            components = listOf(
+                PlacedComponent(
+                    name = FIRST_COMPONENT,
+                    values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE, SUBTITLE_PARAMETER to DataValue.None),
+                ),
+            ),
+        )
+
+        // Act
+        val actual = composeOnce(
+            content = {
+                TestComponent(
+                    name = FIRST_COMPONENT,
+                    values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE, SUBTITLE_PARAMETER to DataValue.None),
+                )
+            },
+            observe = { root -> root.toScreenContent() },
+        )
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
+
+    @Test
+    fun `given an action parameter that was not given, when composed, then that action is absent`() {
+        // Arrange
+        val expectedActions = listOf(SELECT_ACTION)
+
+        // Act
+        val component = composeOnce(
+            content = {
+                TestComponent(
+                    name = FIRST_COMPONENT,
+                    actions = mapOf(SELECT_ACTION to RemoteAction1 {}, CLOSE_ACTION to null),
+                )
+            },
+            observe = { root -> root.children.filterIsInstance<PlacedNode.Component>().single() },
+        )
+
+        // Assert
+        assertEquals(expected = expectedActions, actual = component.actions.keys.toList())
     }
 
     @Test
@@ -115,7 +163,7 @@ class ConsumerComponentTest {
             content = {
                 TestComponent(
                     name = FIRST_COMPONENT,
-                    slots = listOf(HEADER_SLOT to { DoneFooter() }, FOOTER_SLOT to null),
+                    slots = mapOf(HEADER_SLOT to { DoneFooter() }, FOOTER_SLOT to null),
                 )
             },
             observe = { root -> root.children.filterIsInstance<PlacedNode.Component>().single() },
@@ -152,7 +200,7 @@ class ConsumerComponentTest {
         // Arrange
         val expectedDevice = initialDevice()
         val expectedApp = AppIdentity(version = APP_VERSION, variant = APP_VARIANT, flavor = APP_FLAVOR)
-        val expectedCatalogVersion = CatalogVersion(value = FIRST_CATALOG_VERSION)
+        val expectedCatalogVersion = FIRST_CATALOG_VERSION
         val consumer = Consumer(
             device = expectedDevice,
             app = expectedApp,
@@ -201,7 +249,7 @@ class ConsumerComponentTest {
             val consumer = Consumer(
                 device = initialDevice(),
                 app = AppIdentity(version = APP_VERSION, variant = APP_VARIANT, flavor = APP_FLAVOR),
-                catalogVersion = CatalogVersion(value = FIRST_CATALOG_VERSION),
+                catalogVersion = FIRST_CATALOG_VERSION,
             )
             var latestTicket: Any? = null
             var appReaderCompositions = 0
@@ -237,6 +285,87 @@ class ConsumerComponentTest {
             }
         }
 
+    @Test
+    fun `given an optional slot that becomes given, when recomposed, then each slot keeps its own name and content`() =
+        runTest {
+            // Arrange
+            val expected = ScreenContent(
+                components = listOf(
+                    PlacedComponent(
+                        name = FIRST_COMPONENT,
+                        slots = mapOf(
+                            HEADER_SLOT to listOf(UNTITLED_HEADER),
+                            FOOTER_SLOT to listOf(DONE_FOOTER),
+                        ),
+                    ),
+                ),
+            )
+            val headerGiven = mutableStateOf(false)
+            val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
+            val screen = LiveScreen(
+                content = { SlotsWithOptionalHeader(headerGiven = headerGiven.value) },
+                dispatcher = dispatcher,
+                notifier = SnapshotNotifier(dispatcher = dispatcher),
+            )
+
+            screen.contents().test {
+                awaitItem()
+
+                // Act
+                headerGiven.value = true
+                val actual = awaitItem()
+
+                // Assert
+                assertEquals(expected = expected, actual = actual)
+            }
+        }
+
+    @Test
+    fun `given a given slot that becomes omitted, when recomposed, then the other slot keeps its name and content`() =
+        runTest {
+            // Arrange
+            val expected = ScreenContent(
+                components = listOf(
+                    PlacedComponent(
+                        name = FIRST_COMPONENT,
+                        slots = mapOf(
+                            FOOTER_SLOT to listOf(DONE_FOOTER),
+                        ),
+                    ),
+                ),
+            )
+            val headerGiven = mutableStateOf(true)
+            val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
+            val screen = LiveScreen(
+                content = { SlotsWithOptionalHeader(headerGiven = headerGiven.value) },
+                dispatcher = dispatcher,
+                notifier = SnapshotNotifier(dispatcher = dispatcher),
+            )
+
+            screen.contents().test {
+                awaitItem()
+
+                // Act
+                headerGiven.value = false
+                val actual = awaitItem()
+
+                // Assert
+                assertEquals(expected = expected, actual = actual)
+            }
+        }
+
+    @Composable
+    private fun SlotsWithOptionalHeader(headerGiven: Boolean) {
+        val header: (@Composable () -> Unit)? = if (headerGiven) untitledHeaderSlot else null
+        TestComponent(
+            name = FIRST_COMPONENT,
+            slots = mapOf(HEADER_SLOT to header, FOOTER_SLOT to doneFooterSlot),
+        )
+    }
+
+    private val untitledHeaderSlot: @Composable () -> Unit = { UntitledHeader() }
+    private val doneFooterSlot: @Composable () -> Unit = { DoneFooter() }
+
     private fun <T> composeOnce(content: @Composable () -> Unit, observe: (PlacedNode.Root) -> T): T {
         val root = PlacedNode.Root()
         val recomposer = Recomposer(effectCoroutineContext = EmptyCoroutineContext)
@@ -253,7 +382,10 @@ class ConsumerComponentTest {
     @Composable
     private fun AppIdentityBanner(onComposed: () -> Unit) {
         SideEffect { onComposed() }
-        TestComponent(name = FIRST_COMPONENT, values = listOf(TITLE_PARAMETER to LocalConsumer.current.app.version))
+        TestComponent(
+            name = FIRST_COMPONENT,
+            values = mapOf(TITLE_PARAMETER to DataValue.Text(value = LocalConsumer.current.app.version)),
+        )
     }
 
     @Composable
@@ -261,7 +393,7 @@ class ConsumerComponentTest {
         SideEffect { onComposed() }
         TestComponent(
             name = SECOND_COMPONENT,
-            values = listOf(TITLE_PARAMETER to LocalConsumer.current.device.theme.name),
+            values = mapOf(TITLE_PARAMETER to DataValue.Text(value = LocalConsumer.current.device.theme.name)),
         )
     }
 
@@ -269,46 +401,44 @@ class ConsumerComponentTest {
     private fun MultiComponentScreen() {
         TestComponent(
             name = FIRST_COMPONENT,
-            values = listOf(TITLE_PARAMETER to FIRST_TITLE, SUBTITLE_PARAMETER to FIRST_SUBTITLE),
-            slots = listOf(FOOTER_SLOT to null),
+            values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE, SUBTITLE_PARAMETER to FIRST_SUBTITLE_VALUE),
+            slots = mapOf(FOOTER_SLOT to null),
         )
         TestComponent(
             catalogVersion = SECOND_CATALOG_VERSION,
             name = SECOND_COMPONENT,
-            values = listOf(TITLE_PARAMETER to SECOND_TITLE, SUBTITLE_PARAMETER to null),
-            slots = listOf(HEADER_SLOT to { UntitledHeader() }, FOOTER_SLOT to null),
+            values = mapOf(TITLE_PARAMETER to SECOND_TITLE_VALUE, SUBTITLE_PARAMETER to null),
+            slots = mapOf(HEADER_SLOT to { UntitledHeader() }, FOOTER_SLOT to null),
         )
     }
 
     @Composable
     private fun DoneFooter() {
-        TestComponent(name = SECOND_COMPONENT, values = listOf(TITLE_PARAMETER to SECOND_TITLE))
+        TestComponent(name = SECOND_COMPONENT, values = mapOf(TITLE_PARAMETER to SECOND_TITLE_VALUE))
     }
 
     @Composable
     private fun UntitledHeader() {
         TestComponent(
             name = FIRST_COMPONENT,
-            values = listOf(TITLE_PARAMETER to FIRST_TITLE, SUBTITLE_PARAMETER to null),
+            values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE, SUBTITLE_PARAMETER to null),
         )
     }
 
     @Composable
     private fun TestComponent(
         name: String,
-        catalogVersion: String = FIRST_CATALOG_VERSION,
-        values: List<Pair<String, String?>> = emptyList(),
-        slots: List<Pair<String, (@Composable () -> Unit)?>> = emptyList(),
+        catalogVersion: CatalogVersion = FIRST_CATALOG_VERSION,
+        values: Map<String, DataValue?> = emptyMap(),
+        actions: Map<String, RemoteAction1<String>?> = emptyMap(),
+        slots: Map<String, (@Composable () -> Unit)?> = emptyMap(),
     ) {
         ConsumerComponent(
             catalogVersion = catalogVersion,
             name = name,
-            valueNames = values.map { it.first }.toTypedArray(),
-            values = values.map { it.second }.toTypedArray(),
-            actionNames = emptyArray(),
-            actions = emptyArray(),
-            slotNames = slots.map { it.first }.toTypedArray(),
-            slots = slots.map { it.second }.toTypedArray(),
+            values = values,
+            actions = actions,
+            slots = slots,
         )
     }
 
@@ -370,8 +500,6 @@ class ConsumerComponentTest {
         )
 
     private companion object {
-        const val FIRST_CATALOG_VERSION = "1"
-        const val SECOND_CATALOG_VERSION = "2"
         const val FIRST_COMPONENT = "Header"
         const val SECOND_COMPONENT = "Footer"
         const val TITLE_PARAMETER = "title"
@@ -390,5 +518,20 @@ class ConsumerComponentTest {
         const val APP_FLAVOR = "play"
         const val ONE_COMPOSITION = 1
         const val TWO_COMPOSITIONS = 2
+        const val SELECT_ACTION = "onSelect"
+        const val CLOSE_ACTION = "onClose"
+        val FIRST_CATALOG_VERSION = CatalogVersion(value = "1")
+        val SECOND_CATALOG_VERSION = CatalogVersion(value = "2")
+        val FIRST_TITLE_VALUE = DataValue.Text(value = FIRST_TITLE)
+        val FIRST_SUBTITLE_VALUE = DataValue.Text(value = FIRST_SUBTITLE)
+        val SECOND_TITLE_VALUE = DataValue.Text(value = SECOND_TITLE)
+        val UNTITLED_HEADER = PlacedComponent(
+            name = FIRST_COMPONENT,
+            values = mapOf(TITLE_PARAMETER to FIRST_TITLE_VALUE),
+        )
+        val DONE_FOOTER = PlacedComponent(
+            name = SECOND_COMPONENT,
+            values = mapOf(TITLE_PARAMETER to SECOND_TITLE_VALUE),
+        )
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import app.bridge.v1.Greeting as FirstGreeting
 import app.bridge.v2.Greeting as SecondGreeting
 import app.bridge.v4.Banner
+import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.producer.internal.PlacedNode
 import dev.tonholo.ssrcompose.producer.internal.ScreenApplier
 import kotlin.coroutines.EmptyCoroutineContext
@@ -40,10 +41,12 @@ private fun PlacedNode.describe(): String {
     val inner = children.joinToString(separator = ", ", prefix = "[", postfix = "]") { it.describe() }
     return when (this) {
         is PlacedNode.Root -> inner
-        is PlacedNode.Component -> "$name@$catalogVersion$values$inner"
+        is PlacedNode.Component -> "$name@${catalogVersion.value}${values.mapValues { (_, value) -> value.describe() }}$inner"
         is PlacedNode.Slot -> "slot $name$inner"
     }
 }
+
+private fun DataValue.describe(): String = (this as? DataValue.Text)?.value ?: toString()
 
 fun everyParameter(): String = describedAfter {
     FirstGreeting(title = "Welcome", onSelect = {}, subtitle = "Details") {

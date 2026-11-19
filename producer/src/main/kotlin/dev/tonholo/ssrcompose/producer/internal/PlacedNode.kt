@@ -1,5 +1,7 @@
 package dev.tonholo.ssrcompose.producer.internal
 
+import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
+import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.producer.RemoteAction1
 
 internal sealed class PlacedNode {
@@ -9,9 +11,9 @@ internal sealed class PlacedNode {
 
     class Component(
         val name: String,
-        val catalogVersion: String,
+        val catalogVersion: CatalogVersion,
     ) : PlacedNode() {
-        var values: Map<String, String> = emptyMap()
+        var values: Map<String, DataValue> = emptyMap()
         var actions: Map<String, RemoteAction1<String>> = emptyMap()
     }
 
