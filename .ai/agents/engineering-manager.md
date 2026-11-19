@@ -174,6 +174,14 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 - A resume is not done until `.crew/lessons.md` is current.
 - In each retrospective, count the review rounds and repairs per item from the shared record and put the numbers in the lesson.
 
+### System design
+
+- Every complex item starts with the `system-architect` in design mode, before a worker is dispatched. Trivial, small and medium items skip it unless they change a module boundary or a public contract.
+- Branch the worker from the commit that holds the design, and name that branch and commit in the brief, so the design is on the worker's branch and ships with the delivery. The worker builds it as written. A design conflict or blocker found during the work goes through you to the `system-architect` in escalation mode. The worker does not settle it alone.
+- When the item has a design, dispatch the `system-architect` in validate mode after the worker reports and before the reviewer starts. An item with no design skips this step. `DRIFT` goes back to the worker in one repair brief, together with any other known finding.
+- An `UNVERIFIED` point stops the review until it is settled: get the missing evidence from the worker or the `system-architect`. If it cannot be obtained, report it to the owner, who decides whether the review goes on.
+- Owner decisions in a design stop at the owner before the worker starts.
+
 ### Stacked branches
 
 - Branch each item from main. When an item depends on another open item, branch from that item's branch instead.
