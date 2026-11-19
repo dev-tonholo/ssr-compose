@@ -39,7 +39,7 @@ Each held catalog has its own bridge, created by the compiler in the package the
 ```kotlin
 import com.example.app.bridge.v3.Greeting
 import com.example.app.bridge.v3.PaymentSection
-import com.example.app.bridge.v3.Style
+import com.example.app.bridge.v3.server.Style
 
 @Composable
 fun CheckoutScreen() {
@@ -54,6 +54,9 @@ fun CheckoutScreen() {
     }
 }
 ```
+
+- Choice enums live in a subpackage of the bridge package named after the server module, `<bridgePackage>.<moduleSegment>.<ChoiceName>` (above, `server`), and are `internal` to that module ([ADR 0010](../../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md), [research.md R18](../research.md#r18-server-bridge-kinds-choice-enums-and-consumercomponent-t048-design)). A screen's `main` and `test` compilations share the same import and enum types.
+- Because the catalog collapses `Int` and `Long` into `whole`, and `Float` and `Double` into `decimal`, bridge parameters use `Long` for whole numbers and `Double` for decimal numbers. List parameters use `List<String>`, `List<Long>`, `List<Double>`, `List<Boolean>` or `List<<ChoiceEnum>>`.
 
 - State held with `remember` lives on the server, in that app's session, and is gone when the session ends.
 - A lambda that throws changes nothing: what it wrote is thrown away, the screen stays as it was, and `onActionFailed` is called.
@@ -72,7 +75,7 @@ Screens for two versions repeat their layout, because the two bridges are differ
 import com.example.app.bridge.v2.CounterCard as CounterCardV2
 import com.example.app.bridge.v3.CounterCard as CounterCardV3
 
-class HomeState { var count by mutableIntStateOf(0) }
+class HomeState { var count by mutableLongStateOf(0L) }
 
 @Composable
 fun HomeScreenV2(state: HomeState = remember { HomeState() }) {
@@ -91,20 +94,47 @@ The guard: every bridge function passes its catalog version to `ConsumerComponen
 
 ## What a bridge function is
 
-Each one has no logic of its own. Its body is one call to a public function of this library, with its catalog version as a constant and a `Callback` for each callback parameter:
+Each one has no logic of its own. Its body is one call to `ConsumerComponent`, passing its catalog version as a `CatalogVersion` constant, `DataValue?` entries for its value parameters (with `null` meaning omitted and `DataValue.None` meaning an explicit nothing), a `Callback?` for each callback parameter (with `null` meaning omitted), and a slot lambda for each slot parameter (with `null` meaning omitted):
 
 ```kotlin
+@InternalSsrComposeApi
 @Composable
-fun PaymentSection(title: String, onPayClick: RemoteAction0, content: (@Composable () -> Unit)? = null) {
+public fun ConsumerComponent(
+    catalogVersion: CatalogVersion,
+    name: String,
+    values: Map<String, DataValue?> = emptyMap(),
+    callbacks: Map<String, Callback?> = emptyMap(),
+    slots: Map<String, (@Composable () -> Unit)?> = emptyMap(),
+)
+```
+
+Before T065 introduces `Callback`, US1 uses a transitional `actions: Map<String, RemoteAction1<String>?> = emptyMap()` parameter in place of `callbacks` ([research.md R18](../research.md#2-interfaces-and-contracts)).
+
+Example bridge function (compiler-generated bridges attach `@OptIn(InternalSsrComposeApi::class)` in FIR so server callers never need their own opt-in; a hand-written bridge writes `@OptIn(InternalSsrComposeApi::class)` itself):
+
+```kotlin
+@OptIn(InternalSsrComposeApi::class)
+@Composable
+internal fun PaymentSection(
+    title: String,
+    tags: List<String>? = null,
+    onPayClick: RemoteAction0,
+    content: (@Composable () -> Unit)? = null,
+) {
     ConsumerComponent(
-        catalogVersion = "3",
+        catalogVersion = CatalogVersion("3"),
         name = "PaymentSection",
-        values = mapOf("title" to title),
+        values = mapOf(
+            "title" to DataValue.Text(title),
+            "tags" to tags?.let(::textListValue),
+        ),
         callbacks = mapOf("onPayClick" to Callback(arguments = emptyList(), convert = { { onPayClick() } })),
         slots = mapOf("content" to content),
     )
 }
 ```
+
+For list parameters, `producer` provides five list-to-`DataValue.ListValue` helpers (`textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue`, `choiceListValue`) marked with `@InternalSsrComposeApi` for generated and hand-written bridges. The full kind mapping table lives in [research.md R18](../research.md#parameter-kind-mapping).
 
 ### What a bridge gives the producer for one callback
 
@@ -161,6 +191,11 @@ The default does nothing. The library depends on no logging library.
 
 ## What is public
 
-In `producer`: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `ConsumerComponent`, `Callback` and its value readers, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type, and the annotation `UnplaceableBridge`. The compiler plugin owns `UnplaceableBridge` and puts it on a bridge that cannot be placed; it has to be public so the plugin can read it from compiled code, and developers must not write it. Everything else in `producer` is internal.
+In `producer`:
+
+- Server developer API: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type, and the opt-in annotation `InternalSsrComposeApi`.
+- Bridge entry points marked `@InternalSsrComposeApi` (`@RequiresOptIn(level = RequiresOptIn.Level.WARNING)`): `ConsumerComponent`, `textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue`, `choiceListValue`, `Callback` and its value readers (added in T065), and `UnplaceableBridge`. The compiler plugin opts generated bridge functions in automatically, so server screens never need an opt-in; hand-written bridges opt in with `@OptIn(InternalSsrComposeApi::class)`. The compiler plugin owns `UnplaceableBridge` and puts it on a bridge that cannot be placed; it has to be public so the plugin can read it from compiled code, and developers must not write it.
+
+Everything else in `producer` is internal.
 
 The `core` types this API uses are in the one list of public `core` types in [data-model.md](../data-model.md#what-is-public-in-core).

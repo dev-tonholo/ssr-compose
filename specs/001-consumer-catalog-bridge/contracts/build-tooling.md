@@ -65,6 +65,7 @@ plugins { alias(libs.plugins.ssrcompose) }
 
 ssrCompose {
     producer {
+        moduleName = "server" // optional; by default derived from the module path
         catalog(version = "2") {
             location = "https://example.com/app/catalogs/2/manifest.json"
             bridgePackage = "com.example.app.bridge.v2"
@@ -77,13 +78,13 @@ ssrCompose {
 }
 ```
 
-Each `catalog` block declares one held catalog: its version, the address of its manifest, and the package its bridge is created in. Versions and packages are each unique. Which versions the running producer serves is not set here: it serves the versions it has screens registered for. See [producer-api.md](producer-api.md).
+Each `catalog` block declares one held catalog: its version, the address of its manifest, and the package its bridge is created in. Versions and packages are each unique. `moduleName` sets the subpackage segment where this module's choice enums live (`<bridgePackage>.<moduleSegment>.<ChoiceName>`); when left out, it is derived from the module's path (`:feature:checkout` gives `feature_checkout`, `:` gives `root`; see [research.md R18](../research.md#enum-design-module-name-rule-and-compiler-option) and [ADR 0010](../../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md)). Which versions the running producer serves is not set here: it serves the versions it has screens registered for. See [producer-api.md](producer-api.md).
 
 | Step | What it does |
 |---|---|
 | `ssrCatalogSync` | For each held catalog, fetches the manifest, checks it, fetches only the parts not already saved for that version, checks each part against its fingerprint in the manifest, and saves them in `ssr/catalogs/<version>/`. Records the location and the manifest's fingerprint in `ssr/catalogs.lock`. The plugin wires it into IDE sync via JetBrains `idea-ext` `afterSync` (unverified in Android Studio), and a developer can run it directly. |
 | `ssrCatalogIndex` | One per held catalog. Turns the saved bundle into an index the compiler plugin reads, in the build folder. Cacheable, internal, never committed and never shared between builds. Its format is binary ([research.md R16](../research.md#r16-scale-and-build-performance)). It runs before compile and is not meant to be run by hand. |
-| compile | The compiler plugin reads each index and creates one bridge per held catalog in its `bridgePackage`: one `@Composable` function for each component the module names and one `enum class` per choice list, each body carrying the catalog version as a constant. It never uses the network and never parses a catalog's JSON. Each server module that calls bridges holds the catalogs it needs and creates the bridges it names ([research.md R9](../research.md#r9-one-bridge-per-held-catalog)). The build passes the module's source folders as an internal compiler option, and the plugin scans them for those names. Created bridge functions are internal to the module, in classes named after it. |
+| compile | The compiler plugin reads each index and creates one bridge per held catalog in its `bridgePackage`: one `internal` `@Composable` function for each component the module names (in classes named after the compilation's module) and one `internal enum class` per used choice list in `<bridgePackage>.<moduleSegment>` (reused from `main` in test compilations), each body passing the catalog version as a constant. It never uses the network and never parses a catalog's JSON. Each server module that calls bridges holds the catalogs it needs and creates the bridges it names ([research.md R9](../research.md#r9-one-bridge-per-held-catalog)). The build passes the module's source folders as an internal compiler option and `bridgeModule` as a normal compiler option. |
 | `ssrCatalogVerify` | Fails when a saved manifest does not match its fingerprint in the lock file, when a saved part does not match its fingerprint in the manifest, when a part file the manifest lists is missing from the saved folder, when a declared catalog has no saved bundle, when a saved manifest's version differs from its declared version, or when the saved folder holds a part file the manifest does not list. It is part of the normal check and build. |
 
 Rules for `ssrCatalogSync`:

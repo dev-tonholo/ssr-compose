@@ -188,7 +188,16 @@ The wire form has no catalog version: the session's version is known to both sid
 
 ### Placed node (`producer`, internal)
 
-The producer's own node for a placed component. It holds what `PlacedComponent` holds, plus the catalog version of the bridge that placed it, taken from the constant in the bridge function, and the `Callback` of each callback parameter. The guard reads the version. The actions use the `Callback`.
+The producer's own node for a placed component (`PlacedNode.Component`). It holds:
+
+| Field | Meaning |
+|---|---|
+| `name` | the component's name |
+| `catalogVersion` | the `CatalogVersion` constant the bridge passed to `ConsumerComponent`, read by the guard |
+| `values` | `Map<String, DataValue>` in parameter order; `null` entries given to `ConsumerComponent` are dropped (omitted optional parameters), while `DataValue.None` entries are kept (required nullable parameters explicitly given `null`) |
+| `callbacks` | `Map<String, Callback>` for the non-null callbacks given to `ConsumerComponent` (until T065/T067 introduces `Callback`, held as `actions: Map<String, RemoteAction1<String>>`, also dropping `null` entries) |
+
+Slots are held as `PlacedNode.Slot` children for each non-null slot given to `ConsumerComponent`. See [contracts/producer-api.md](contracts/producer-api.md#what-a-bridge-function-is) and [research.md R18](research.md#r18-server-bridge-kinds-choice-enums-and-consumercomponent-t048-design).
 
 ### Callback (`producer`)
 
