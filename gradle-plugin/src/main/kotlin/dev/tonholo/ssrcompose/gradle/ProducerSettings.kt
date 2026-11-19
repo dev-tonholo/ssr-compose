@@ -7,11 +7,11 @@ import javax.inject.Inject
 /**
  * Setup of the server project, inside `ssrCompose { producer { } }`.
  */
-abstract class ProducerSettings @Inject constructor(private val objects: ObjectFactory) {
+public abstract class ProducerSettings @Inject constructor(private val objects: ObjectFactory) {
     internal val heldCatalogs: MutableList<HeldCatalogSettings> = mutableListOf()
 
     /** Declares one held catalog: its [version], the address of its manifest and the package of its bridge. */
-    fun catalog(version: String, action: Action<HeldCatalogSettings>) {
+    public fun catalog(version: String, action: Action<HeldCatalogSettings>) {
         val settings = objects.newInstance(HeldCatalogSettings::class.java, version)
         action.execute(settings)
         heldCatalogs += settings
