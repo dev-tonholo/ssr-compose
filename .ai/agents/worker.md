@@ -78,8 +78,13 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 - Run the gate commands from your brief before you make each commit, so every commit builds. Do not check out or rebase earlier commits to test them.
 - Search the docs, specs and `.ai/` for every name, path or command you changed, and update each stale mention.
 - Self-review the whole change against the checklist in section 2 of `reviewer.md`. List in your report what you checked.
+- Go through every requirement of your brief and every owner decision it names. For each one, report the test that proves it and how you tried to break it, including neighbouring shapes and the opposite failure. Say plainly what you could not rule out.
+- If you need a mechanism your brief or design does not describe, ask before you build it.
 
 ### Repairs
 
 - Fix every finding in the repair brief, at every severity, in one go.
 - Then self-review the whole change again, not only the reported cases.
+- A fix must not create new issues. Before you write a logic fix, list what it changes and what could break because of it, and write those cases as tests first, not only the case the finding names.
+- Keep a fix as small as the problem. A finding that seems to need a new mechanism, option or class goes back through `ask` with a short design before you build it.
+- Report what each repair could have broken, and the test or command that rules it out.
