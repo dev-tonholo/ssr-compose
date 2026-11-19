@@ -6,6 +6,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 /**
  * Provides the [Consumer] of the open producer screen.
  */
-val LocalConsumer: ProvidableCompositionLocal<Consumer> = staticCompositionLocalOf {
+public val LocalConsumer: ProvidableCompositionLocal<Consumer> = staticCompositionLocalOf {
     error("LocalConsumer was read outside a producer screen")
 }

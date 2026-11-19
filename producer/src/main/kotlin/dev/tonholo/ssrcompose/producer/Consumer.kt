@@ -14,11 +14,11 @@ import dev.tonholo.ssrcompose.core.handshake.DeviceContext
  * [device] is state: when the app reports a change, code that reads [device] recomposes and remembered state stays.
  */
 @Stable
-class Consumer internal constructor(
+public class Consumer internal constructor(
     device: DeviceContext,
-    val app: AppIdentity,
-    val catalogVersion: CatalogVersion,
+    public val app: AppIdentity,
+    public val catalogVersion: CatalogVersion,
 ) {
-    var device: DeviceContext by mutableStateOf(value = device)
+    public var device: DeviceContext by mutableStateOf(value = device)
         internal set
 }

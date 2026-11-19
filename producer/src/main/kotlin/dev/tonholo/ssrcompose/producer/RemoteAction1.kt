@@ -5,6 +5,6 @@ package dev.tonholo.ssrcompose.producer
  *
  * @param A the type of the argument the app sends.
  */
-fun interface RemoteAction1<A> {
-    operator fun invoke(argument: A)
+public fun interface RemoteAction1<A> {
+    public operator fun invoke(argument: A)
 }

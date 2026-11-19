@@ -12,7 +12,7 @@ import dev.tonholo.ssrcompose.producer.internal.ScreenApplier
  * value or a null slot is a parameter that was not given, and nothing is placed for it.
  */
 @Composable
-fun ConsumerComponent(
+public fun ConsumerComponent(
     catalogVersion: String,
     name: String,
     valueNames: Array<String>,
