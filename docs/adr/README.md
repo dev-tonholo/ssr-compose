@@ -17,3 +17,4 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | Number | Title | Status |
 |--------|-------|--------|
 | [0001](0001-keep-the-poc-in-a-folder.md) | Keep the proof of concept in a folder and build the library from a clean root | Accepted |
+| [0002](0002-ksp-for-tests-only.md) | Use KSP in tests only | Accepted |
