@@ -8,4 +8,4 @@ package dev.tonholo.ssrcompose.producer
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.BINARY)
-annotation class UnplaceableBridge(val message: String)
+public annotation class UnplaceableBridge(public val message: String)
