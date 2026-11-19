@@ -1,6 +1,7 @@
 package dev.tonholo.ssrcompose.consumer
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,11 +16,14 @@ import dev.tonholo.ssrcompose.consumer.testing.AMOUNT
 import dev.tonholo.ssrcompose.consumer.testing.CATALOG_VERSION
 import dev.tonholo.ssrcompose.consumer.testing.CENTS
 import dev.tonholo.ssrcompose.consumer.testing.FakeConnection
+import dev.tonholo.ssrcompose.consumer.testing.MarkedStringResourceManager
 import dev.tonholo.ssrcompose.consumer.testing.PAY_NOW
 import dev.tonholo.ssrcompose.consumer.testing.SCREEN
 import dev.tonholo.ssrcompose.consumer.testing.ScreenRobot
 import dev.tonholo.ssrcompose.consumer.testing.contentOf
 import dev.tonholo.ssrcompose.consumer.testing.greeting
+import dev.tonholo.ssrcompose.consumer.text.LocalSsrComposeStringResourceManager
+import dev.tonholo.ssrcompose.consumer.text.SsrComposeStringResource
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.RefusalKind
@@ -63,6 +67,33 @@ class SsrScreenTest {
 
         // Assert
         composeRule.onNodeWithText(text = PAY_NOW).assertExists()
+    }
+
+    @Test
+    fun given_an_app_manager_above_ssr_screen__when_the_connection_ends__then_the_default_message_shows_the_app_text() {
+        // Arrange
+        val connection = FakeConnection(content = contentOf(greeting()))
+        val app = MarkedStringResourceManager
+        composeRule.setContent {
+            CompositionLocalProvider(LocalSsrComposeStringResourceManager provides app) {
+                SsrScreen(
+                    screen = SCREEN,
+                    bindings = robot.bindings,
+                    catalogVersion = CATALOG_VERSION,
+                    connection = { connection },
+                    app = APP,
+                )
+            }
+        }
+        robot.waitForText(text = PAY_NOW)
+
+        // Act
+        connection.end()
+        robot.waitForText(text = app.markedTextOf(resource = SsrComposeStringResource.ScreenProblemConnectionEnded))
+
+        // Assert
+        composeRule.onNodeWithText(text = app.markedTextOf(resource = SsrComposeStringResource.ScreenProblemRetry))
+            .assertExists()
     }
 
     @Test
