@@ -40,7 +40,7 @@ The consumer's first frame, the one that carries `Introduce`, is a 4-byte big-en
 
 ## Screen content
 
-`content` is an ordered list of placed components, shown top to bottom. This top-level arrangement is provisional. Inside it, structure comes from the app's own composables and their slots.
+`content` is an ordered list of placed components, shown top to bottom. It is provisional for Feature 1, and so is `slots` below. Feature 2 extends or replaces `ScreenContent` with server-rendered documents that can embed placed components and live inside app slots (#194). Do not treat this list as the final screen format.
 
 A placed component has:
 
@@ -49,7 +49,7 @@ A placed component has:
 | `name` | the component's name in the session's catalog version |
 | `values` | the value parameters, by name |
 | `callbacks` | callback parameter name to action ID |
-| `slots` | slot parameter name to an ordered list of placed components |
+| `slots` | slot parameter name to an ordered list of placed components (provisional, like `content`) |
 
 A placed component on the wire carries no catalog version. The producer keeps the version of the bridge that placed each component on its own node, for the guard, and never sends it.
 
