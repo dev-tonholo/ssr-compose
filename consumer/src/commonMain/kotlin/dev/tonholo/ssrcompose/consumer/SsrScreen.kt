@@ -12,11 +12,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import dev.tonholo.ssrcompose.consumer.internal.device.rememberDeviceValues
-import dev.tonholo.ssrcompose.consumer.internal.screen.DefaultScreenProblem
 import dev.tonholo.ssrcompose.consumer.internal.screen.PlacedProblems
 import dev.tonholo.ssrcompose.consumer.internal.screen.ProvisionalScreenContent
 import dev.tonholo.ssrcompose.consumer.internal.session.ConsumerSession
 import dev.tonholo.ssrcompose.consumer.internal.session.SessionState
+import dev.tonholo.ssrcompose.consumer.problem.ScreenProblemMessage
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.connection.Connection
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
@@ -36,8 +36,7 @@ import kotlinx.coroutines.withContext
  * @param app who the app says it is.
  * @param unavailable shows a [ScreenProblem]. Its `retry` asks for the same screen again, or introduces the app again
  * after [ScreenProblem.Refused], [ScreenProblem.ConnectionEnded] or [ScreenProblem.AnswerUnreadable].
- * Without it, a plain message with a retry button is shown. Its texts come from
- * `LocalSsrComposeStringResourceManager`, in English unless the app provides its own.
+ * Without it, a [ScreenProblemMessage] with the library's texts and look is shown.
  */
 @Composable
 public fun SsrScreen(
@@ -48,7 +47,7 @@ public fun SsrScreen(
     app: AppIdentity,
     modifier: Modifier = Modifier,
     unavailable: @Composable (problem: ScreenProblem, retry: () -> Unit) -> Unit = { problem, retry ->
-        DefaultScreenProblem(problem = problem, retry = retry, modifier = Modifier.fillMaxSize())
+        ScreenProblemMessage(problem = problem, retry = retry, modifier = Modifier.fillMaxSize())
     },
 ) {
     val deviceValues = rememberDeviceValues()

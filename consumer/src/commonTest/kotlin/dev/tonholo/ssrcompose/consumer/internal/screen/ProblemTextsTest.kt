@@ -55,7 +55,7 @@ private fun textsOf(problem: ScreenProblem): ProblemTexts {
     return texts
 }
 
-class DefaultScreenProblemTextTest {
+class ProblemTextsTest {
     @Test
     fun `given a library written problem, when texts are composed, then both come from the manager`() {
         // Arrange
