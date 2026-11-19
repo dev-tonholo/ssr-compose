@@ -1,6 +1,8 @@
 package dev.tonholo.ssrcompose.catalog.fragment
 
+import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
+import dev.tonholo.ssrcompose.catalog.model.choiceListNames
 import dev.tonholo.ssrcompose.catalog.validation.CatalogLimits
 import dev.tonholo.ssrcompose.catalog.validation.cutForMessage
 
@@ -16,9 +18,15 @@ private val NOT_IN_A_RELATIVE_PATH = setOf('\\', ':')
  * @property source where the file is, by the folders of its package and its name, such as `app/home/Banner.kt`.
  * It is never a path of the machine that built it, so the same sources give the same fragment everywhere.
  * [isValidSource] says which sources are allowed.
- * @throws IllegalArgumentException when [source] is not valid.
+ * @property choices the choice lists the [components] use.
+ * @throws IllegalArgumentException when [source] is not valid, a choice list name is repeated, or a parameter names a
+ * choice list that does not exist in [choices].
  */
-public data class CatalogFragment(public val source: String, public val components: List<ComponentDescriptor>) {
+public data class CatalogFragment(
+    public val source: String,
+    public val components: List<ComponentDescriptor>,
+    public val choices: List<ChoiceList> = emptyList(),
+) {
     /**
      * The name of the fragment's file. It is a plain file name of at most 255 bytes and differs for every
      * [source], on a file system that tells upper and lower case apart.
@@ -29,6 +37,21 @@ public data class CatalogFragment(public val source: String, public val componen
         require(isValidSource(source = source)) {
             "A fragment source must be a relative path of folders and a file name, with a fragment file name of " +
                 "at most ${CatalogLimits.MAX_FRAGMENT_FILE_NAME_BYTES} bytes, was \"${source.cutForMessage()}\""
+        }
+        require(choices.map { it.name }.toSet().size == choices.size) {
+            "A fragment must not repeat a choice list name"
+        }
+        requireKnownChoiceLists()
+    }
+
+    private fun requireKnownChoiceLists() {
+        val known = choices.mapTo(destination = mutableSetOf()) { it.name }
+        components.forEach { component ->
+            val unknown = component.parameters.flatMapTo(destination = mutableSetOf()) { it.choiceListNames() } - known
+            require(unknown.isEmpty()) {
+                "The component ${component.name} names a choice list that does not exist: " +
+                    unknown.first().cutForMessage()
+            }
         }
     }
 

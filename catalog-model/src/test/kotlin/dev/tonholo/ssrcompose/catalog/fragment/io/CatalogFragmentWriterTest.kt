@@ -3,11 +3,13 @@ package dev.tonholo.ssrcompose.catalog.fragment.io
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
 import dev.tonholo.ssrcompose.catalog.bundle.SizeCap
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
+import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CatalogFragmentWriterTest {
@@ -27,6 +29,42 @@ class CatalogFragmentWriterTest {
 
         // Assert
         assertContentEquals(expected = forwardBytes, actual = backwardBytes)
+    }
+
+    @Test
+    fun `given the same choices in two orders, when written, then the bytes are equal`() {
+        // Arrange
+        val sizeChoice = ChoiceList(name = "Size", entries = listOf("small", "large"))
+        val styleChoice = ChoiceList(name = "Style", entries = listOf("bodyMedium"))
+        val forward = CatalogFragment(
+            source = source,
+            choices = listOf(sizeChoice, styleChoice),
+            components = listOf(alpha),
+        )
+        val backward = CatalogFragment(
+            source = source,
+            choices = listOf(styleChoice, sizeChoice),
+            components = listOf(alpha),
+        )
+
+        // Act
+        val forwardBytes = CatalogFragmentWriter.write(fragment = forward)
+        val backwardBytes = CatalogFragmentWriter.write(fragment = backward)
+
+        // Assert
+        assertContentEquals(expected = forwardBytes, actual = backwardBytes)
+    }
+
+    @Test
+    fun `given a fragment with no choices, when written, then the choices field is omitted`() {
+        // Arrange
+        val fragment = CatalogFragment(source = source, choices = emptyList(), components = listOf(alpha))
+
+        // Act
+        val text = CatalogFragmentWriter.write(fragment = fragment).decodeToString()
+
+        // Assert
+        assertFalse(actual = text.contains(other = "\"choices\""), message = text)
     }
 
     @Test

@@ -22,9 +22,9 @@ internal fun CatalogPartFile.toPart(): CatalogPart = CatalogPart(
     components = components.map(ComponentFile::toModel),
 )
 
-private fun ChoiceList.toFile(): ChoiceListFile = ChoiceListFile(name = name, entries = entries)
+internal fun ChoiceList.toFile(): ChoiceListFile = ChoiceListFile(name = name, entries = entries)
 
-private fun ChoiceListFile.toModel(): ChoiceList = ChoiceList(name = name, entries = entries)
+internal fun ChoiceListFile.toModel(): ChoiceList = ChoiceList(name = name, entries = entries)
 
 internal fun ComponentDescriptor.toFile(): ComponentFile =
     ComponentFile(name = name, parameters = parameters.map { it.toFile() })

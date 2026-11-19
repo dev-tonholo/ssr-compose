@@ -1,7 +1,12 @@
 package dev.tonholo.ssrcompose.catalog.fragment
 
+import dev.tonholo.ssrcompose.catalog.model.ChoiceList
+import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
+import dev.tonholo.ssrcompose.catalog.model.Parameter
+import dev.tonholo.ssrcompose.core.data.ValueKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
@@ -93,6 +98,36 @@ class CatalogFragmentTest {
         // Assert
         assertTrue(actual = source.length + FILE_SUFFIX.length < MAX_FILE_NAME_BYTES)
         assertFalse(actual = isAccepted)
+    }
+
+    @Test
+    fun `given a choice parameter whose choice list is missing, when a fragment is made, then it is refused`() {
+        // Arrange
+        val parameter = Parameter.Value(name = "style", kind = ValueKind.Choice(listName = "Style"), required = true)
+        val component = ComponentDescriptor(name = "Banner", parameters = listOf(parameter))
+
+        // Act
+        val create = {
+            CatalogFragment(source = "app/Banner.kt", choices = emptyList(), components = listOf(component))
+        }
+
+        // Assert
+        assertFailsWith<IllegalArgumentException> { create() }
+    }
+
+    @Test
+    fun `given a repeated choice list name, when a fragment is made, then it is refused`() {
+        // Arrange
+        val choices = listOf(
+            ChoiceList(name = "Style", entries = listOf("a")),
+            ChoiceList(name = "Style", entries = listOf("b")),
+        )
+
+        // Act
+        val create = { CatalogFragment(source = "app/Banner.kt", choices = choices, components = emptyList()) }
+
+        // Assert
+        assertFailsWith<IllegalArgumentException> { create() }
     }
 
     private companion object {

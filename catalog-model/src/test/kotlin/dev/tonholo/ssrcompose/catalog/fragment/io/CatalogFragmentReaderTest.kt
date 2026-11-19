@@ -3,6 +3,7 @@ package dev.tonholo.ssrcompose.catalog.fragment.io
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
 import dev.tonholo.ssrcompose.catalog.bundle.SizeCap
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
+import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.model.Parameter
 import dev.tonholo.ssrcompose.core.data.ValueKind
@@ -38,6 +39,66 @@ class CatalogFragmentReaderTest {
 
         // Assert
         assertEquals(expected = fragment, actual = actual)
+    }
+
+    @Test
+    fun `given a fragment with choice parameters, when written and read back, then the same fragment comes back`() {
+        // Arrange
+        val withChoices = CatalogFragment(
+            source = "app/Banner.kt",
+            choices = listOf(ChoiceList(name = "Style", entries = listOf("bodyMedium", "titleLarge"))),
+            components = listOf(
+                ComponentDescriptor(
+                    name = "Banner",
+                    parameters = listOf(
+                        Parameter.Value(name = "style", kind = ValueKind.Choice(listName = "Style"), required = true),
+                    ),
+                ),
+            ),
+        )
+        val bytes = CatalogFragmentWriter.write(fragment = withChoices)
+
+        // Act
+        val actual = CatalogFragmentReader.read(bytes = bytes)
+
+        // Assert
+        assertEquals(expected = withChoices, actual = actual)
+    }
+
+    @Test
+    fun `given a fragment file without a choices field, when it is read, then it reads with no choices`() {
+        // Arrange
+        // language=json
+        val oldFragmentJson = """
+            {
+              "format": 1,
+              "source": "app/Banner.kt",
+              "components": [
+                {
+                  "name": "Banner",
+                  "parameters": [
+                    {
+                      "name": "title",
+                      "kind": "text",
+                      "required": true
+                    },
+                    {
+                      "name": "subtitle",
+                      "kind": "text",
+                      "required": false
+                    }
+                  ]
+                }
+              ]
+            }
+        """.trimIndent() + "\n"
+
+        // Act
+        val actual = CatalogFragmentReader.read(bytes = oldFragmentJson.encodeToByteArray())
+
+        // Assert
+        assertEquals(expected = fragment, actual = actual)
+        assertEquals(expected = emptyList(), actual = actual.choices)
     }
 
     @Test
