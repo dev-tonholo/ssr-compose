@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -22,6 +23,8 @@ import org.junit.Test
 
 private const val RETRY_LABEL = "Try again"
 private const val REASON = "The screen is not available right now."
+private const val CONNECTION_ENDED_TEXT_FROM_CONTRACT = "The connection to the server ended. Please try again."
+private const val ANSWER_UNREADABLE_TEXT_FROM_CONTRACT = "The app could not read the answer from the server."
 private const val LONG_REASON = "The screen is not available right now. Check the connection and try again in a moment."
 
 private const val HALF_OF_THE_LUMINANCE_RANGE = 0.5f
@@ -80,6 +83,34 @@ class DefaultScreenProblemTest {
         assertTrue(actual = reason.left - root.left >= MINIMUM_INSET)
         assertTrue(actual = root.right - reason.right >= MINIMUM_INSET)
         assertTrue(actual = retry.top - reason.bottom >= MINIMUM_GAP)
+    }
+
+    @Test
+    fun given_a_connection_that_ended__when_the_message_shows__then_it_says_so_in_english() {
+        // Arrange
+        composeRule.setContent {
+            DefaultScreenProblem(problem = ScreenProblem.ConnectionEnded, retry = {})
+        }
+
+        // Act
+        val message = composeRule.onNodeWithText(text = CONNECTION_ENDED_TEXT_FROM_CONTRACT)
+
+        // Assert
+        message.assertIsDisplayed()
+    }
+
+    @Test
+    fun given_an_answer_the_app_cannot_read__when_the_message_shows__then_it_says_so_in_english() {
+        // Arrange
+        composeRule.setContent {
+            DefaultScreenProblem(problem = ScreenProblem.AnswerUnreadable, retry = {})
+        }
+
+        // Act
+        val message = composeRule.onNodeWithText(text = ANSWER_UNREADABLE_TEXT_FROM_CONTRACT)
+
+        // Assert
+        message.assertIsDisplayed()
     }
 
     /** The luminance range of the node with [text], leaving out a band of [inset] on each side. */

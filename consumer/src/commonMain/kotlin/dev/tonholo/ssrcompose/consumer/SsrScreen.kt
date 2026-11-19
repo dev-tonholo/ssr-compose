@@ -35,7 +35,8 @@ import kotlinx.coroutines.withContext
  * after a retry. Two screens must not share a connection, because the producer refuses a second introduction.
  * @param app who the app says it is.
  * @param unavailable shows a [ScreenProblem]. Its `retry` asks for the same screen again, or introduces the app again
- * after a refusal. Without it, a plain English message with a retry button is shown.
+ * after [ScreenProblem.Refused], [ScreenProblem.ConnectionEnded] or [ScreenProblem.AnswerUnreadable].
+ * Without it, a plain English message with a retry button is shown.
  */
 @Composable
 public fun SsrScreen(
