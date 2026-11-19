@@ -90,7 +90,7 @@ More detail: [skills/build-and-verify/SKILL.md](skills/build-and-verify/SKILL.md
 |---|---|---|
 | PoC server | `./poc/gradlew -p poc :server:run`, then `lsof -ti tcp:8787 -sTCP:LISTEN` to confirm it listens | The process ID on port 8787 and the output of `./poc/gradlew -p poc :server:test` |
 | PoC Android app | With the server running: `adb devices`, `adb -s <serial> reverse tcp:8787 tcp:8787`, `./poc/gradlew -p poc :app:assembleDebug`, then `android run --device=<serial> --apks=poc/app/build/outputs/apk/debug/app-debug.apk --activity=dev.tonholo.ssrcompose.app.MainActivity` (Not verified: not run with the `android` CLI when this file was written) | A screenshot from `android screen capture --device=<serial> -o <file>.png` and the session log from `adb -s <serial> logcat -d -s SsrSession:D` |
-| Library modules (consumer, producer, core, compiler plugin) | `./gradlew build` | Exit status 0, and the contract test result file `contract-tests/build/test-results/testAndroidHostTest/TEST-dev.tonholo.ssrcompose.contracttests.BuildExperimentTest.xml` showing `tests="1"` and `failures="0"` |
+| Library modules (consumer, producer, core, compiler plugin) | `./gradlew build` | Exit status 0 of `./gradlew build`. This is the only evidence until T041 brings a real contract test. |
 
 A target with no known way to run it is listed with "none found"; QA returns `INCOMPLETE` for it.
 
