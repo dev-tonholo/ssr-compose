@@ -342,7 +342,7 @@ class ConsumerSessionTest {
     }
 
     @Test
-    fun `given no answer yet, when a Screen arrives, then the session ends as refused`() = runTest {
+    fun `given no answer yet, when a Screen arrives, then the answer is unreadable`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -352,7 +352,7 @@ class ConsumerSessionTest {
         harness.deliverScreen()
 
         // Assert
-        assertIs<ScreenProblem.Refused>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.AnswerUnreadable, actual = harness.problem())
         assertTrue(actual = harness.connection.closed)
     }
 
@@ -376,7 +376,7 @@ class ConsumerSessionTest {
     }
 
     @Test
-    fun `given a frame the app cannot read, when it arrives, then the session ends as refused`() = runTest {
+    fun `given a frame the app cannot read, when it arrives, then the answer is unreadable`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -387,12 +387,12 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Refused>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.AnswerUnreadable, actual = harness.problem())
         assertTrue(actual = harness.connection.closed)
     }
 
     @Test
-    fun `given an answer with another contract version, when it arrives, then the session ends as refused`() = runTest {
+    fun `given an answer with another contract version, when it arrives, then the answer is unreadable`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -406,11 +406,12 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Refused>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.AnswerUnreadable, actual = harness.problem())
+        assertTrue(actual = harness.connection.closed)
     }
 
     @Test
-    fun `given no answer yet, when the connection ends, then the screen is unavailable`() = runTest {
+    fun `given no answer yet, when the connection ends, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -421,11 +422,11 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
     }
 
     @Test
-    fun `given an accepted app, when the connection ends before a Screen, then the screen is unavailable`() = runTest {
+    fun `given an accepted app, when the connection ends before a Screen, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -437,11 +438,11 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
     }
 
     @Test
-    fun `given a shown screen, when the connection ends, then the screen is unavailable`() = runTest {
+    fun `given a shown screen, when the connection ends, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -454,11 +455,11 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
     }
 
     @Test
-    fun `given a failing connection, when the app is introduced, then the screen is unavailable`() = runTest {
+    fun `given a failing connection, when the app is introduced, then the connection ended`() = runTest {
         // Arrange
         val failing = FakeConnection(failOnSend = true)
         val harness = Harness(scope = this, connections = mutableListOf(failing))
@@ -468,12 +469,12 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
         assertTrue(actual = failing.closed)
     }
 
     @Test
-    fun `given a connection that cannot open, when the session starts, then the screen is unavailable`() = runTest {
+    fun `given a connection that cannot open, when the session starts, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this, openFailure = IllegalStateException("No network"))
 
@@ -482,7 +483,7 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
     }
 
     @Test
@@ -716,7 +717,7 @@ class ConsumerSessionTest {
     }
 
     @Test
-    fun `given no answer yet, when ScreenUnavailable arrives, then the session ends as refused`() = runTest {
+    fun `given no answer yet, when ScreenUnavailable arrives, then the answer is unreadable`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -726,7 +727,8 @@ class ConsumerSessionTest {
         harness.deliverUnavailable()
 
         // Assert
-        assertIs<ScreenProblem.Refused>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.AnswerUnreadable, actual = harness.problem())
+        assertTrue(actual = harness.connection.closed)
     }
 
     @Test
@@ -832,7 +834,7 @@ class ConsumerSessionTest {
     }
 
     @Test
-    fun `given no answer yet, when the connection ends in a cancellation, then the screen is unavailable`() = runTest {
+    fun `given no answer yet, when the connection ends in a cancellation, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -843,11 +845,11 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
     }
 
     @Test
-    fun `given an accepted app, when the connection ends in a cancellation, then it is unavailable`() = runTest {
+    fun `given an accepted app, when the connection ends in a cancellation, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         harness.start()
@@ -859,7 +861,7 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
     }
 
     @Test
@@ -952,7 +954,7 @@ class ConsumerSessionTest {
     }
 
     @Test
-    fun `given an accepted app, when the connection cancels a device change send, then it is unavailable`() = runTest {
+    fun `given an accepted app, when a device change send is cancelled, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         val running = harness.start()
@@ -964,13 +966,13 @@ class ConsumerSessionTest {
         harness.changeDevice(device = ROTATED)
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
         assertTrue(actual = harness.connection.closed)
         assertTrue(actual = running.isActive)
     }
 
     @Test
-    fun `given an open screen, when the connection cancels a retry send, then it is unavailable`() = runTest {
+    fun `given an open screen, when the connection cancels a retry send, then the connection ended`() = runTest {
         // Arrange
         val harness = Harness(scope = this)
         val running = harness.start()
@@ -984,7 +986,7 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        assertIs<ScreenProblem.Unavailable>(value = harness.problem())
+        assertEquals(expected = ScreenProblem.ConnectionEnded, actual = harness.problem())
         assertTrue(actual = harness.connection.closed)
         assertTrue(actual = running.isActive)
     }

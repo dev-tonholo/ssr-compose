@@ -9,7 +9,6 @@ import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
 import dev.tonholo.ssrcompose.core.handshake.Introduction
-import dev.tonholo.ssrcompose.core.handshake.RefusalKind
 import dev.tonholo.ssrcompose.core.message.ConsumerMessage
 import dev.tonholo.ssrcompose.core.message.MessageCodec
 import dev.tonholo.ssrcompose.core.message.MessageDecodingException
@@ -37,14 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val MIN_WINDOW_PX = 1
-private const val CONNECTION_ENDED = "The connection to the server ended. Please try again."
 private const val SEND_CANCELLED = "The connection cancelled a send"
-private const val UNREADABLE_MESSAGE = "The app could not read the answer from the server."
-
-private val unreadableMessage = ScreenProblem.Refused(
-    kind = RefusalKind.IntroductionNotValid,
-    reason = UNREADABLE_MESSAGE,
-)
 
 /**
  * One app's conversation with the producer about one screen.
@@ -104,7 +96,7 @@ internal class ConsumerSession(
     private suspend fun converse(device: DeviceContext): ScreenProblem {
         var connection: Connection? = null
         try {
-            return unavailableOnFailure {
+            return connectionEndedOnFailure {
                 val opened = openConnection().also { opened -> connection = opened }
                 currentCoroutineContext().ensureActive()
                 talkOver(connection = opened, device = device)
@@ -119,14 +111,14 @@ internal class ConsumerSession(
         val conversation = Conversation(connection = connection, device = device, scope = this)
         val ending = conversation.talk()
         coroutineContext.cancelChildren()
-        ending ?: ScreenProblem.Unavailable(reason = CONNECTION_ENDED)
+        ending ?: ScreenProblem.ConnectionEnded
     }
 
     /** Rethrows only the cancellation of the session itself. Any other failure means the connection ended. */
-    private suspend inline fun unavailableOnFailure(block: () -> ScreenProblem): ScreenProblem =
+    private suspend inline fun connectionEndedOnFailure(block: () -> ScreenProblem): ScreenProblem =
         runCatching(block).getOrElse {
             currentCoroutineContext().ensureActive()
-            ScreenProblem.Unavailable(reason = CONNECTION_ENDED)
+            ScreenProblem.ConnectionEnded
         }
 
     private inner class Conversation(
@@ -152,7 +144,7 @@ internal class ConsumerSession(
 
         private suspend fun receive(frame: ByteArray): ScreenProblem? =
             when (val message = decode(frame = frame)) {
-                null -> unreadableMessage
+                null -> ScreenProblem.AnswerUnreadable
                 is ProducerMessage.Answered -> onAnswer(answer = message.answer)
                 is ProducerMessage.Screen -> whenAccepted { onScreen(message = message) }
                 is ProducerMessage.ScreenUnavailable -> whenAccepted { onUnavailable(message = message) }
@@ -169,7 +161,7 @@ internal class ConsumerSession(
         private suspend fun onAnswer(answer: Answer): ScreenProblem? = when (answer) {
             is Answer.Refused -> ScreenProblem.Refused(kind = answer.kind, reason = answer.reason)
             is Answer.Accepted -> when {
-                answer.contractVersion != codec.contractVersion -> unreadableMessage
+                answer.contractVersion != codec.contractVersion -> ScreenProblem.AnswerUnreadable
                 accepted -> null
                 else -> {
                     onAccepted()
@@ -209,7 +201,7 @@ internal class ConsumerSession(
         }
 
         private inline fun whenAccepted(handle: () -> Unit): ScreenProblem? {
-            if (!accepted) return unreadableMessage
+            if (!accepted) return ScreenProblem.AnswerUnreadable
             handle()
             return null
         }
