@@ -310,7 +310,7 @@ Build time and build performance:
 - **SC-013**: With a catalog of 20,000 components and about 80,000 parameters, spread over many app modules, a second build of the app or of the server with nothing changed does no catalog work: no part, manifest or other catalog output is produced again.
 - **SC-014**: With the same catalog, a change to one marked composable in one app module produces again, of the catalog, exactly one part and the manifest. Every other part is reused.
 - **SC-015**: The same commit, built from two checkouts in different folders on two machines that share a build cache, gives catalog outputs that are the same byte for byte, and the second build takes every one of them from the cache.
-- **SC-016**: With the catalog of 20,000 components held, the catalog adds at most 2 seconds to a clean compile of a server module that calls 20 of its composables, compared with the same module without a catalog. The owner kept this figure after the scale gate measured a prototype. It is not checked on the real plugin yet.
+- **SC-016**: With the catalog of 20,000 components held, the catalog adds at most 2 seconds to a clean compile of a server module that calls 20 of its composables, compared with the same module without a catalog. The owner kept this figure after the scale gate measured a prototype. The real plugin meets it. In a clean compile of a 3,000 file module, the plugin's own work took at most 1,139 ms with one held catalog and 1,040 ms with ten over six rounds, measured in process on a warm JVM. Clean wall clock time on the test machine is too noisy to show the cost, so [research.md R16](research.md#what-holds-sc-016) rests the claim on those direct numbers, the edited file compiles and the allocation.
 
 ## Assumptions
 
