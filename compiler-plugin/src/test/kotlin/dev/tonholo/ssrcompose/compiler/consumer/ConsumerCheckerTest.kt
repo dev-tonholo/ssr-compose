@@ -160,6 +160,53 @@ class ConsumerCheckerTest {
         assertEquals(expected = listOf(expected), actual = readFragments())
     }
 
+    @Test
+    fun `given generic type aliases, when compiled, then the expanded kinds and nullability are described`() {
+        // Arrange
+        // language=kotlin
+        val source = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            typealias Items<T> = List<T>
+            typealias NullableItems<T> = List<T>?
+
+            @ConsumerComposable
+            @Composable
+            fun GenericAliasCard(items: Items<String>, counts: NullableItems<Int>) {
+            }
+        """.trimIndent()
+        val expected = CatalogFragment(
+            source = "fixtures/consumer/GenericAliasCard.fixture.kt",
+            components = listOf(
+                ComponentDescriptor(
+                    name = "GenericAliasCard",
+                    parameters = listOf(
+                        requiredValue(name = "items", kind = ValueKind.ListOf(element = ValueKind.Text)),
+                        requiredValue(
+                            name = "counts",
+                            kind = ValueKind.ListOf(element = ValueKind.Whole),
+                            nullable = true,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        // Act
+        val result = support.compileSource(
+            fileName = "GenericAliasCard.fixture.kt",
+            source = source,
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(expected = listOf(expected), actual = readFragments())
+    }
+
     private fun compile(fixtureName: String) =
         support.compile(
             fixtureName = fixtureName,
