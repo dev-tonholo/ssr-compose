@@ -28,7 +28,9 @@ Knowledge for the system-architect and anyone designing across modules in ssr-co
 
 ### System rules
 
-The rules that hold across the system are in [the architecture rules](../../rules/architecture.md), and the principles behind them are in [the constitution](../../../.specify/memory/constitution.md). Read rules 2 to 6, 8, 9 and 13 before you design across modules.
+The rules that hold across the system are in [the architecture rules](../../rules/architecture.md), and the principles behind them are in [the constitution](../../../.specify/memory/constitution.md). Read rules 2 to 6, 8, 9 and 13 to 15 before you design across modules.
+
+Rules 14 and 15 hold the principle I invariants.
 
 ### First feature decisions
 
@@ -66,4 +68,4 @@ The rules that hold across the system are in [the architecture rules](../../rule
 
 - The module map in `.ai/guidelines.md` does not list `catalog-model` and says `compiler-plugin` may depend on `:core`, while the build file depends on `catalog-model`. Which one is the intended boundary?
 - Which guardrails should become automated checks for module boundaries?
-- `ScreenContent` is marked as provisional. What is the final screen arrangement, and how does a placed component keep a stable identity (#183)?
+- `ScreenContent` is provisional until Feature 2 adds server-rendered documents (#194). How does a placed consumer component keep a stable identity across updates inside server-rendered documents and consumer slots (#183)?
