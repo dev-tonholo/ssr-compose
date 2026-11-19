@@ -134,6 +134,50 @@ class ConsumerParameterErrorsTest {
         assertEquals(expected = emptyList(), actual = readFragments())
     }
 
+    @Test
+    fun `given two enums with the same name and different entries in one file, when compiled, then it fails`() {
+        // Arrange
+        // language=kotlin
+        val source = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            object First {
+                enum class Style { a, b }
+            }
+
+            object Second {
+                enum class Style { a, c }
+            }
+
+            @ConsumerComposable
+            @Composable
+            fun ClashCard(first: First.Style, second: Second.Style) {
+            }
+        """.trimIndent()
+
+        // Act
+        val result = support.compileSource(
+            fileName = "ClashCard.fixture.kt",
+            source = source,
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val line = result.errorLines().single()
+        assertTrue(actual = line.contains(other = CONFLICTING_CHOICE_LOCATION), message = result.messages)
+        assertTrue(
+            actual = line.contains(other = "The parameter second of the marked composable ClashCard"),
+            message = result.messages,
+        )
+        assertTrue(actual = line.contains(other = "Style"), message = result.messages)
+        assertTrue(actual = line.contains(other = CONFLICTING_CHOICE_REASON), message = result.messages)
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
     private fun compile(fixtureName: String) =
         support.compile(
             fixtureName = fixtureName,
@@ -163,5 +207,7 @@ class ConsumerParameterErrorsTest {
         const val BAD_ENUM_REASON =
             "cannot be described in the catalog: the enum BadStyle or one of its entries is not a plain Kotlin " +
                 "identifier of at most 64 characters"
+        const val CONFLICTING_CHOICE_LOCATION = "ClashCard.fixture.kt:16:35"
+        const val CONFLICTING_CHOICE_REASON = "two different enums with that name are used in the same file"
     }
 }
