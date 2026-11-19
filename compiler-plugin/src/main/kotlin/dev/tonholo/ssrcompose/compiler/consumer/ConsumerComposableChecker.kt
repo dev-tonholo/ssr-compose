@@ -11,11 +11,12 @@ import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirDeclarationChec
 import org.jetbrains.kotlin.fir.declarations.FirFile
 
 /**
- * Writes the fragment of every source file the compiler checks, and fails the compilation for a marked composable
- * with a parameter the catalog cannot describe, or in a file whose name cannot name a fragment.
+ * Writes the fragment of every source file the compiler checks, when there is a fragments folder. Fails the
+ * compilation for a function that cannot be marked, a marked composable with a parameter the catalog cannot describe,
+ * or a file whose name cannot name a fragment. A file with any such error writes no fragment.
  */
 internal class ConsumerComposableChecker(
-    private val writer: FragmentWriter,
+    private val writer: FragmentWriter?,
     private val messages: MessageCollector,
 ) : FirDeclarationChecker<FirFile>(MppCheckerKind.Platform) {
     context(context: CheckerContext, reporter: DiagnosticReporter)
@@ -33,6 +34,6 @@ internal class ConsumerComposableChecker(
                 messages.report(severity = CompilerMessageSeverity.ERROR, message = error.message)
             }
         }
-        scanned.fragmentOrNull()?.let { fragment -> writer.save(fragment = fragment) }
+        scanned.fragmentOrNull()?.let { fragment -> writer?.save(fragment = fragment) }
     }
 }

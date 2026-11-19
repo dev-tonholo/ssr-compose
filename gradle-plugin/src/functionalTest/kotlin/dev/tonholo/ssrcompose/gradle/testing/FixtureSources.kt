@@ -47,6 +47,26 @@ internal object FixtureSources {
         }
     """.trimIndent()
 
+    const val COMPOSABLE_STAND_IN_PATH = "src/main/kotlin/Composable.kt"
+
+    // language=kotlin
+    val COMPOSABLE_STAND_IN = """
+        package androidx.compose.runtime
+
+        annotation class Composable
+    """.trimIndent()
+
+    // language=kotlin
+    val MARKED_COMPOSABLE_SOURCE = """
+        import androidx.compose.runtime.Composable
+        import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+        @ConsumerComposable
+        @Composable
+        fun Marked() {
+        }
+    """.trimIndent()
+
     // language=kotlin
     val PRODUCER_BLOCK = """
         producer {

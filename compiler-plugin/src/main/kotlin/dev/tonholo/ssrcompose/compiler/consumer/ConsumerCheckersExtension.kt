@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.fir.declarations.FirFile
 
 internal class ConsumerCheckersExtension(
     session: FirSession,
-    writer: FragmentWriter,
+    writer: FragmentWriter?,
     messages: MessageCollector,
 ) : FirAdditionalCheckersExtension(session) {
     override val declarationCheckers: DeclarationCheckers = object : DeclarationCheckers() {
