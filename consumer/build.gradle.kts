@@ -16,6 +16,7 @@ kotlin {
         implementation(libs.compose.runtime)
         implementation(libs.compose.foundation)
         implementation(libs.compose.ui)
+        compileOnly(libs.compose.ui.tooling.preview)
     }
 
     sourceSets.getByName("androidDeviceTest").dependencies {
@@ -24,4 +25,8 @@ kotlin {
         implementation(libs.androidx.test.runner)
         implementation(libs.kotlin.test)
     }
+}
+
+dependencies {
+    androidRuntimeClasspath(libs.compose.ui.tooling)
 }
