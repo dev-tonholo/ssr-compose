@@ -212,7 +212,7 @@ Connecting and introducing:
 - **FR-027**: The introduction MUST carry: device density, device orientation, screen size, active theme (dark or light), active language, the app's version, variant and flavor, the catalog version, and the contract version the app speaks. It MUST NOT carry the catalog.
 - **FR-028**: The consumer library MUST collect the device values by itself. The app developer supplies only the app's version, variant and flavor.
 - **FR-029**: The producer MUST answer every introduction with an acceptance that states the contract version it will speak, or with a refusal.
-- **FR-030**: A refusal MUST carry a reason the app can show the user, and a kind: the contract version is too old, the contract version is too new, the catalog version is not known or no longer supported, or the introduction is not valid.
+- **FR-030**: A refusal MUST carry a reason the app can show the user, and a kind: the contract version is too old, the contract version is too new, the catalog version is not known or no longer supported, or the introduction is not valid. The producer MUST write this reason, and the reason it gives for a screen it cannot show (FR-052), in the language the app sent in its introduction, or in the latest one after a device change, and in English when that language is missing, not valid, or has no text on the producer.
 - **FR-031**: The producer MUST NOT send screen content to an app it has not accepted.
 - **FR-032**: The app MUST show the user a message when it is refused, saying why in one sentence and what the user can do. The app developer MUST be able to replace it with the app's own presentation.
 
@@ -329,7 +329,7 @@ Build time and build performance:
 - Screens for two catalog versions repeat their layout, because the two bridges are different sets of functions. State and logic can be shared between them as plain Kotlin. This is a known cost of keeping older apps working without adapting screens for them, and the documentation says so plainly.
 - Upper bounds: a catalog has no hard limit on components or parameters. The library is tested at 20,000 components with about 80,000 parameters, which is well above three real apps the owner measured, with 621, 751 and 1,085 composables. The manifest and each part are capped at 16 MiB by default. One producer holds 10,000 sessions and serves 10 catalog versions at once, confirmed by the owner. The size limit for a callback's arguments is an estimate: 1 megabyte by default, and configurable.
 - How the two sides are connected, how the connection recovers and how it is encrypted belong to the later connection feature. This feature assumes a two-way connection that delivers what is sent in order and without loss, or ends, and uses a simple one for its tests and samples.
-- The library's own messages to the user are in English in this feature. An app developer replaces them to use another language.
+- The consumer library's own messages to the user, such as the one for a connection that ended, are in English by default, and an app developer replaces them to use another language. A reason written by the producer follows FR-030.
 - Who the user is, and whether they may see a screen, is outside this feature. Nothing proves the app identity, and each server developer decides how far to trust it.
 - Developers need one setting in their editor to see what the compiler creates. That is a documented setup step, not something this feature removes.
 - The proof of concept in `poc/` is a reference for behaviour only. Nothing in this feature depends on it.
