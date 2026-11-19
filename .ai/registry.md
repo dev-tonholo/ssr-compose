@@ -2,7 +2,7 @@
 
 What to use when you work in a module or area. Open the links for details.
 
-Always: the [constitution](../.specify/memory/constitution.md), [code-style](rules/code-style.md), [git](rules/git.md), [documentation](rules/documentation.md), the [build-and-verify](skills/build-and-verify/SKILL.md) skill, and the crew roles: [engineering-manager](agents/engineering-manager.md), [worker](agents/worker.md), [reviewer](agents/reviewer.md), [qa](agents/qa.md) and [advisor](agents/advisor.md).
+Always: the [constitution](../.specify/memory/constitution.md), [code-style](rules/code-style.md), [git](rules/git.md), [documentation](rules/documentation.md), the [build-and-verify](skills/build-and-verify/SKILL.md) skill, and the crew roles: [engineering-manager](agents/engineering-manager.md), [worker](agents/worker.md), [reviewer](agents/reviewer.md), [qa](agents/qa.md), [advisor](agents/advisor.md) and [system-architect](agents/system-architect.md).
 
 ## Per module
 
@@ -21,5 +21,6 @@ Always: the [constitution](../.specify/memory/constitution.md), [code-style](rul
 | UI | `poc/app/src/main/kotlin/dev/tonholo/ssrcompose/app/presentation` | [ui-compose](rules/ui-compose.md) | [build-and-verify](skills/build-and-verify/SKILL.md) | - | [unit-test](blueprints/unit-test.md) | Compose, Material 3 | `ANDROID_SERIAL=<serial> ./poc/gradlew -p poc :app:connectedDebugAndroidTest` |
 | Networking | `poc/protocol`, `poc/app/src/main/kotlin/dev/tonholo/ssrcompose/app/data`, `poc/server/src/main/kotlin/dev/tonholo/ssrcompose/server` | [security](rules/security.md), [architecture](rules/architecture.md) | [build-and-verify](skills/build-and-verify/SKILL.md) | [reviewer](agents/reviewer.md) | - | Ktor, kotlinx.rpc | `./poc/gradlew -p poc :server:test` |
 | Security | connection, handshake, documents, sessions | [security](rules/security.md) | - | [reviewer](agents/reviewer.md) | - | - | - |
+| Architecture | `docs/adr/`, `specs/*/contracts/`, module boundaries | [architecture](rules/architecture.md) | [system-architecture](skills/system-architecture/SKILL.md) | [system-architect](agents/system-architect.md) | [adr](blueprints/adr.md) | - | `python3 .ai/scripts/check-links.py` |
 | Specs | `.specify/`, `specs/` | [documentation](rules/documentation.md) | [speckit-specify](skills/speckit-specify/SKILL.md), [speckit-plan](skills/speckit-plan/SKILL.md), [speckit-tasks](skills/speckit-tasks/SKILL.md), [speckit-checklist](skills/speckit-checklist/SKILL.md) | - | - | Spec Kit | - |
 | Docs | `README.md`, `docs/adr/`, `CHANGELOG.md` | [documentation](rules/documentation.md), [git](rules/git.md) | - | - | [adr](blueprints/adr.md) | - | `python3 .ai/scripts/check-links.py` |
