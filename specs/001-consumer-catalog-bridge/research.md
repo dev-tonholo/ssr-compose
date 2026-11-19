@@ -765,7 +765,7 @@ T031a ran on 2026-11-17 and 2026-11-18. The owner decided these points on 2026-1
 
 Each bridge will also have one enum class per choice list. An enum's JVM name is its package and its name, so internal visibility and class names per module do not separate two copies.
 
-The owner chose on 2026-11-18: each module gets its own enums, in a package or an outer class named after the module. The real plugin creates no enums yet. T048 builds this option and proves it on created enums. T048 also settles how test code reuses the enums of main, the exact shape of the import, and the module name rules the enum names use.
+The owner chose on 2026-11-18: each module gets its own enums, in a package or an outer class named after the module. The real plugin creates no enums yet. T048 builds this option and proves it on created enums. The full T048 design, including the subpackage choice, test reuse, import shape, module name rules, value kind mapping, `ConsumerComponent` signature and JVM limit probes, is in [R18](#r18-server-bridge-kinds-choice-enums-and-consumercomponent-t048-design) and [ADR 0010](../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md).
 
 The evidence comes from hand-written enums in a throwaway multi-project Gradle build, Kotlin 2.4.21 and Gradle 9.9.1, on 2026-11-18. It is not committed:
 
@@ -1024,6 +1024,296 @@ Rationale: principle II asks for one definition of everything both sides agree o
 Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds and the conversion in the bridge's `Callback` (R8).
 
 Catalog code written in `core` before this decision is moved into `catalog-model` by T113, except `ValueKind`, which stays in `core` and moves from `core/catalog/` to `core/data/`.
+
+## R18. Server bridge kinds, choice enums and ConsumerComponent (T048 design)
+
+Complete design for T048 (issue #52), settled on 2026-11-19 and approved by the owner on 2026-11-19 with the `@InternalSsrComposeApi` opt-in annotation for generated-code entry points. It covers value, choice and list bridge parameters, per-module choice enums, the final `ConsumerComponent` contract, the opt-in boundary, and JVM 17 class file limits. The architecture decision for enum placement lives in [ADR 0010](../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md) (Accepted).
+
+### 1. Boundaries
+
+- `core`: unchanged. `DataValue`, `ValueKind`, `CatalogVersion` and `PlacedComponent` already provide the exact runtime model.
+- `consumer` and `compiler-plugin/.../compiler/consumer/`: unchanged. T048 does not touch either path, so it stays isolated from open PR #190 and parallel consumer-checker work.
+- `catalog-model`: adds one compiler plugin option constant, `BRIDGE_MODULE = "bridgeModule"`, in `options/CompilerPluginOptions.kt`. Catalog bundle format v1 and binary index format v1 do not change.
+- `producer`: owns `ConsumerComponent`, its internal `PlacedNode.Component` and `PlacedNodeContent` mapping, five small public list-conversion helpers (`textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue`, `choiceListValue`), and the `@InternalSsrComposeApi` opt-in annotation marking compiler-bridge entry points. `producer` knows nothing about `catalog-model` or generated enum classes (`choiceListValue` accepts `List<Enum<*>>`). T050 owns `LocalConsumer` and keeps T025's array `ConsumerComponent` unchanged on purpose; T048 Slice 1 replaces that stand-in entry point cleanly after T050 merges, without touching `LocalConsumer.kt`.
+- `compiler-plugin/.../compiler/producer/`: owns `bridgeModule` option parsing, `BridgeEnumPackageRule`, `BridgeLimits` (including `MAX_CHOICE_ENTRIES = 2_000` and enum package overlap checks), on-demand choice list selection, FIR `internal enum class` generation and friend reuse, FIR/IR mapping for all value, choice and list kinds, and `RefusedBridgeCheckers` for refused choice enums. It does not depend on `producer` in `main` (only in `test`, as today) and emits references only to `core`, `producer` and the Kotlin standard library.
+- `gradle-plugin`: adds optional `moduleName: Property<String>` to `ProducerSettings` and passes `bridgeModule` as a normal `SubpluginOption` in `SsrSubpluginOptions` for every producer compilation (`main` and `test` receive the same value). T101 later passes the same `bridgeModule` option from the Kotlin toolchain plugin using the same relative-path rule.
+
+### 2. Interfaces and contracts
+
+#### ConsumerComponent and PlacedNode.Component (`producer`)
+
+The final public signature in [contracts/producer-api.md](contracts/producer-api.md#what-a-bridge-function-is) is:
+
+```kotlin
+@Composable
+public fun ConsumerComponent(
+    catalogVersion: CatalogVersion,
+    name: String,
+    values: Map<String, DataValue?> = emptyMap(),
+    callbacks: Map<String, Callback?> = emptyMap(),
+    slots: Map<String, (@Composable () -> Unit)?> = emptyMap(),
+)
+```
+
+Because `Callback` does not exist until T065 (US2), T048 Slice 1 deletes the T025 eight-parameter parallel-array stand-in (`valueNames`/`values: Array<String?>`, `actionNames`/`actions: Array<RemoteAction1<String>>`, `slotNames`/`slots`) with no deprecated overload kept, and introduces the map-based entry point with a transitional `actions` map parameter:
+
+```kotlin
+@Composable
+public fun ConsumerComponent(
+    catalogVersion: CatalogVersion,
+    name: String,
+    values: Map<String, DataValue?> = emptyMap(),
+    actions: Map<String, RemoteAction1<String>?> = emptyMap(),
+    slots: Map<String, (@Composable () -> Unit)?> = emptyMap(),
+)
+```
+
+When T065 and T066 land in US2, `actions: Map<String, RemoteAction1<String>?> = emptyMap()` is replaced in place by `callbacks: Map<String, Callback?> = emptyMap()`. Every requirement from T038 holds immediately in US1:
+
+- `catalogVersion` uses `CatalogVersion` (`@JvmInline value class` in `core`), giving type safety and `CatalogVersion` validation with zero runtime allocation overhead.
+- `values` keeps insertion order and drops entries whose value is `null` (an optional parameter not given is absent from `PlacedComponent.values`, FR-062). Entries whose value is `DataValue.None` are kept (a required nullable parameter explicitly given `null` is sent as `DataValue.None`).
+- `actions` (and later `callbacks`) drops entries whose value is `null`, so an optional callback not given is absent (FR-062).
+- `slots` drops entries whose value is `null`, so an optional slot not given emits no `PlacedNode.Slot` child and is absent from `PlacedComponent.slots` (FR-062).
+
+Matching internal `PlacedNode.Component` in `producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/internal/PlacedNode.kt`:
+
+- `val name: String`
+- `val catalogVersion: CatalogVersion`
+- `var values: Map<String, DataValue> = emptyMap()`
+- `var actions: Map<String, RemoteAction1<String>> = emptyMap()` (replaced by `callbacks: Map<String, Callback>` in T065/T067)
+
+`PlacedNodeContent.kt` passes `values = values` directly to `PlacedComponent`, removing the T025 `DataValue.Text` wrapper.
+
+#### List conversion helpers (`producer`)
+
+Probe C below proved that inlining `list.map { DataValue.Text(it) }` in bridge bodies crashes compilation (`Class too large`, constant pool overflow above 65,535) at 150 functions of 118 list parameters and reaches 29,565 bytes per method. Five public top-level helpers in `producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/ListValues.kt` keep both hand-written and generated bridges small and readable:
+
+```kotlin
+public fun textListValue(items: List<String>): DataValue.ListValue
+public fun wholeListValue(items: List<Long>): DataValue.ListValue
+public fun decimalListValue(items: List<Double>): DataValue.ListValue
+public fun flagListValue(items: List<Boolean>): DataValue.ListValue
+public fun choiceListValue(items: List<Enum<*>>): DataValue.ListValue
+```
+
+Distinct names avoid JVM erasure clashes on `List<*>` without `@JvmName`, need no `GETSTATIC` receiver in bytecode, and give unambiguous single-symbol IR lookups.
+
+#### Opt-in annotation for generated-code entry points (`producer`)
+
+Public `producer` declarations that exist only for compiler-generated and hand-written bridges carry `@InternalSsrComposeApi`, declared in `producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/InternalSsrComposeApi.kt`:
+
+```kotlin
+@RequiresOptIn(
+    level = RequiresOptIn.Level.WARNING,
+    message = "Intended for compiler-generated and hand-written SSR Compose bridges. " +
+        "Opt in explicitly with @OptIn(InternalSsrComposeApi::class) if calling by hand.",
+)
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
+public annotation class InternalSsrComposeApi
+```
+
+- Level: `RequiresOptIn.Level.WARNING`. Hand calls without opt-in emit a clear compiler warning (and fail under `-Werror`), keeping hand-written bridges usable (FR-024) while flagging direct use, matching the owner's stated preference.
+- What carries `@InternalSsrComposeApi`: `ConsumerComponent`, `textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue`, `choiceListValue`, `UnplaceableBridge` (which `contracts/producer-api.md` already forbids developers from writing), and `Callback` with its value readers when T065 introduces them in US2.
+- What does NOT carry `@InternalSsrComposeApi`: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `LocalConsumer` and `Consumer`, `RemoteAction0` to `RemoteAction4` (server developers pass lambdas and may name these types in screen helpers), and `InternalSsrComposeApi` itself.
+- How the compiler plugin adds the opt-in in FIR and IR: in `BridgeDeclarationGenerator.generateFunctions`, when `session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(ProducerNames.internalSsrComposeApi) != null` (skipping cleanly on compilations without `producer`, such as KMP shared metadata compilations), attach `@OptIn(InternalSsrComposeApi::class)` to each generated bridge `FirNamedFunction` using `buildAnnotation` targeting `ClassId(FqName("kotlin"), Name.identifier("OptIn"))` with `markerClass = [InternalSsrComposeApi::class]` (`buildCollectionLiteral` over `buildGetClassCall` and `buildResolvedQualifier`). Never attach `@InternalSsrComposeApi` itself to a generated bridge, or opt-in would propagate to server callers. `BridgeBodyGenerator` in IR needs no extra annotation because `kotlin.OptIn` has `AnnotationRetention.SOURCE` and is not emitted into `.class` files (zero constant pool slots, zero code bytes).
+- How hand-written bridges and tests opt in: hand-written bridges and tests that call `ConsumerComponent`, the list helpers, or `@UnplaceableBridge` directly opt in locally with `@OptIn(InternalSsrComposeApi::class)` on the function or `@file:OptIn(InternalSsrComposeApi::class)` on the test file. Never set a module-wide `compilerOptions.optIn` for `InternalSsrComposeApi` in `compiler-plugin` test compilations or server builds, so tests prove that server callers of generated bridges compile cleanly under `-Werror` with no opt-in of their own.
+
+#### Parameter kind mapping
+
+Each `Parameter.Value(name, kind, required, nullable)` maps to a Kotlin bridge parameter type and a `DataValue?` expression passed inside `values = mapOf(...)` (or `emptyMap()` when a component has zero value parameters):
+
+| Catalog kind | `ValueKind` | Required, not nullable | Required, nullable | Optional (`required = false`) |
+|---|---|---|---|---|
+| `text` | `Text` | `String` -> `DataValue.Text(p)` | `String?` -> `if (p != null) DataValue.Text(p) else DataValue.None` | `String? = null` -> `if (p != null) DataValue.Text(p) else null` |
+| `whole` | `Whole` | `Long` -> `DataValue.WholeNumber(p)` | `Long?` -> `if (p != null) DataValue.WholeNumber(p) else DataValue.None` | `Long? = null` -> `if (p != null) DataValue.WholeNumber(p) else null` |
+| `decimal` | `Decimal` | `Double` -> `DataValue.DecimalNumber(p)` | `Double?` -> `if (p != null) DataValue.DecimalNumber(p) else DataValue.None` | `Double? = null` -> `if (p != null) DataValue.DecimalNumber(p) else null` |
+| `flag` | `Flag` | `Boolean` -> `DataValue.Flag(p)` | `Boolean?` -> `if (p != null) DataValue.Flag(p) else DataValue.None` | `Boolean? = null` -> `if (p != null) DataValue.Flag(p) else null` |
+| `choice` | `Choice(listName)` | `<Enum>` -> `DataValue.Choice(p.name)` | `<Enum>?` -> `if (p != null) DataValue.Choice(p.name) else DataValue.None` | `<Enum>? = null` -> `if (p != null) DataValue.Choice(p.name) else null` |
+| `list` of `text` | `ListOf(Text)` | `List<String>` -> `textListValue(p)` | `List<String>?` -> `if (p != null) textListValue(p) else DataValue.None` | `List<String>? = null` -> `if (p != null) textListValue(p) else null` |
+| `list` of `whole` | `ListOf(Whole)` | `List<Long>` -> `wholeListValue(p)` | `List<Long>?` -> `if (p != null) wholeListValue(p) else DataValue.None` | `List<Long>? = null` -> `if (p != null) wholeListValue(p) else null` |
+| `list` of `decimal` | `ListOf(Decimal)` | `List<Double>` -> `decimalListValue(p)` | `List<Double>?` -> `if (p != null) decimalListValue(p) else DataValue.None` | `List<Double>? = null` -> `if (p != null) decimalListValue(p) else null` |
+| `list` of `flag` | `ListOf(Flag)` | `List<Boolean>` -> `flagListValue(p)` | `List<Boolean>?` -> `if (p != null) flagListValue(p) else DataValue.None` | `List<Boolean>? = null` -> `if (p != null) flagListValue(p) else null` |
+| `list` of `choice` | `ListOf(Choice(listName))` | `List<<Enum>>` -> `choiceListValue(p)` | `List<<Enum>>?` -> `if (p != null) choiceListValue(p) else DataValue.None` | `List<<Enum>>? = null` -> `if (p != null) choiceListValue(p) else null` |
+
+Notes on this mapping:
+
+- Catalog format v1 collapses `Int` and `Long` into `whole`, and `Float` and `Double` into `decimal`, with no bit-width field. Bridges therefore use `Long` and `Double`, matching `DataValue.WholeNumber`, `DataValue.DecimalNumber`, `PlacedComponentScope.whole` and `PlacedComponentScope.decimal`. Callers with `Int` or `Float` state pass `.toLong()` or `.toDouble()`, or use `mutableLongStateOf` and `mutableDoubleStateOf`.
+- List elements have no nullability flag in `ValueKind.ListOf`, so list element types in bridges are always non-null.
+- For a parameter that is both optional and nullable (`required = false, nullable = true`), `null` means omitted and the app's default applies, as [contracts/producer-api.md](contracts/producer-api.md#what-a-bridge-gives-the-producer-for-one-callback) already documents.
+- In IR, when `p` is nullable (`Long?`, `Double?`, `Boolean?`, `String?`, `<Enum>?`, `List<T>?`), the non-null branch of `irIfNull` applies `IrTypeOperator.IMPLICIT_NOTNULL` to `irGet(p)` with the non-null `IrType`, so the JVM backend unboxes primitive wrappers (`Long?` -> `long`, `Double?` -> `double`, `Boolean?` -> `boolean`) cleanly. The whole `if` expression goes into a temporary before `mapOf`, for optional and required nullable values alike (see class file size in section 4).
+- Existing T025 slot and action support stays as is until T066 and T076. The `@Composable` type attribute on `ComposableFunction0<Unit>?` (R8a open question) is kept so K2 Compose checkers treat generated slot parameters identically to hand-written `(@Composable () -> Unit)?`.
+
+#### Enum design, module name rule and compiler option
+
+- Location and visibility: each choice list `<ChoiceName>` in a held catalog becomes a top-level `internal enum class <ChoiceName>` in the subpackage `<bridgePackage>.<moduleSegment>`, with `ClassId(FqName("$bridgePackage.$moduleSegment"), Name.identifier(choiceName))`. Its entries have `Visibilities.Public` and `EffectiveVisibility.Internal`; `values()`, `valueOf(String)` and `entries` inherit `EffectiveVisibility.Internal` from `owner.resolvedStatus` via `EnumClassUtils.kt`; its primary constructor is `Visibilities.Private`.
+- Import shape: a server developer imports bridge functions from `<bridgePackage>` and choice enums from `<bridgePackage>.<moduleSegment>`, identically in `main` and `test`:
+
+```kotlin
+import com.example.app.bridge.v3.Greeting
+import com.example.app.bridge.v3.server.Style
+
+@Composable
+fun CheckoutScreen() {
+    Greeting(title = "Order 42", style = Style.titleLarge)
+}
+```
+
+- Separation across catalogs in one module: each held catalog has a distinct `bridgePackage` (case-insensitive check in `BridgeLimits.sharedPackageProblems`), so catalog `"2"` (`com.example.app.bridge.v2.server.Style`) and catalog `"3"` (`com.example.app.bridge.v3.server.Style`) live in different packages and can be imported together with Kotlin import aliases. `BridgeLimits` also rejects any configuration where one catalog's `<bridgePackage>.<moduleSegment>` equals another catalog's `bridgePackage` or `<bridgePackage>.<moduleSegment>` (case-insensitively).
+- Separation across modules: two modules `:checkout` and `:billing` holding the same catalog write `.../checkout/Style.class` and `.../billing/Style.class`, with zero `.class` path overlap even when their catalogs define different entries for `Style`.
+- Derivation of `<moduleSegment>` and `bridgeModule` option: `catalog-model` defines `CompilerPluginOptions.BRIDGE_MODULE = "bridgeModule"`. `gradle-plugin` adds optional `moduleName: Property<String>` to `ProducerSettings` (`ssrCompose { producer { moduleName = "..." } }`). When unset, `gradle-plugin` derives it from `project.path` (and T101 derives it from the toolchain relative module folder path), never from `project.name` or `CommonConfigurationKeys.MODULE_NAME` (whose Gradle value is `"$group:$projectName"` in Kotlin 2.4.21, `klibUtils.kt`, and adds `_test` in test compilations). Normalization rule: lowercase with `Locale.ROOT`, replace every run of characters outside ASCII `a`..`z` and `0`..`9` with one `_`, trim leading and trailing `_`, and map an empty result (`:` root) to `"root"`. When bare `kotlinc` or compile tests omit `bridgeModule`, the compiler plugin normalizes `CommonConfigurationKeys.MODULE_NAME` with the same rule. `BridgeLimits` validates the resulting segment: 1 to 64 ASCII characters (`a`..`z`, `0`..`9`, `_`), starts with `a`..`z`, not a Kotlin hard keyword, and not a Windows device name (`con`, `prn`, `aux`, `nul`, `com1`..`com9`, `lpt1`..`lpt9`). An invalid segment fails compilation with a clear message telling the developer how to set `producer { moduleName = "..." }`. `bridgeModule` is passed as a normal `SubpluginOption` (no machine path, build-cache safe, invalidates compilation when changed).
+- Sharing between `main` and `test`: both `main` and `test` of one module receive the exact same `bridgeModule` value (from `project.path` or `producer { moduleName }`), while keeping different `CommonConfigurationKeys.MODULE_NAME` values (`checkout` vs `checkout_test`) so `BridgeClassRule` keeps bridge function facade classes separate. In `BridgeDeclarationGenerator`, before declaring `enumClassId`, the plugin checks `val existing = session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(enumClassId)`:
+  1. `existing != null` and `existing.moduleData` is in `session.moduleData.friendDependencies` or `session.moduleData.allDependsOnDependencies`: skip declaring `enumClassId` and reuse the existing friend enum. `test` calls both `main`'s screens and `test`'s direct bridges with one `Style` type and writes no duplicate `Style.class`.
+  2. `existing == null`: declare `internal enum class` in this compilation. If only `test` uses a choice list `Tone` that `main` never used, `test` declares `Tone` in the same subpackage.
+  3. `existing != null` and `existing.moduleData` is NOT in `friendDependencies` or `allDependsOnDependencies`: another non-friend module on the classpath already defines `<bridgePackage>.<moduleSegment>.<ChoiceName>`. Do not shadow it; record a collision error naming the choice list, package and `producer { moduleName = "..." }`, reported by a FIR checker when referenced or when any bridge using it is called.
+- Which choice lists and entries are created: a choice list is selected for creation only when a created named component uses it (in a `Choice` or `ListOf(Choice)` parameter) OR when `SourceNameScan` finds its name in the module's source files (added to the single `HashSet<String>` of scanned names with zero extra file reads). For every selected choice list, ALL entries are created in catalog declaration order. Unused choice lists are skipped, preserving SC-016.
+
+### 3. Data flow
+
+1. Configuration (`gradle-plugin` -> `SsrCommandLineProcessor` -> `BridgeRequest`): `SsrSubpluginOptions` resolves `bridgeModule` once per project (same for `main` and `test`), passes it as `SubpluginOption`, and keeps `sourceFolder` and `excludedSources` as `InternalSubpluginOption`. `BridgeRequest` carries `catalogs`, `sourceRoots`, `excludedSources`, `moduleName` (compilation name for `BridgeClassRule`) and `bridgeModule` (enum subpackage segment).
+2. Load and validate (`BridgeCatalogLoader` -> `NamedBridgeComponents`): validate catalog options, shared `bridgePackage`s, `bridgeModule` syntax, and enum-package overlap with other catalogs' `bridgePackage`s. Any option or unreadable-index problem reports a compiler `ERROR` and registers no bridge extensions.
+3. Single-pass source scan (`SourceNameScan`): collect `allComponentNames + allChoiceNames` across held indexes and scan source roots once.
+4. On-demand decode and refusal (`NamedBridgeComponents`): for each held catalog, decode only named components. Collect choice lists used by those components plus choice lists named directly in source. Check `MAX_PARAMETERS` (118), `MAX_FUNCTIONS_PER_CLASS` (150), supported parameter kinds, and `MAX_CHOICE_ENTRIES` (2,000). A component that uses a choice list over 2,000 entries is refused with a clear message naming component, parameter, choice list and limit; an oversized choice list is not declared and its refusal is stored in `BridgeCatalog.enumRefusals`. Unused oversized choice lists produce no error.
+5. FIR declaration (`BridgeDeclarationGenerator`): `hasPackage` matches `catalog.enumPackage.startsWith(packageFqName)` (which covers `bridgePackage` and all prefixes). `getTopLevelClassIds` returns only selected choice lists not already present in `friendDependencies`/`allDependsOnDependencies` and not colliding with non-friend classpath classes. `generateTopLevelClassLikeDeclaration` creates each `internal enum class` with all `FirEnumEntry` declarations (R3 workaround). `generateFunctions` creates each `internal` `@Composable` bridge function with `BridgeParameter.coneType()`, `hasDefaultValue = !parameter.isRequired`, and `@OptIn(InternalSsrComposeApi::class)` when `InternalSsrComposeApi` is on the classpath.
+6. FIR refusal checks (`RefusedBridgeCheckers` and collision check): imports, calls, references or type qualifiers targeting a refused component or a refused/colliding choice enum report `BridgeDiagnostics.UNPLACEABLE_COMPONENT` (or a dedicated refusal diagnostic) with the refusal reason. Mentions in comments or strings stay silent.
+7. IR generation (`BridgeIrGenerationExtension` -> `BridgeBodyGenerator`): `PluginOrderGuard` runs first (if Compose ran first, report `PLUGIN_ORDER` and stop). `visitConstructor` and `visitEnumEntry` populate generated enum constructors and entry initializers. `visitSimpleFunction` sets optional parameter defaults to `null` and emits either `error(unplaceableMessage)` or `ConsumerComponent(catalogVersion = CatalogVersion(key.catalogVersion), name = component.name, values = ..., actions = ..., slots = ...)`.
+8. Runtime (`ConsumerComponent` -> `PlacedNode` -> `PlacedNodeContent`): `ConsumerComponent` strips `null` entries from `values`, `actions` and `slots` while preserving `DataValue.None` and insertion order, updates `PlacedNode.Component`, and `toPlacedComponent()` emits `PlacedComponent(name, values, slots)` directly.
+
+### 4. Constraints and non-functional requirements
+
+All numbers below were measured on 2026-11-19 on macOS, JetBrains Runtime 25.0.4, Kotlin 2.4.21, Compose compiler 2.4.21, Compose runtime 1.12.1 (from `1.12.2` Multiplatform), JVM target 17 (`majorVersion = 61`), using throwaway probes outside tracked files (`probe_limits.py`, `probe_limits2.py`, `probe_plugin.py`, `probe_150.py`, `probe_optin.py`).
+
+#### Opt-in annotation probe (Probe D)
+
+Probed on Kotlin 2.4.21 + Compose 2.4.21 with both `RequiresOptIn.Level.WARNING` and `RequiresOptIn.Level.ERROR` on `ConsumerComponent`, `textListValue` and `UnplaceableBridge`:
+
+- Hand-written caller without `@OptIn`: produced 3 warnings at `Level.WARNING` (exit 0 without `-Werror`, exit 1 with `-Werror`) and 3 errors at `Level.ERROR` (exit 1 without `-Werror`), one each on `@UnplaceableBridge`, `ConsumerComponent` and `textListValue`.
+- Hand-written caller with `@OptIn(InternalSsrComposeApi::class)`: compiled with exit 0 under `-Werror` at both levels.
+- Server caller calling a generated bridge function under `-Werror` with no opt-in of its own: compiled with exit 0 at both levels, both when the plugin attached `@OptIn(InternalSsrComposeApi::class)` in FIR (`addOptIn = true`) and when it did not (`addOptIn = false`). On Kotlin 2.4.21, FIR opt-in checkers run on user source files and do not check plugin-generated IR bodies or synthetic plugin files; attaching `@OptIn(InternalSsrComposeApi::class)` in FIR still keeps the FIR declaration properly opted-in (including for `@UnplaceableBridge`) and guards against future compiler or IDE checkers inspecting generated FIR declarations.
+- Bytecode check (`javap -v` on `Bridge0_serverKt.class`): `kotlin/OptIn` is absent from the `.class` file (`AnnotationRetention.SOURCE`), while `UnplaceableBridge` is present (`AnnotationRetention.BINARY`), confirming zero constant pool slots and zero bytecode cost from `@OptIn`.
+
+#### Enum static initializer and constant pool limits (Probes A1, A1b and B)
+
+Each enum entry beyond index 127 adds 16 bytes to `<clinit>`, 8 bytes to `$values` and 4 constant pool entries (measured with 64-character distinct entry names):
+
+| Entries | Constant pool (max 65,535) | Fields (max 65,535) | `<clinit>` bytes (ceiling 32,767 / max 65,535) | `$values` bytes | Result |
+|---|---|---|---|---|---|
+| 100 (hand-written) | 478 | 102 | 1,513 | 702 | Compiles |
+| 1,000 (hand-written) | 4,078 | 1,002 | 15,885 | 7,875 | Compiles |
+| 2,000 (hand-written) | 8,078 | 2,002 | 31,885 | 15,875 | Compiles |
+| 2,000 (plugin-generated, Probe B) | 8,078 | 2,002 | 31,885 | 15,875 | Compiles and loads (`entries.size == 2000`) |
+| 2,055 (hand-written) | 8,298 | 2,057 | 32,765 | 16,315 | Last count within 32,767 ceiling |
+| 2,056 (hand-written) | 8,302 | 2,058 | 32,781 | 16,323 | Exceeds 32,767 ceiling |
+| 4,103 (hand-written) | 16,490 | 4,105 | 65,533 | 32,699 | Last count within JVM 65,535 limit |
+| 4,104 (hand-written) | - | - | > 65,535 | - | Compiler crash (`Error generating class file`) |
+
+`<clinit>` `code_length` is the binding JVM limit, not the constant pool (which is at 12.3% at 2,000 entries). Setting `BridgeLimits.MAX_CHOICE_ENTRIES = 2_000` gives 882 bytes of margin below our 32,767 ceiling and 33,650 bytes below the JVM hard limit.
+
+#### Bridge method and 150x118 class limits with new kinds (Probes A2 and C)
+
+Measured with `ConsumerComponent(CatalogVersion("1"), name, values = mapOf(...))`, 150 functions per class, 118 parameters per function, distinct 64-character parameter names and `sourceInformation=true`:
+
+| Shape (150 functions x 118 parameters) | Constant pool (max 65,535) | Methods | Max `code_length` (ceiling 32,767) | Max `parameterUnits` (max 255) | `arrayDimensions` | `max_locals` | Longest UTF-8 |
+|---|---|---|---|---|---|---|---|
+| Required `Long` | 55,709 | 300 | 7,228 | 250 | 0 | 262 | 65,535 |
+| Required nullable `Long?` (`DataValue.None`) | 55,723 | 300 | 9,119 | 132 | 0 | 144 | 65,535 |
+| Optional `Long? = null` | 55,730 | 300 | 11,684 | 136 | 0 | 148 | 65,534 |
+| Required `Choice` | 55,728 | 300 | 8,971 | 132 | 0 | 144 | 65,535 |
+| Optional `Choice? = null` | 55,736 | 300 | 13,930 | 136 | 0 | 148 | 65,534 |
+| Required `List<Choice>` (helper) | 55,732 | 300 | 9,887 | 132 | 0 | 144 | 65,535 |
+| Optional `List<Choice>? = null` (helper) | 55,734 | 300 | 13,242 | 136 | 0 | 148 | 65,534 |
+| Optional `List<String>? = null` (helper) | 55,733 | 300 | 13,242 | 136 | 0 | 148 | 65,534 |
+| Optional `List<String>? = null` (inline `.map`) | > 65,535 | - | 29,565 (1 fn) | 136 | 0 | 282 | - (crashes at 150 fns) |
+
+Probe A2 also compared `mapOf(...)` against parallel `arrayOf(names), arrayOf(values)` at 118 parameters: `mapOf` was 217 to 460 bytes smaller per method across every shape (`req_Long` 7,134 vs 7,594; `opt_Long` 11,596 vs 11,813; `opt_ListText_helper` 13,153 vs 13,373). `Double` matched `Long` identically (`req_Double` 250 units, `opt_Double` 136 units), and `Boolean` used 132/136 units. These byte counts were measured with inline branches. With temporaries, T048 Slice 1 measured the whole class of one 118-parameter bridge at 94 KB with `mapOf`, against 89 KB for the T025 arrays.
+
+- Both `MAX_PARAMETERS = 118` and `MAX_FUNCTIONS_PER_CLASS = 150` hold for the constant pool and `code_length` of every new kind when list helpers are used. The optional and required nullable rows above were measured with inline branches. Class file size for the new kinds is unproven until recheck item 2.
+- Class file size: every value whose expression branches, optional or required nullable, of every kind, goes into a temporary before the `mapOf(...)` call. A branch evaluated inside the `mapOf` arguments, with the vararg array on the operand stack, makes the JVM write a full stack map frame that lists every local, once per branch. Measured by T048 Slice 1 on 2026-11-19 with `javap` on one bridge of 118 optional text parameters: 187 KB with the branches inline (356 full frames), 94 KB with temporaries (122 full frames), and 89 KB for the T025 array body on `80d61eed`. At 150 functions the inline form wrote a 26.7 MB class (27.9 MB with source information), which the compiler cannot read back: IntelliJ's file loader refuses files over about 20 MB with `FileTooBigException`. Probes A2 and C did not measure the class file size.
+- `arrayDimensions` is 0 for all `List<T>` parameters because `List<T>` erases to `java.util.List`.
+- SC-016 (2 seconds on 20,000 components): adding choice list names to the single `SourceNameScan` pass adds no file I/O, and decoding only used choice lists creates only the enums the module references. Trade-off: full re-verification on the real plugin runs in `:compiler-plugin:scaleTest`.
+- Build cache relocatability: `bridgeModule` holds only a normalized identifier (no paths or timestamps).
+
+#### Recheck plan T048 must execute on the real plugin
+
+1. Extend `BridgeLimitsTest.SHAPES` (unit tests, 118 parameters) with required, optional and required-nullable `Whole`, `Decimal`, `Flag`, `Choice`, `ListOf(Text)` and `ListOf(Choice)`, asserting JVM major version 61, class load, `codeLength <= 32_767`, `parameterUnits <= 255` and `arrayDimensions == 0`.
+2. Extend `BridgeLimitsTest.WIDEST_SHAPES` (`scaleTest`, 150 functions x 118 parameters, `sourceInformation` false and true) with required `Whole`, required nullable `Whole`, optional `Choice`, optional `ListOf(Choice)` and mixed new kinds, asserting all JVM limits and `assertMetadataReadsBack`, and record the real plugin numbers in R16. Measure the class file size next to the constant pool and `code_length`: the read-back compile fails above about 20 MB.
+3. Add enum limit tests in `BridgeLimitsTest`: 2,000 entries with 64-character names compiles, loads and stays within `<clinit> <= 32_767` and `constantPoolCount <= 65_535`; 2,001 entries fails cleanly when used and passes when unused or only in comments; 64 three-byte character choice name fits in 255 byte file name; invalid `bridgeModule` values and enum-package overlaps fail cleanly.
+4. Re-run `:compiler-plugin:scaleTest` and update R16's real plugin numbers and "Not checked" list.
+
+### 5. Invariants
+
+- Every bridge function and choice enum created for a server module is `internal`; another module without `friendPaths` cannot call the bridge or reference the enum (`TwoModuleBridgeTest`).
+- Two server modules with distinct `bridgeModule` values holding the same catalog and `bridgePackage`, even with different entries for one choice list, write disjoint `.class` paths and run together on one classpath without `NoSuchFieldError` (`TwoModuleBridgeTest`).
+- `main` and `test` of one module share one `Class<*>` for every choice enum compiled in `main`, and `test` writes no duplicate `.class` file for it (`NamedBridgeCreationTest` and Gradle TestKit test).
+- Every created choice enum contains all entries of its choice list in exact catalog declaration order (`BridgeGenerationTest`).
+- A required nullable parameter passed `null` produces `DataValue.None` in `PlacedComponent.values`; an omitted or `null` optional parameter (value, choice, list, action/callback, slot) is absent from `PlacedComponent` (`ConsumerComponentTest`, `BridgeCompositionTest`).
+- Created bridge code references only `core`, `producer` and Kotlin stdlib types, never `catalog-model` or `consumer` (`BridgeGenerationTest` and Gradle dependency check).
+- Server screens calling generated bridges compile cleanly under `-Werror` with no opt-in, while hand calls to `ConsumerComponent`, list helpers or `@UnplaceableBridge` emit an opt-in warning unless annotated with `@OptIn(InternalSsrComposeApi::class)` (`InternalSsrComposeApiTest`).
+- Every generated class file targets JVM 17 (version 61) and stays within `constant_pool_count <= 65_535`, `code_length <= 32_767`, `parameterUnits <= 255`, `arrayDimensions == 0`, a class file size below 10 MB (half the read-back limit of about 20 MB), and 255 byte path segments (`BridgeLimitsTest` and `scaleTest`).
+- No change in `core`, `consumer`, or `compiler-plugin/.../compiler/consumer/` (`git diff --stat`).
+
+### 6. Risks and edge cases
+
+- Gradle incremental compilation when `main` begins using an enum previously generated only by `test`: Probe B proved fresh `K2JVMCompiler` compilations reuse `main`'s enum and emit no `Style.class` in `test`, but Gradle's incremental compiler deleting a previously written `test/classes/.../Style.class` is unproven. T048 must add a Gradle TestKit incremental test covering that transition.
+- Two independent modules whose paths normalize to the same `<moduleSegment>` (`:my-app` and `:my_app`): if one depends on the other, the non-friend classpath collision check catches it at compile time; if neither depends on the other and both land on one runtime classpath, they share the same enum `.class` path (same known limit as R16 line 972 for bridge functions). Setting `producer { moduleName = "..." }` resolves it.
+- Public screen signatures referencing generated enums: a `public` screen `@Composable fun HomeScreen()` can use `Style` in its body, while a function exposing `Style` in its signature (parameter or return type) must be `internal`, enforced by Kotlin. This is desirable because per-module enums must not leak across module boundaries.
+- IDE behavior with generated enums (R3 workaround): unproven in IntelliJ IDEA 2026.3. T106 tracks manual IDE verification; R3 documents the typed-API class-with-constants fallback if a future Kotlin release or IDE breaks `FirEnumEntry` generation.
+- `ConsumerComponent` binary compatibility with T050: T050 intentionally keeps T025's array `ConsumerComponent`. T048 Slice 1 must land after T050 (or rebase on T050) and update `ConsumerComponentTest`, `BridgeCompositionTest` and `TwoModuleBridgeTest` in the same slice so every commit builds cleanly.
+- Choice list name matching a component name in the same catalog: safe because bridge functions live in `<bridgePackage>` and choice enums live in `<bridgePackage>.<moduleSegment>`.
+- `Long` and `Double` narrowing on the consumer side: catalog format v1 does not record `Int` vs `Long` or `Float` vs `Double`. Consumer renderers (T055) and hand-written bindings read `Long`/`Double` from `PlacedComponentScope` and check range when converting to `Int`/`Float`.
+
+### 7. Rejected alternatives
+
+- Nested enums in a module-named outer class (`<bridgePackage>.<ModuleOuter>.<ChoiceName>`): turned down in [ADR 0010](../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md) due to `main`/`test` `NestHost` conflict, 255 byte `<Outer>$<Choice>.class` contention, outer class constant pool limit, PascalCase component name collisions, and untested nested FIR enum generation.
+- Top-level `internal typealias <ChoiceName>` in `<bridgePackage>`: turned down in [ADR 0010](../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md) after reading Kotlin 2.4.21 `FrontendFilesForPluginsGenerationPipelinePhase.kt`, which emits `<bridgePackage>/<ChoiceName>Kt.class` for top-level typealiases and reintroduces the cross-module `.class` collision.
+- Deriving the enum package from `CommonConfigurationKeys.MODULE_NAME`: turned down in [ADR 0010](../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md) after reading Kotlin Gradle plugin `klibUtils.kt`, which sets `-module-name` to `"$group:$projectName"` and appends `_test` in tests.
+- Creating only the enum entries a module mentions in source: turned down because it breaks `main`/`test` sharing when `test` uses another entry, breaks `entries`/`values()`/`valueOf`/exhaustive `when` and ordinals, causes ABI churn on every new entry use, and saves negligible compile time.
+- Keeping T025's parallel arrays (`valueNames`/`values`) on `ConsumerComponent`: turned down because Probe A2 measured `mapOf(...)` 217 to 460 bytes smaller per 118-parameter bridge method with inline branches (with temporaries the whole class is 5% larger than with the arrays, see section 4), avoids parallel-array misalignment bugs in hand-written bridges, and matches [contracts/producer-api.md](contracts/producer-api.md).
+- Inlining `list.map { DataValue.<Kind>(it) }` in bridge bodies: turned down because Probe C proved it overflows the 65,535 constant pool limit at 150 functions x 118 parameters (`Error generating class file`) and consumes 29,565 / 32,767 bytes per method.
+- Generating `Int`/`Long` or `Float`/`Double` overloads per whole/decimal parameter: turned down because $k$ parameters produce $2^k$ overloads, immediately breaking the 150-function class limit.
+- `RequiresOptIn.Level.ERROR` on `InternalSsrComposeApi`: turned down in favour of `Level.WARNING` to match the owner's stated warning behavior (`1ccz50n1`) and keep hand-written bridges gentle without `-Werror`; tightening to `ERROR` later is a one-line change if needed.
+- Global `compilerOptions.optIn` in `compiler-plugin` tests or server modules: turned down because it would mask accidental opt-in propagation from generated bridges to server callers.
+
+### 8. Slices and delivery plan
+
+Each slice delivers one mechanism, is test-first, buildable, and reviewable alone:
+
+1. Producer `ConsumerComponent` map API, `PlacedNode` with `DataValue` and `CatalogVersion`, `ListValues` helpers, and `@InternalSsrComposeApi` opt-in annotation on `ConsumerComponent`, the five list helpers and `UnplaceableBridge`, plus `@OptIn(InternalSsrComposeApi::class)` on generated bridge functions in FIR (`producer` + update existing `BridgeDeclarationGenerator`, `BridgeBodyGenerator` and `BridgeCompositionTest` so the build stays green). Covers required-nullable `DataValue.None` vs absent `null` for values, actions and slots (T038, FR-062).
+2. Scalar value kinds (`Whole` -> `Long`, `Decimal` -> `Double`, `Flag` -> `Boolean`) plus required-nullable support for all scalar kinds (`Text`, `Whole`, `Decimal`, `Flag`) in `BridgeParameterMapping`, `BridgeDeclarationGenerator` and `BridgeBodyGenerator`, with compile, composition and refusal tests.
+3. List value kinds (`ListOf` of `Text`, `Whole`, `Decimal`, `Flag`, including required-nullable and optional) wired through `ListValues` helpers, with compile and composition tests.
+4. `bridgeModule` compiler option (`catalog-model`, `gradle-plugin` `ProducerSettings.moduleName` + `SsrSubpluginOptions`, `SsrCommandLineProcessor`, `BridgeEnumPackageRule`, `BridgeLimits` validation and overlap check), with unit and Gradle TestKit tests.
+5. Per-module `internal enum class` generation in `<bridgePackage>.<moduleSegment>` for `Choice` and `ListOf(Choice)` parameters (all entries in declaration order, on-demand selection via `SourceNameScan` + used components, `MAX_CHOICE_ENTRIES = 2_000` refusal + `RefusedBridgeCheckers`, IR constructor/entry/value conversion), with compile, composition, exhaustive `when`, `entries`/`valueOf` and two-module isolation tests.
+6. `main` and `test` friend enum reuse (`session.dependenciesSymbolProvider` against `friendDependencies` / `allDependsOnDependencies`) and non-friend classpath collision refusal, with compile tests and Gradle TestKit incremental tests (including the `test`-only -> `main`-also transition).
+7. JVM 17 limit recheck and scale verification (`BridgeLimitsTest`, `scaleTest`, `BridgeGenerationTest` of T036), recording final real-plugin numbers in R16. It adds the class file size check to `BridgeLimitsTest`. Until then only the `scaleTest` read-back compile guards the size, and it fails only above about 20 MB.
+
+Approved by the owner on 2026-11-19 to ship as four pull requests in this order:
+
+1. PR 1: `ConsumerComponent` map API, list helpers and `@InternalSsrComposeApi` opt-in annotation (Slice 1). Starts after T050 merges.
+2. PR 2: scalar and list kinds (Slices 2 and 3).
+3. PR 3: `bridgeModule` option, per-module choice enums, and `main` and `test` reuse (Slices 4, 5 and 6).
+4. PR 4: JVM limit recheck and scale numbers (Slice 7).
+
+### 9. Validation checklist
+
+Numbered points checked in validate mode against the T048 delivery:
+
+1. `ConsumerComponent` in `producer` has the map-based signature (`catalogVersion: CatalogVersion`, `name: String`, `values: Map<String, DataValue?> = emptyMap()`, `actions: Map<String, RemoteAction1<String>?> = emptyMap()`, `slots: Map<String, (@Composable () -> Unit)?> = emptyMap()`); T025's parallel-array entry point is deleted.
+2. `PlacedNode.Component` holds `catalogVersion: CatalogVersion` and `values: Map<String, DataValue>`, and `PlacedNodeContent.toPlacedComponent()` passes `values` directly without wrapping in `DataValue.Text`.
+3. Passing `null` to a required nullable parameter puts `DataValue.None` into `PlacedComponent.values`; omitting or passing `null` to an optional parameter (value, choice, list, action, slot) leaves it absent from `PlacedComponent` (FR-062, T038).
+4. `producer` provides public `textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue` and `choiceListValue`, and `BridgeBodyGenerator` calls them instead of inlining `list.map`.
+5. `producer` defines `@InternalSsrComposeApi` with `@RequiresOptIn(level = RequiresOptIn.Level.WARNING)` and `AnnotationRetention.BINARY`, applied to `ConsumerComponent`, all five list helpers and `UnplaceableBridge` (and NOT to `Producer`, `ProducerLimits`, `ProducerObserver`, `LocalConsumer`, `Consumer` or `RemoteAction*`).
+6. `BridgeDeclarationGenerator` attaches `@OptIn(InternalSsrComposeApi::class)` (never `@InternalSsrComposeApi` itself) to generated bridge functions when `InternalSsrComposeApi` is on the classpath; server callers of generated bridges compile cleanly under `-Werror` with no opt-in, while hand calls to `ConsumerComponent`, a list helper or `@UnplaceableBridge` warn without `@OptIn` and compile cleanly under `-Werror` with `@OptIn(InternalSsrComposeApi::class)`. Hand-written tests opt in locally rather than via global `compilerOptions.optIn`.
+7. Every `Parameter.Value` kind (`Text`, `Whole`, `Decimal`, `Flag`, `Choice`, `ListOf` of each) maps to the exact Kotlin type and `DataValue` expression in section 2, including required, required-nullable, optional and optional-nullable, and rejects wrong types, wrong names and missing required parameters at compile time (SC-004).
+8. `CompilerPluginOptions.BRIDGE_MODULE` exists in `catalog-model`; `gradle-plugin` exposes optional `ProducerSettings.moduleName`, derives the default from `project.path` (`:` -> `"root"`, lowercase non-alnum runs to `_`, trimmed), and passes the same `bridgeModule` `SubpluginOption` to `main` and `test` with no machine paths.
+9. `BridgeLimits` validates `bridgeModule` (1 to 64 ASCII `a-z0-9_`, starts with `a-z`, not a Kotlin hard keyword, not a Windows device name) and rejects any catalog enum package overlapping another catalog's `bridgePackage` or enum package (case-insensitively).
+10. Choice enums are created as top-level `internal enum class <ChoiceName>` in `<bridgePackage>.<moduleSegment>` with all entries in catalog declaration order; `entries`, `values()`, `valueOf` and exhaustive `when` work; external non-friend modules fail to access them.
+11. Choice lists are created on demand (only when used by a created named component or named in `SourceNameScan`); unused choice lists, including ones over 2,000 entries, do not fail the build.
+12. Two modules holding the same catalog and `bridgePackage` with different entries for one choice list produce disjoint `.class` paths and run together on one classpath without `NoSuchFieldError`.
+13. Two catalogs in one module with different `bridgePackage`s keep same-named choice enums apart and compile side by side.
+14. A `test` compilation with `main` in `friendPaths` reuses `main`'s compiled enum (same `Class<*>`, no duplicate `.class` in `test`), still creates extra enums that only `test` uses in the same subpackage, and a Gradle TestKit test covers the incremental transition when `main` starts using an enum that only `test` used; a non-friend classpath collision reports a clear compile error naming `producer { moduleName }`.
+15. `BridgeLimits.MAX_CHOICE_ENTRIES = 2_000` is enforced: 2,000 entries with 64-character names compiles, loads and stays within `<clinit> <= 32_767`; 2,001 entries fails cleanly when used and passes when unused or only mentioned in comments.
+16. `BridgeLimitsTest` and `scaleTest` prove 118 parameters, 150 functions per class (`constant_pool_count <= 65_535`), `code_length <= 32_767`, `parameterUnits <= 255`, `arrayDimensions == 0`, a class file size below 10 MB and JVM version 61 on the real plugin for the new kinds, and R16 is updated with the measured numbers.
+17. Created code references no class outside `core`, `producer` and Kotlin stdlib; `git diff` touches nothing in `core`, `consumer`, or `compiler-plugin/.../compiler/consumer/`.
 
 ## R19. Text the user reads and the look of the problem message (#196)
 
