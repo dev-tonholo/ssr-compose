@@ -10,7 +10,7 @@ internal object BridgeLimits {
     /** Keeps the parameter slots of the worst shape, every parameter optional and wide, within the JVM's 255. */
     const val MAX_PARAMETERS = 118
 
-    /** Keeps the constant pool of a class of the largest bridges within the JVM's 65,535 entries. */
+    /** Keeps the constant pool of a class of the largest bridges within the JVM's 65,534 entries. */
     const val MAX_FUNCTIONS_PER_CLASS = 150
 
     /** Keeps the folders of a bridge package within what file systems allow for one file name. */
@@ -43,9 +43,24 @@ internal object BridgeLimits {
                     "Each held catalog needs its own bridge package."
             }
 
-    /** Returns every limit the bridges of [components] break. */
-    fun componentProblems(components: List<BridgeComponent>): List<String> =
-        components.mapNotNull(::parameterProblem) + classProblems(components = components)
+    /** Returns why a component of [parameterCount] parameters cannot get a bridge, or null when it can. */
+    fun parameterRefusal(componentName: String, parameterCount: Int): String? {
+        if (parameterCount <= MAX_PARAMETERS) return null
+        return "The composable '$componentName' has $parameterCount parameters, " +
+            "and a bridge can have at most $MAX_PARAMETERS."
+    }
+
+    /** Returns the refusal of each of [componentNames] whose bridge class would hold too many functions. */
+    fun classRefusals(componentNames: List<String>, classRule: BridgeClassRule): Map<String, String> =
+        componentNames.groupBy { name -> classRule.fileNameOf(componentName = name) }
+            .filterValues { names -> names.size > MAX_FUNCTIONS_PER_CLASS }
+            .flatMap { (fileName, names) ->
+                names.map { name ->
+                    name to "The composable '$name' cannot get a bridge: the bridge class ${fileName}Kt would hold " +
+                        "${names.size} functions, and one class can hold at most $MAX_FUNCTIONS_PER_CLASS."
+                }
+            }
+            .toMap()
 
     private fun versionProblem(version: String): String? =
         try {
@@ -83,19 +98,4 @@ internal object BridgeLimits {
         }
     }
 
-    private fun parameterProblem(component: BridgeComponent): String? {
-        val count = component.parameters.size
-        if (count <= MAX_PARAMETERS) return null
-        return "The composable '${component.name}' has $count parameters, " +
-            "and a bridge can have at most $MAX_PARAMETERS."
-    }
-
-    private fun classProblems(components: List<BridgeComponent>): List<String> =
-        components.groupingBy { BridgeClassRule.fileNameOf(componentName = it.name) }
-            .eachCount()
-            .filterValues { count -> count > MAX_FUNCTIONS_PER_CLASS }
-            .map { (fileName, count) ->
-                "The bridge class ${fileName}Kt would hold $count functions, " +
-                    "and one class can hold at most $MAX_FUNCTIONS_PER_CLASS."
-            }
 }

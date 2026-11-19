@@ -4,11 +4,11 @@ package dev.tonholo.ssrcompose.compiler.producer.fir
 
 import dev.tonholo.ssrcompose.compiler.fir.buildComposableAnnotation
 import dev.tonholo.ssrcompose.compiler.producer.BridgeCatalog
-import dev.tonholo.ssrcompose.compiler.producer.BridgeClassRule
 import dev.tonholo.ssrcompose.compiler.producer.BridgeComponent
 import dev.tonholo.ssrcompose.compiler.producer.BridgeParameter
 import dev.tonholo.ssrcompose.compiler.producer.BridgeParameterKind
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.utils.fileNameForPluginGeneratedCallable
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
@@ -33,7 +33,7 @@ internal class BridgeDeclarationGenerator(
     private val componentsById: Map<CallableId, BridgeComponent> =
         catalog.components.associateBy { CallableId(catalog.bridgePackage, Name.identifier(it.name)) }
 
-    override fun hasPackage(packageFqName: FqName): Boolean = packageFqName == catalog.bridgePackage
+    override fun hasPackage(packageFqName: FqName): Boolean = catalog.bridgePackage.startsWith(packageFqName)
 
     override fun getTopLevelCallableIds(): Set<CallableId> = componentsById.keys
 
@@ -47,6 +47,7 @@ internal class BridgeDeclarationGenerator(
             callableId = callableId,
             returnType = session.builtinTypes.unitType.coneType,
         ) {
+            visibility = Visibilities.Internal
             component.parameters.forEach { parameter ->
                 valueParameter(
                     name = Name.identifier(parameter.name),
@@ -55,7 +56,7 @@ internal class BridgeDeclarationGenerator(
                 )
             }
         }
-        function.fileNameForPluginGeneratedCallable = BridgeClassRule.fileNameOf(componentName = component.name)
+        function.fileNameForPluginGeneratedCallable = catalog.classRule.fileNameOf(componentName = component.name)
         function.replaceAnnotations(listOf(buildComposableAnnotation()))
         unplaceableBridgeMarker.mark(function = function, component = component)
         return listOf(function.symbol)

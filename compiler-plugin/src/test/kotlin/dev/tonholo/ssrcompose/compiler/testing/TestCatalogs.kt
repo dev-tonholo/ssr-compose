@@ -78,6 +78,13 @@ internal object TestCatalogs {
             ),
         )
 
+    /** A source file that mentions [names], so the plugin creates their bridges without any call to them. */
+    fun sourceNaming(names: List<String>): String {
+        // language=kotlin
+        val source = "package app\n\n// ${names.joinToString(separator = " ")}\nval anchor: Int = 1\n"
+        return source
+    }
+
     /** Writes the index of [catalog] to a temporary file and returns its path. */
     fun indexPath(catalog: Catalog): String =
         File.createTempFile("catalog", ".index").run {

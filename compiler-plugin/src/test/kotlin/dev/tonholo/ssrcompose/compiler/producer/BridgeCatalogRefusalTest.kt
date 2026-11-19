@@ -137,7 +137,7 @@ class BridgeCatalogRefusalTest {
     private fun compileHolding(option: CatalogOptionValue): JvmCompilationResult =
         CompileTestSupport().compileSource(
             fileName = "Anchor.kt",
-            source = ANCHOR_SOURCE,
+            source = CALLER_SOURCE,
             options = producerOptions(option),
         )
 
@@ -151,7 +151,17 @@ class BridgeCatalogRefusalTest {
         const val UNREADABLE_VERSION = "The index of catalog version 1 cannot be read"
 
         // language=kotlin
-        const val ANCHOR_SOURCE = "package app\n\nval anchor: Int = 1\n"
+        const val CALLER_SOURCE = """
+            package app
+
+            import androidx.compose.runtime.Composable
+            import app.bridge.refused.Refused
+
+            @Composable
+            fun Screen() {
+                Refused()
+            }
+        """
 
         const val LONG_LIST_NAME = "ChoiceListWithAVeryLongNameThatAnErrorMessageMustNotRepeatEver"
         const val MANY_ARGUMENTS = 5_000

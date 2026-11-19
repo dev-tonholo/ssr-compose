@@ -27,6 +27,7 @@ class UnplaceableBridgeRunTimeTest {
         val callerModule = callerSupport.compile(
             fixtureName = CALLER_RUNNER,
             classpath = listOf(bridgeModule.outputDirectory),
+            friendPaths = listOf(bridgeModule.outputDirectory),
         )
         val outputs = listOf(callerModule.outputDirectory, bridgeModule.outputDirectory)
         val loader = URLClassLoader(outputs.map { it.toURI().toURL() }.toTypedArray(), javaClass.classLoader)

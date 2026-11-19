@@ -22,8 +22,6 @@ import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class BridgeScaleTest {
@@ -31,20 +29,7 @@ class BridgeScaleTest {
     lateinit var workDir: File
 
     @Test
-    fun `given code that names two components, when the plugin compiles it, then every component gets a function`() {
-        // Arrange
-        val scenario = smallScenario()
-
-        // Act
-        val result = scenario.compileFullCatalog()
-
-        // Assert
-        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
-        assertEquals(expected = SMALL_COMPONENTS, actual = scenario.createdBridgeCount(result = result))
-    }
-
-    @Test
-    fun `given bridge functions spread over classes, when compiled, then every component still gets a function`() {
+    fun `given code that names two components, when compiled, then only those two get a function`() {
         // Arrange
         val scenario = smallScenario()
 
@@ -52,51 +37,14 @@ class BridgeScaleTest {
         val result = scenario.compile(case = CompileCase.OneFullCatalog)
 
         // Assert
-        assertEquals(expected = SMALL_COMPONENTS, actual = scenario.createdBridgeCount(result = result))
-    }
-
-    @Test
-    fun `given creation limited to named components, when compiled, then only the named components get a function`() {
-        // Arrange
-        val scenario = smallScenario()
-
-        // Act
-        val result = scenario.compile(case = CompileCase.OneFullCatalogNamedOnly)
-
-        // Assert
         assertEquals(expected = SMALL_CALLED, actual = scenario.createdBridgeCount(result = result))
-    }
-
-    @Test
-    fun `given named only creation, when a second module calls a name the first names, then it compiles`() {
-        // Arrange
-        val scenario = smallScenario()
-
-        // Act
-        val result = scenario.compileSecondModuleCallingNamedComponent()
-
-        // Assert
-        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
-    }
-
-    @Test
-    fun `given named only creation, when a second module calls a name the first does not name, then it fails`() {
-        // Arrange
-        val scenario = smallScenario()
-
-        // Act
-        val result = scenario.compileSecondModuleCallingUnnamedComponent()
-
-        // Assert
-        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
-        assertTrue(actual = result.messages.contains(UNRESOLVED_REFERENCE), message = result.messages)
     }
 
     @Test
     fun `given a change to a component nobody calls, when compiled again, then the caller classes stay the same`() {
         // Arrange
         val scenario = smallScenario()
-        val before = scenario.callerClasses(result = scenario.compileFullCatalog())
+        val before = scenario.callerClasses(result = scenario.compile(case = CompileCase.OneFullCatalog))
 
         // Act
         val after = scenario.callerClasses(result = scenario.compileWithOneUncalledComponentChanged())
@@ -109,18 +57,20 @@ class BridgeScaleTest {
     }
 
     @Test
-    fun `given a change to one component, when compiled again, then the bridge classes change`() {
+    fun `given a change to a component nobody calls, when compiled again, then the bridge classes stay the same`() {
         // Arrange
         val scenario = smallScenario()
-        val before = scenario.bridgeClasses(result = scenario.compileFullCatalog())
+        val before = scenario.bridgeClasses(result = scenario.compile(case = CompileCase.OneFullCatalog))
 
         // Act
         val after = scenario.bridgeClasses(result = scenario.compileWithOneUncalledComponentChanged())
 
         // Assert
         assertEquals(expected = before.keys, actual = after.keys)
-        val changed = before.keys.filterNot { name -> before.getValue(name).contentEquals(after[name]) }
-        assertFalse(actual = changed.isEmpty(), message = "No bridge class changed")
+        assertTrue(actual = before.isNotEmpty())
+        before.forEach { (name, bytes) ->
+            assertContentEquals(expected = bytes, actual = after.getValue(name), message = name)
+        }
     }
 
     @Test
@@ -168,26 +118,11 @@ class BridgeScaleTest {
 
     @Tag(SCALE_TAG)
     @Test
-    fun `given the full catalog, when every function is put in one class, then the compile fails`() {
-        // Arrange
-        val scenario = fullScenario()
-
-        // Act
-        val result = scenario.compileFullCatalogInOneClass()
-
-        // Assert
-        println("SCALE | one class for every function | exit code ${result.exitCode}")
-        assertNotEquals(illegal = ExitCode.OK, actual = result.exitCode)
-        assertTrue(actual = result.messages.contains(CLASS_TOO_LARGE), message = result.messages.take(MESSAGE_START))
-    }
-
-    @Tag(SCALE_TAG)
-    @Test
     fun `given the full catalog, when the cheap cases are compiled in rotation, then their cost is reported`() {
         // Arrange
         val scenario = fullScenario()
+        val created = scenario.createdBridgeCount(result = scenario.compile(case = CompileCase.OneFullCatalog))
         val actions = CompileCase.entries
-            .filterNot { case -> case in EVERY_BRIDGE_CASES }
             .associate { case ->
                 val compile: () -> Unit = { scenario.compile(case = case) }
                 "compile ${case.name}" to compile
@@ -198,31 +133,8 @@ class BridgeScaleTest {
 
         // Assert
         reports.forEach { report -> println(report.toLine()) }
+        assertEquals(expected = FULL_CALLED, actual = created)
         assertEquals(expected = actions.keys.toList(), actual = reports.map { it.label })
-    }
-
-    @Tag(SCALE_TAG)
-    @Test
-    fun `given the full catalog, when every bridge is created, then the cost of each case is reported`() {
-        // Arrange
-        val scenario = fullScenario()
-
-        EVERY_BRIDGE_CASES.forEach { case ->
-            // Act
-            val report = ScaleMeasurement.measure(label = "compile ${case.name}", plan = planFor(case = case)) {
-                scenario.compile(case = case)
-            }
-
-            // Assert
-            println(report.toLine())
-        }
-        val allCreated = scenario.createdBridgeCount(result = scenario.compile(case = CompileCase.OneFullCatalog))
-        val namedCreated = scenario.createdBridgeCount(
-            result = scenario.compile(case = CompileCase.OneFullCatalogNamedOnly),
-        )
-        println("SCALE | created bridge functions | all $allCreated | named only $namedCreated")
-        assertEquals(expected = FULL_COMPONENTS, actual = allCreated)
-        assertEquals(expected = FULL_CALLED, actual = namedCreated)
     }
 
     private fun measureIndex(catalog: Catalog, readBundle: () -> Catalog): ByteArray {
@@ -265,9 +177,6 @@ class BridgeScaleTest {
     private fun decodedComponents(index: CatalogIndex): Map<String, ComponentDescriptor?> =
         index.componentNames.associateWith { name -> index.component(name = name) }
 
-    private fun planFor(case: CompileCase): MeasurementPlan =
-        if (case.isHeavy) HEAVY_COMPILE_PLAN else COMPILE_PLAN
-
     private fun fullScenario() = BridgeScaleScenario(
         workDir = workDir,
         components = FULL_COMPONENTS,
@@ -293,9 +202,6 @@ class BridgeScaleTest {
 
     private companion object {
         const val SEED = 20_000L
-        const val CLASS_TOO_LARGE = "Class too large"
-        const val UNRESOLVED_REFERENCE = "Unresolved reference"
-        const val MESSAGE_START = 2_000
         const val SMALL_COMPONENTS = 60
         const val SMALL_PARTS = 3
         const val SMALL_CALLED = 2
@@ -305,9 +211,6 @@ class BridgeScaleTest {
         const val FULL_CALLED = 20
         const val FULL_CALLING_FUNCTIONS = 400
         val FORMAT_PLAN = MeasurementPlan(warmups = 5, runs = 7)
-        val EVERY_BRIDGE_CASES = listOf(CompileCase.OneFullCatalog, CompileCase.TenFullCatalogs)
         val ROTATION_PLAN = MeasurementPlan(warmups = 5, runs = 12)
-        val COMPILE_PLAN = MeasurementPlan(warmups = 3, runs = 5)
-        val HEAVY_COMPILE_PLAN = MeasurementPlan(warmups = 1, runs = 5)
     }
 }

@@ -8,6 +8,8 @@ internal data class SsrPluginOptions(
     val mode: CompilerPluginMode,
     val fragmentsDir: String?,
     val catalogs: List<CatalogOptionValue>,
+    val sourceFolders: List<String>,
+    val excludedSources: String?,
 ) {
     companion object {
         fun from(configuration: CompilerConfiguration): SsrPluginOptions? {
@@ -16,6 +18,8 @@ internal data class SsrPluginOptions(
                 mode = mode,
                 fragmentsDir = configuration[SsrConfigurationKeys.FRAGMENTS_DIR],
                 catalogs = configuration[SsrConfigurationKeys.CATALOGS].orEmpty(),
+                sourceFolders = configuration[SsrConfigurationKeys.SOURCE_FOLDERS].orEmpty(),
+                excludedSources = configuration[SsrConfigurationKeys.EXCLUDED_SOURCES],
             )
         }
     }

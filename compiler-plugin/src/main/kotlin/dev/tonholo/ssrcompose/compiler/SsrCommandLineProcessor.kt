@@ -33,6 +33,19 @@ internal class SsrCommandLineProcessor : CommandLineProcessor {
             required = false,
             allowMultipleOccurrences = true,
         ),
+        CliOption(
+            optionName = CompilerPluginOptions.SOURCE_FOLDER,
+            valueDescription = "<path>",
+            description = "A source folder of the producer side, scanned for the components the module names",
+            required = false,
+            allowMultipleOccurrences = true,
+        ),
+        CliOption(
+            optionName = CompilerPluginOptions.EXCLUDED_SOURCES,
+            valueDescription = "<path>",
+            description = "A file that lists the files of the source folders this compilation does not receive",
+            required = false,
+        ),
     )
 
     override fun processOption(
@@ -49,6 +62,12 @@ internal class SsrCommandLineProcessor : CommandLineProcessor {
 
             CompilerPluginOptions.CATALOG ->
                 configuration.add(key = SsrConfigurationKeys.CATALOGS, value = parseCatalog(value))
+
+            CompilerPluginOptions.SOURCE_FOLDER ->
+                configuration.add(key = SsrConfigurationKeys.SOURCE_FOLDERS, value = value)
+
+            CompilerPluginOptions.EXCLUDED_SOURCES ->
+                configuration.put(key = SsrConfigurationKeys.EXCLUDED_SOURCES, value = value)
 
             else -> throw CliOptionProcessingException(message = "Unknown option: ${option.optionName}")
         }

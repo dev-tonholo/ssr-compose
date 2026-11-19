@@ -4,6 +4,7 @@ import dev.tonholo.ssrcompose.catalog.model.Catalog
 import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginMode
 import dev.tonholo.ssrcompose.catalog.options.CompilerPluginOptions
+import java.io.File
 
 internal object ProducerTestOptions {
     /** The option that holds [catalog]. A test of a version mismatch sets [version] to another value. */
@@ -20,6 +21,9 @@ internal object ProducerTestOptions {
 
     fun checkOptions(): List<Pair<String, String>> =
         listOf(CompilerPluginOptions.MODE to CompilerPluginMode.Check.optionValue)
+
+    fun sourceFolderOption(folder: File): Pair<String, String> =
+        CompilerPluginOptions.SOURCE_FOLDER to folder.absolutePath
 
     fun producerOptions(vararg catalogs: CatalogOptionValue): List<Pair<String, String>> =
         listOf(CompilerPluginOptions.MODE to CompilerPluginMode.Producer.optionValue) +
