@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.consumer.internal
+package dev.tonholo.ssrcompose.consumer.internal.device
 
 import android.content.res.Configuration
 import androidx.compose.runtime.CompositionLocalProvider

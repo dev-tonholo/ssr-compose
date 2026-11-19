@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.consumer.internal
+package dev.tonholo.ssrcompose.consumer.internal.device
 
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
 

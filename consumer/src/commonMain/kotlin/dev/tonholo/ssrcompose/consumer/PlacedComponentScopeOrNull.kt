@@ -1,9 +1,9 @@
 package dev.tonholo.ssrcompose.consumer
 
-import dev.tonholo.ssrcompose.consumer.internal.KindName
-import dev.tonholo.ssrcompose.consumer.internal.choiceEntryOrNull
-import dev.tonholo.ssrcompose.consumer.internal.entryOf
-import dev.tonholo.ssrcompose.consumer.internal.valueOrNull
+import dev.tonholo.ssrcompose.consumer.internal.read.KindName
+import dev.tonholo.ssrcompose.consumer.internal.read.choiceEntryOrNull
+import dev.tonholo.ssrcompose.consumer.internal.read.entryOf
+import dev.tonholo.ssrcompose.consumer.internal.read.valueOrNull
 import dev.tonholo.ssrcompose.core.data.DataValue
 
 /**
