@@ -96,6 +96,44 @@ class ConsumerParameterErrorsTest {
         assertEquals(expected = emptyList(), actual = readFragments())
     }
 
+    @Test
+    fun `given an enum with a backtick entry in a marked composable, when compiled, then it fails at the parameter`() {
+        // Arrange
+        // language=kotlin
+        val source = """
+            package fixtures.consumer
+
+            import androidx.compose.runtime.Composable
+            import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
+
+            enum class BadStyle { `body-medium` }
+
+            @ConsumerComposable
+            @Composable
+            fun BadEnumCard(style: BadStyle) {
+            }
+        """.trimIndent()
+
+        // Act
+        val result = support.compileSource(
+            fileName = "BadEnumCard.fixture.kt",
+            source = source,
+            options = consumerOptions(),
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
+        val line = result.errorLines().single()
+        assertTrue(actual = line.contains(other = BAD_ENUM_LOCATION), message = result.messages)
+        assertTrue(
+            actual = line.contains(other = "of the marked composable BadEnumCard"),
+            message = result.messages,
+        )
+        assertTrue(actual = line.contains(other = "style"), message = result.messages)
+        assertTrue(actual = line.contains(other = BAD_ENUM_REASON), message = result.messages)
+        assertEquals(expected = emptyList(), actual = readFragments())
+    }
+
     private fun compile(fixtureName: String) =
         support.compile(
             fixtureName = fixtureName,
@@ -121,5 +159,9 @@ class ConsumerParameterErrorsTest {
         const val EMPTY_ENUM_REASON =
             "cannot be described in the catalog: the enum EmptyChoice has no entries, and a choice list must have " +
                 "at least one entry"
+        const val BAD_ENUM_LOCATION = "BadEnumCard.fixture.kt:10:17"
+        const val BAD_ENUM_REASON =
+            "cannot be described in the catalog: the enum BadStyle or one of its entries is not a plain Kotlin " +
+                "identifier of at most 64 characters"
     }
 }
