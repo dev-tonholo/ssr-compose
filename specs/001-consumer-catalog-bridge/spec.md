@@ -160,7 +160,7 @@ A server developer writes a screen that reads what the app said about itself: de
 - A device value changes while the introduction is still being answered. The app reports the newest values once it is accepted. (FR-054)
 - An app composable has an optional slot that passes arguments. The server can place the composable and cannot fill that slot. (FR-036)
 - An app has no marked composable. Its catalog is valid and has no parts, its bridge has no composables, and the app is accepted when screens are registered for its catalog version. (FR-002, FR-046)
-- The app receives something it cannot draw, although it should never happen. It does not crash and does not show a developer placeholder. (FR-037)
+- The app receives something it cannot draw, although it should never happen. The library does not crash the app and does not show a developer placeholder. (FR-037)
 
 ## Requirements *(mandatory)*
 
@@ -222,7 +222,7 @@ Showing a screen:
 - **FR-034**: The app MUST draw each composable the server placed with the app's own code for it, in the place and order the server put it, with the values the server gave. When a screen places more than one composable at its top level, they are shown top to bottom. This arrangement is provisional until layout has its own feature.
 - **FR-035**: Content the server put in a slot MUST appear where the app's composable places that slot, and slots inside slots MUST keep their nesting.
 - **FR-036**: In this feature, a slot can be filled only with the app's own catalog composables, and a slot whose content receives arguments cannot be filled at all. When such a slot can be left out, the server has no way to give it and the app uses its own default. When it cannot be left out, the composable cannot be placed by the server, and trying to MUST fail the server build with a message that names the composable and the slot, and says that slots with arguments are not supported yet. The compiler plugin reports it on every call and every reference in each module where it runs, and the build tool plugin MUST run it in every module that can call a bridge. A call that still gets past the compiler fails with the same message when the bridge is composed, so a component that cannot be placed is never placed without its slot.
-- **FR-037**: If the app receives something it cannot draw, it MUST NOT crash and MUST NOT show a developer placeholder. It tells the user the screen cannot be shown and reports the mismatch.
+- **FR-037**: If the app receives something it cannot draw, the library MUST NOT crash the app and MUST NOT show a developer placeholder. It tells the user the screen cannot be shown. A crash in the app's own binding code, for example code that fails on a stand-in value, is the app's responsibility. Reporting the mismatch outside the screen is follow-up work (#186). A choice read on an enum with no entries will be rejected by the build (#188); until then it throws as a last guard.
 - **FR-062**: When the server does not give a parameter that can be left out, nothing is sent for it and the app's composable uses its own default. This holds for values, callbacks and slots. The catalog never holds the default, since only the app knows it.
 
 Callbacks:
