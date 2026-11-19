@@ -30,6 +30,7 @@ suspend fun onNewConnection(connection: Connection) = producer.serve(connection)
 - `serve` runs one session on one connection and returns when it ends.
 - `supportedContractVersions` is the set of contract versions the producer accepts. By default it holds every version this library has a codec for. An app whose contract version is not in the set is refused: with the kind "contract version too old" when its version is below the highest version in the set, including a version in a gap of the set (the set is `{1, 3}` and the app speaks 2), and with "contract version too new" when it is above the highest. To stop a contract version, leave it out of the set. A set that is empty, or that holds a version this library has no codec for, makes `Producer { }` fail at once.
 - `supportedContractVersions`, `limits` and `observer` are optional.
+- The language of a `Refused` and `ScreenUnavailable` reason follows [messages.md](messages.md) rule 7. Which languages beyond English the producer has texts for is settled by T051.
 
 ## Writing a screen
 

@@ -63,12 +63,12 @@ An action ID is a short text the producer assigns. It is unique inside a session
 4. A `Trigger` for an action ID the open screen no longer has is ignored and reported. It never ends the session.
 5. Triggers from one session run in the order they arrive.
 6. `Trigger` arguments larger than the limit (1 megabyte in total by default) are refused without being decoded. Arguments whose number or kinds do not match what the bridge declared for that callback, or that the bridge's conversion cannot turn into the lambda's types, are refused and reported. Nothing runs for a refused trigger.
-7. `reason` texts are for the user and carry no internal details.
+7. `reason` texts are for the user and carry no internal details. The producer writes each `reason` of `Refused` and `ScreenUnavailable` in the language the app sent in `DeviceContext.language`, or in the latest one after a `DeviceChanged`. When that language is missing or not valid, as in a refusal of an introduction the producer cannot read, or when the producer has no text in it, the reason is in English. The consumer shows a reason as given.
 7a. A trigger whose lambda fails changes nothing: the screen stays as it was and no message is sent for it.
 7b. Triggers over the session's limit (100 per second by default) are dropped and reported.
 8. A frame larger than its limit is refused without being decoded.
 9. The first frame starts with the contract version, as described above, so the producer can pick a codec, or refuse, before decoding the rest.
-10. A consumer that cannot decode a producer message treats it as a refusal.
+10. A consumer that cannot decode a producer message treats it like a refusal: the conversation is over. The app shows `ScreenProblem.AnswerUnreadable` ([consumer-api.md](consumer-api.md#problems-the-user-can-be-shown)).
 11. After `ScreenUnavailable` the session stays accepted. After `Refused` the session is over.
 12. The connection is expected to deliver frames in order and without loss, or to end.
 

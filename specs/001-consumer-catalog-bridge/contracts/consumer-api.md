@@ -45,7 +45,7 @@ SsrScreen(
 - The catalog version comes from the build. The developer supplies only `app`.
 - The renderers for the marked composables are found by the library. Nothing has to be registered by hand.
 - `connection` gives a new `Connection` for this screen alone. The library never names a transport. Two screens must not share one, because the producer refuses a second introduction.
-- `unavailable` is optional. Without it, a plain English message with a retry button is shown. `retry` asks for the same screen again, or introduces the app again after a refusal.
+- `unavailable` is optional. Without it, `ScreenProblemMessage` is shown with the library's text and look (see [The default problem message](#the-default-problem-message)). `retry` asks for the same screen again, or introduces the app again after `Refused`, `ConnectionEnded` or `AnswerUnreadable`.
 
 ## Doing it by hand
 
@@ -101,16 +101,174 @@ A binding reads a parameter by name from its `PlacedComponentScope`. Each kind h
 sealed interface ScreenProblem {
     data class Refused(val kind: RefusalKind, val reason: String) : ScreenProblem
     data class Unavailable(val reason: String) : ScreenProblem
+    data object ConnectionEnded : ScreenProblem
+    data object AnswerUnreadable : ScreenProblem
     data class Mismatch(val component: String) : ScreenProblem
 }
 ```
 
-`Refused` also covers a message the app cannot read, a `Screen` or `ScreenUnavailable` that arrives before `Accepted`, and an `Accepted` with another contract version. All three use the kind `IntroductionNotValid`.
+Approved by the owner on 2026-11-19 (#196, [research.md R19](../research.md#r19-text-the-user-reads-and-the-look-of-the-problem-message-196)). Before it, `ConnectionEnded` was an `Unavailable` and `AnswerUnreadable` a `Refused` with the kind `IntroductionNotValid`, each with an English reason written by the library.
 
-`Mismatch` means the app received something it cannot draw: a value a binding cannot read, or a component with no binding. It should not happen. The library does not crash the app and shows no developer placeholder (FR-037).
+- `Refused` and `Unavailable` carry the producer's `reason`. The library shows it as given and does not translate it. Its language is set by [messages.md](messages.md) rule 7. An app that wants its own words for a refusal maps `kind`. `Unavailable` has no kind, so an app can only replace its reason with one text of its own.
+- `ConnectionEnded` means the connection failed or ended.
+- `AnswerUnreadable` covers a message the app cannot read, a `Screen` or `ScreenUnavailable` that arrives before `Accepted`, and an `Accepted` with another contract version.
+- `Mismatch` means the app received something it cannot draw: a value a binding cannot read, or a component with no binding. It should not happen. The library does not crash the app and shows no developer placeholder (FR-037). `component` is for the app's own reporting and never reaches the default message (FR-059).
+- `retry` introduces the app again after `Refused`, `ConnectionEnded` and `AnswerUnreadable`, and asks for the same screen again after `Unavailable` and `Mismatch`.
+
+An app that writes its own `unavailable` handles all five cases. For the two cases with no producer reason it can show its own text, or the library's:
+
+```kotlin
+@Composable
+fun MyProblemScreen(problem: ScreenProblem, onRetry: () -> Unit) {
+    val strings = LocalSsrComposeStringResourceManager.current
+    val message = when (problem) {
+        is ScreenProblem.Refused -> problem.reason
+        is ScreenProblem.Unavailable -> problem.reason
+        ScreenProblem.ConnectionEnded -> strings.stringResource(
+            resource = SsrComposeStringResource.ScreenProblemConnectionEnded,
+        )
+        ScreenProblem.AnswerUnreadable -> strings.stringResource(
+            resource = SsrComposeStringResource.ScreenProblemAnswerUnreadable,
+        )
+        is ScreenProblem.Mismatch -> strings.stringResource(resource = SsrComposeStringResource.ScreenProblemMismatch)
+    }
+    ...
+}
+```
+
+## Text the user reads
+
+Approved by the owner on 2026-11-19 (#196). Every text the library writes for the user has a key, and the app can replace each one. These types live in `dev.tonholo.ssrcompose.consumer.text`. The English manager is `internal/text/EnglishStringResourceManager.kt`.
+
+```kotlin
+enum class SsrComposeStringResource {
+    ScreenProblemRetry,
+    ScreenProblemMismatch,
+    ScreenProblemConnectionEnded,
+    ScreenProblemAnswerUnreadable,
+}
+
+interface SsrComposeStringResourceManager {
+    @Composable
+    fun stringResource(resource: SsrComposeStringResource, vararg arguments: Any): String
+}
+
+val LocalSsrComposeStringResourceManager: ProvidableCompositionLocal<SsrComposeStringResourceManager>
+```
+
+| Key | English text | Arguments |
+|---|---|---|
+| `ScreenProblemRetry` | Try again | none |
+| `ScreenProblemMismatch` | This screen cannot be shown right now. | none |
+| `ScreenProblemConnectionEnded` | The connection to the server ended. Please try again. | none |
+| `ScreenProblemAnswerUnreadable` | The app could not read the answer from the server. | none |
+
+- `LocalSsrComposeStringResourceManager` is a `staticCompositionLocalOf`. Its default is the library's English manager, which is internal. An app that provides nothing sees the English text above.
+- A manager must return a text for every key and must not throw: a failure during composition stops the app's recomposer.
+- Keep the manager stable between compositions, with `remember` as in the example below. The local is static, so a new manager recomposes everything below it, and `SsrScreen` can hold thousands of components.
+- A key's arguments, when a key has any, are listed in the table and never carry internal details (FR-059).
+- Adding a key is a source break for a manager with an exhaustive `when` and no `else`, so the app's build names the new text to translate.
+
+An app that translates some texts and keeps the rest:
+
+```kotlin
+class AppStrings(private val fallback: SsrComposeStringResourceManager) : SsrComposeStringResourceManager {
+    @Composable
+    override fun stringResource(resource: SsrComposeStringResource, vararg arguments: Any): String =
+        when (resource) {
+            SsrComposeStringResource.ScreenProblemRetry -> stringResource(id = R.string.retry)
+            else -> fallback.stringResource(resource = resource, arguments = arguments)
+        }
+}
+
+val fallback = LocalSsrComposeStringResourceManager.current
+val strings = remember(fallback) { AppStrings(fallback) }
+CompositionLocalProvider(LocalSsrComposeStringResourceManager provides strings) {
+    SsrScreen(...)
+}
+```
+
+Plurals: no text needs one yet. When the first one does, the manager gains this lookup, with a default body that uses the English text, and a new enum `SsrComposePluralResource`. `quantity` picks the plural form and is not added to `arguments` by itself, as in Android's `pluralStringResource`.
+
+```kotlin
+@Composable
+fun pluralResource(resource: SsrComposePluralResource, quantity: Int, vararg arguments: Any): String
+```
+
+## The default problem message
+
+Approved by the owner on 2026-11-19 (#196). `SsrScreen`'s default `unavailable` is a public composable that an app can call with its own look. It follows the shape of Material components and their `Defaults` objects, with no Material dependency. These types live in `dev.tonholo.ssrcompose.consumer.problem`, one per file.
+
+```kotlin
+@Composable
+fun ScreenProblemMessage(
+    problem: ScreenProblem,
+    retry: () -> Unit,
+    modifier: Modifier = Modifier,
+    colors: ScreenProblemMessageColors = ScreenProblemMessageDefaults.colors(),
+    textStyle: TextStyle = ScreenProblemMessageDefaults.MessageTextStyle,
+    contentPadding: PaddingValues = ScreenProblemMessageDefaults.ContentPadding,
+    spacing: Dp = ScreenProblemMessageDefaults.Spacing,
+    maxContentWidth: Dp = ScreenProblemMessageDefaults.MaxContentWidth,
+    retryContentPadding: PaddingValues = ScreenProblemMessageDefaults.RetryContentPadding,
+    retryBorderWidth: Dp = ScreenProblemMessageDefaults.RetryBorderWidth,
+)
+
+@Immutable
+class ScreenProblemMessageColors(
+    val containerColor: Color,
+    val contentColor: Color,
+) {
+    fun copy(
+        containerColor: Color = this.containerColor,
+        contentColor: Color = this.contentColor,
+    ): ScreenProblemMessageColors
+}
+
+object ScreenProblemMessageDefaults {
+    @Composable
+    fun colors(
+        containerColor: Color = Color.Unspecified,
+        contentColor: Color = Color.Unspecified,
+    ): ScreenProblemMessageColors
+
+    val MessageTextStyle: TextStyle = TextStyle(fontSize = 16.sp, textAlign = TextAlign.Center)
+    val ContentPadding: PaddingValues = PaddingValues(all = 24.dp)
+    val Spacing: Dp = 16.dp
+    val MaxContentWidth: Dp = 480.dp
+    val RetryContentPadding: PaddingValues = PaddingValues(all = 12.dp)
+    val RetryBorderWidth: Dp = 1.dp
+}
+```
+
+- The defaults are today's look. `colors()` gives black on white in light theme and white on black in dark theme, read from the system theme. A colour left as `Color.Unspecified` takes that default.
+- The colours are grouped because they change together with the theme and must stay a readable pair, so their default is a `@Composable` function, as `ButtonColors` and `ButtonDefaults.buttonColors()` are in Material 3. The other values do not depend on the theme, so each is a plain value, as `ButtonDefaults.ContentPadding` is.
+- `ScreenProblemMessageColors` is `@Immutable` and not a `data class`. Its `copy` keeps the old colour for a `Color.Unspecified` argument. It has `equals` and `hashCode`.
+- `contentColor` colours the text and the retry button's border. It replaces the colour of `textStyle`. `retryBorderWidth` is a width, not a `BorderStroke`, so the border has no second colour.
+- `spacing` is the gap between the message and the retry button. `maxContentWidth` caps the width of the message and the button, not of the space `modifier` gives.
+- `ScreenProblemMessage` centres one message and one retry button in the space `modifier` gives it. It arranges nothing of the server's screen.
+- The message shows the producer's `reason` for `Refused` and `Unavailable` as given. For the other cases and for the retry button it reads the matching key from `LocalSsrComposeStringResourceManager`.
+
+```kotlin
+SsrScreen(
+    ...,
+    unavailable = { problem, retry ->
+        ScreenProblemMessage(
+            problem = problem,
+            retry = retry,
+            modifier = Modifier.fillMaxSize(),
+            colors = ScreenProblemMessageDefaults.colors(
+                containerColor = AppColors.surface,
+                contentColor = AppColors.onSurface,
+            ),
+            contentPadding = PaddingValues(all = 32.dp),
+        )
+    },
+)
+```
 
 ## What is public
 
-In `consumer`: `SsrScreen`, `ComponentBindings`, `PlacedComponentScope`, `PlacedValueException` and `ScreenProblem`. Everything else in `consumer` is internal.
+In `consumer`: `SsrScreen`, `ComponentBindings`, `PlacedComponentScope`, `PlacedValueException` and `ScreenProblem`. Added by #196: `SsrComposeStringResource`, `SsrComposeStringResourceManager`, `LocalSsrComposeStringResourceManager`, `ScreenProblemMessage`, `ScreenProblemMessageColors` and `ScreenProblemMessageDefaults`. None of them needs an opt-in. Everything else in `consumer` is internal, including the English manager.
 
 The `core` types this API uses are in the one list of public `core` types in [data-model.md](../data-model.md#what-is-public-in-core).
