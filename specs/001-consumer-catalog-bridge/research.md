@@ -1056,7 +1056,6 @@ The other literals stay as they are, because no user reads them:
 - `SEND_CANCELLED` in `ConsumerSession.kt` is the message of an internal exception. The session turns it into the end of the conversation, and the user sees `ScreenProblemConnectionEnded`.
 - The `require` message in `ComponentBindings.kt` is for the developer who binds a name twice.
 - `TEXT_STAND_IN` in `PlacedComponentScope.kt` is an empty stand-in that is never drawn (R7).
-- `ConsumerModule.name` is the module's placeholder class from before the feature code.
 
 The `reason` of `ScreenProblem.Refused` and `ScreenProblem.Unavailable` is written by the producer, in the language the app sent in the handshake (`DeviceContext.language`, principle IV), and in the latest language after a `DeviceChanged`. When the language is missing, not valid, or the producer has no text in it, the reason is in English. This is [messages.md](contracts/messages.md) rule 7 and [producer-api.md](contracts/producer-api.md#setting-up), and T051 builds it. This design changes no producer code. The app shows reasons as given; the manager does not translate them. An app that wants its own words for a refusal can still map `Refused.kind` in its own `unavailable` composable. `Unavailable` has no kind, so an app can only replace its reason with one text of its own for every case.
 
