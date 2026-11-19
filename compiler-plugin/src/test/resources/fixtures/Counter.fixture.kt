@@ -5,5 +5,5 @@ import dev.tonholo.ssrcompose.core.annotation.ConsumerComposable
 
 @ConsumerComposable
 @Composable
-fun Counter(label: String, count: Int) {
+fun Counter(label: String, count: ByteArray) {
 }

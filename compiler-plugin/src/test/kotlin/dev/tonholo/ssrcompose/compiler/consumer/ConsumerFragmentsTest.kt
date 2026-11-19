@@ -73,7 +73,7 @@ class ConsumerFragmentsTest {
     }
 
     @Test
-    fun `given a marked composable with a whole number parameter, when compiled, then it fails and names both`() {
+    fun `given a marked composable with an unsupported parameter, when compiled, then it fails and names both`() {
         // Arrange
         val fixtureName = "Counter"
 

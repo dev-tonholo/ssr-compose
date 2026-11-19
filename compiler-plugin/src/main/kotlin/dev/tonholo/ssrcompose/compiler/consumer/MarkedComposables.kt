@@ -1,6 +1,7 @@
 package dev.tonholo.ssrcompose.compiler.consumer
 
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
+import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.validation.isKotlinIdentifier
 import dev.tonholo.ssrcompose.compiler.SsrNames
@@ -9,16 +10,18 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.DirectDeclarationsAccess
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
+import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
 
 private const val PATH_SEPARATOR = "/"
 
 /**
- * What one source file holds: its [source], the [components] of its marked composables, and the [parameterErrors]
- * of those composables.
+ * What one source file holds: its [source], the [choices] and [components] of its marked composables, and the
+ * [parameterErrors] of those composables.
  */
 internal class ScannedFile(
     val source: String,
+    val choices: List<ChoiceList> = emptyList(),
     val components: List<ComponentDescriptor>,
     val parameterErrors: List<ConsumerError>,
 ) {
@@ -37,7 +40,7 @@ internal class ScannedFile(
      */
     fun fragmentOrNull(): CatalogFragment? =
         takeIf { errors.isEmpty() && hasValidSource }
-            ?.let { CatalogFragment(source = source, components = components) }
+            ?.let { CatalogFragment(source = source, choices = choices, components = components) }
 }
 
 /**
@@ -49,10 +52,11 @@ internal class MarkedComposables(private val session: FirSession) {
     fun scan(file: FirFile): ScannedFile {
         val marked = file.declarations.filterIsInstance<FirNamedFunction>().filter(::isMarked)
         val errors = marked.flatMap(::errorsOf)
-        val components = if (errors.isEmpty()) marked.map(::describe) else emptyList()
+        val described = if (errors.isEmpty()) marked.map(::describe) else emptyList()
         return ScannedFile(
             source = file.sourcePath(),
-            components = components,
+            choices = described.flatMap { it.choices }.distinctBy { it.name },
+            components = described.map { it.component },
             parameterErrors = errors,
         )
     }
@@ -60,13 +64,18 @@ internal class MarkedComposables(private val session: FirSession) {
     private fun isMarked(function: FirNamedFunction): Boolean =
         function.hasAnnotation(classId = SsrNames.consumerComposable, session = session) && !function.status.isExpect
 
-    private fun describe(function: FirNamedFunction): ComponentDescriptor =
-        ComponentDescriptor(
-            name = function.name.asString(),
-            parameters = function.valueParameters
-                .filter { parameter -> ParameterKindMapper.isSupported(parameter = parameter, session = session) }
-                .map { parameter -> ParameterKindMapper.toParameter(parameter = parameter, session = session) },
+    private fun describe(function: FirNamedFunction): DescribedComponent {
+        val mapped = function.valueParameters
+            .map { parameter -> ParameterKindMapper.map(parameter = parameter, session = session) }
+            .filterIsInstance<ParameterMappingResult.Supported>()
+        return DescribedComponent(
+            component = ComponentDescriptor(
+                name = function.name.asString(),
+                parameters = mapped.map { it.parameter },
+            ),
+            choices = mapped.mapNotNull { it.choice },
         )
+    }
 
     private fun errorsOf(function: FirNamedFunction): List<ConsumerError> {
         val composableName = function.name.asString()
@@ -89,7 +98,7 @@ internal class MarkedComposables(private val session: FirSession) {
                         composable = composableName,
                         parameter = parameterName,
                     )
-                !ParameterKindMapper.isSupported(parameter = parameter, session = session) ->
+                isUnsupported(parameter = parameter) ->
                     UnsupportedParameter(
                         composable = composableName,
                         parameter = parameterName,
@@ -97,6 +106,14 @@ internal class MarkedComposables(private val session: FirSession) {
                 else -> null
             }
         }
+
+    private fun isUnsupported(parameter: FirValueParameter): Boolean =
+        ParameterKindMapper.map(parameter = parameter, session = session) is ParameterMappingResult.Unsupported
+
+    private data class DescribedComponent(
+        val component: ComponentDescriptor,
+        val choices: List<ChoiceList>,
+    )
 }
 
 private fun FirFile.sourcePath(): String {

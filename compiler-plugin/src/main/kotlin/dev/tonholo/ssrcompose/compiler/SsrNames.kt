@@ -11,10 +11,16 @@ import org.jetbrains.kotlin.name.Name
  */
 internal object SsrNames {
     private val composePackage: FqName = FqName("androidx.compose.runtime")
+    private val composeUiPackage: FqName = FqName("androidx.compose.ui")
 
     val composable: ClassId = ClassId(
         packageFqName = composePackage,
         topLevelName = Name.identifier("Composable"),
+    )
+
+    val modifier: ClassId = ClassId(
+        packageFqName = composeUiPackage,
+        topLevelName = Name.identifier("Modifier"),
     )
 
     val consumerComposable: ClassId = ClassId.topLevel(
