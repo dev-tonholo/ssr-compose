@@ -464,12 +464,49 @@ Checked on 2026-11-17.
 - A strict read fails for an absent value, a `None` value, a value of another kind and an unknown choice entry. All four failures are a `PlacedValueException`. The contract did not name a type for the first, second and fourth, so they use the same one as the third.
 - `PlacedComponentScope` is `@Immutable` and equal when its placed components are equal. A test recomposes a screen with a new but equal scope and sees the binding skipped, and sees it run again when the component changes.
 - `@Immutable` is a promise the types do not enforce: `PlacedComponent` holds `Map` and `List` interfaces and `DataValue.Bytes` wraps a `ByteArray`. A scope over a map that is changed in place would be skipped with stale values, so the scope documents that the placed component must not change after it is made. Decoded messages are new objects, so this holds.
-- The equality walks the whole placed component, slots included, for each equal but new scope on every recomposition of its parent. The codec refuses JSON nesting deeper than 128 levels and a slot takes 3, so slots nest about 40 deep at most. Nothing caps the components on a screen. The owner's three apps have 621 to 1,085 composables in the whole app, so a screen is expected to have hundreds. The cost is about components times depth field comparisons, 40,000 for 1,000 components at depth 40. It was not measured. If T054 finds it too slow, it can compare each decoded component once when a `Screen` arrives and reuse the old scope for an equal one, so later comparisons stop at the identity check.
+- The equality walks the whole placed component, slots included, for each equal but new scope on every recomposition of its parent. The codec refuses JSON nesting deeper than 128 levels and a slot takes 3, so slots nest about 40 deep at most. Nothing caps the components on a screen. The owner's three apps have 621 to 1,085 composables in the whole app, so a screen is expected to have hundreds. The cost is about components times depth field comparisons, 40,000 for 1,000 components at depth 40. T054 measured a whole screen, see "Failed reads during composition". If it proves too slow, a later task can compare each decoded component once when a `Screen` arrives and reuse the old scope for an equal one, so later comparisons stop at the identity check.
 - Every device value is read in common code, so nothing was put in `consumer/src/androidMain/`. Density comes from `LocalDensity`, the window size from `LocalWindowInfo.containerSize`, the theme from `isSystemInDarkTheme()` and the language from `Locale.current`.
 - The values are published to `DeviceValues.current` in a `SideEffect`, so a reader outside composition, such as T098, sees them after the screen is committed.
 - Tested: each value, and a change of density, window size and theme followed by a recomposition. The theme and language tests live in `consumer/src/androidHostTest/`, because `isSystemInDarkTheme()` reads Android's `LocalConfiguration` on Android and the test must provide one. The host tests return default values for Android stubs, set in the kmp-library convention plugin for every KMP module, because Compose's runtime calls them.
 - Not tested: a change of language during a session. `Locale.current` is not state, so it is read again only when something else recomposes the function. A locale change should reach the screen because Android sends a configuration change and `isSystemInDarkTheme()` reads the configuration, but that was not run on a device.
-- Not tested: the window size on a real device before the first layout, which may be zero. The producer accepts 1 to 100,000, so T054 must wait for a real size before it introduces the app.
+- Not tested: the window size on a real device before the first layout, which may be zero. The producer accepts 1 to 100,000, so the session waits for a positive size before it introduces the app.
+
+### Failed reads during composition (T054)
+
+Decision: inside `SsrScreen`, a failed read reports the component and returns a stand-in. The screen is replaced by `ScreenProblem.Mismatch` for the topmost failed component. A layout gate keeps content with a reported problem from being drawn in the screen's window in the frame that composed it.
+
+What the runtime does, tested on `androidx.compose.runtime` 1.12.1, the version Compose Multiplatform 1.12.2 resolves to on Android:
+
+- `try/catch` around a composable call does not compile: "Try catch is not supported around composable function invocations."
+- A failure in a first composition can be caught around `setContent`, but `Recomposer.processCompositionError` records it and `deriveStateLocked` moves the recomposer to `Inactive`. Other compositions on that recomposer stop updating, and a later failure resurfaces as the first one.
+- `SubcomposeLayout` reaches the same code through the parent's `composeInitial`. This path was read in the source and not run.
+- This runtime has no public error boundary.
+
+Rejected options:
+
+- Catching around `setContent` or `subcompose` keeps the app from crashing but freezes it.
+- A private recomposer for each `SsrScreen` isolates the failure in a test with a no-op applier, and app composition locals can be forwarded. Hosting real UI on it needs `ComposeView` inside `AndroidView`, so Android-only code and a second Compose owner. Reads during measure, such as in a lazy list, would still escape, and a failing `LaunchedEffect` shuts the private recomposer down.
+
+Where the gate holds, tested on the `medium_phone` emulator in 3 of 3 runs each, with counts of placements and draws of the stand-in:
+
+- A read that fails on a later recomposition, and a failed read in a lazy list item: 0 placements and 0 draws.
+- A failed read in a lazy list item scrolled into view after the first frame: 1 placement and 0 draws. The item is composed and placed during the list's layout. With the gate turned off it is still 0 draws in 3 of 3 runs, because the screen is replaced by the problem before the item is first drawn. When the problem is shown 500 ms later, the stand-in is drawn once without the gate and never with it, in one run each. A readable item scrolled into view is drawn. Device tests assert both.
+- A failed read in a `Dialog`: 2 placements and 2 draws. In a `Popup`: 1 placement and 1 draw. Both are drawn in their own window, which the gate in the screen's window does not reach. So content in a `Dialog` or `Popup` of a failing binding can show the stand-in briefly, until the problem replaces the screen (2 draws measured in a `Dialog`, 1 in a `Popup`). #189 will remove it by composing a new screen paused and applying it only when no read failed. Device tests assert the measured counts, so a change in either direction fails them.
+
+Measured on the `medium_phone` emulator in two debug runs each. A plain `Column` composes every component.
+
+- A binding that captures nothing: 5,000 placed components first showed in 1.75 s and 2.32 s, and a new `Screen` with one changed component showed in 302 ms and 394 ms.
+- A binding that captures a value: the same screen first showed in 1.97 s and 2.12 s. Three updates of one component showed in 502, 403 and 387 ms, then 585, 593 and 425 ms. The binding body ran 5,000 times, then once more per update.
+- A host test counts 10,001 binding compositions for 10,000 components and one change.
+
+In the host test harness, a capturing binding runs its body once more on the first update after the first composition, and never again. The extra run comes from the host test harness, not from ssr-compose: a plain named composable that reads `currentRecomposeScope` shows it too, with no ssr-compose code, while a lambda that captures nothing does not. It did not happen on the emulator.
+
+Fixed bug: the session went on running on the decoding thread when the composition's effect dispatcher does not dispatch, and then changed state that composition reads from a background thread. It showed as a device test crash, `ArrayIndexOutOfBoundsException` in `SlotWriter.moveSlotGapTo` while the test activity's composition was disposed. `createComposeRule` runs composition effects on an `UnconfinedTestDispatcher`, so an app's own UI tests of `SsrScreen` would hit it too. In a plain `ComposeView`, whose effects run on the Android main dispatcher, the session took 0 of 41 frames off the main thread without the fix, in 3 of 3 runs. `SsrScreen` now runs the session on `Dispatchers.Main.immediate` in every effect context.
+
+- Before the fix: `SsrScreenProblemTest` crashed in 12 of 300 runs, and a plain Compose test class of the same size in 0 of 300.
+- After the fix: 0 of 300.
+- A device test checks that the session takes every frame on the main thread. Before the fix it failed in 3 of 3 runs, with 8 to 10 of 21 frames taken off the main thread.
+- The exact runtime path from the background change to the slot table was not traced.
 
 ## R8. Callbacks on the server follow the function type pattern
 
