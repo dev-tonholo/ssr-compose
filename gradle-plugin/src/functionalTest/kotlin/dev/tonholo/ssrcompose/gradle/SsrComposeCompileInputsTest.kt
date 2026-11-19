@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.gradle
 
+import dev.tonholo.ssrcompose.catalog.options.CompilerPluginOptions
 import dev.tonholo.ssrcompose.gradle.testing.FixtureIndexes
 import dev.tonholo.ssrcompose.gradle.testing.FixtureProject
 import dev.tonholo.ssrcompose.gradle.testing.FixtureSources
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class SsrComposeCompileInputsTest {
     @TempDir
@@ -24,6 +26,33 @@ class SsrComposeCompileInputsTest {
 
         // Assert
         assertNoProjectPath(inputProperties = setup.inputProperties)
+    }
+
+    @Test
+    fun `given a held catalog, when the compile inputs are read, then folders are passed and no input holds a path`() {
+        // Arrange
+        val fixture = FixtureProject(projectDir).configure(ssrComposeBlock = FixtureSources.producerBlock())
+
+        // Act
+        val setup = fixture.readCompilerSetup()
+
+        // Assert
+        val folders = setup.optionValues(optionName = CompilerPluginOptions.SOURCE_FOLDER)
+        assertTrue(actual = folders.any { it.endsWith(MAIN_SOURCE_FOLDER) }, message = folders.toString())
+        assertNoProjectPath(inputProperties = setup.inputProperties)
+    }
+
+    @Test
+    fun `given no held catalog, when the compile inputs are read, then no source folder is passed`() {
+        // Arrange
+        val fixture = FixtureProject(projectDir).configure(ssrComposeBlock = FixtureSources.CONSUMER_BLOCK)
+
+        // Act
+        val setup = fixture.readCompilerSetup()
+
+        // Assert
+        val folders = setup.optionValues(optionName = CompilerPluginOptions.SOURCE_FOLDER)
+        assertEquals(expected = emptyList(), actual = folders)
     }
 
     @Test
@@ -105,6 +134,7 @@ class SsrComposeCompileInputsTest {
     }
 
     private companion object {
+        const val MAIN_SOURCE_FOLDER = "src/main/kotlin"
         const val CHANGED_VERSION = "3"
         const val INDEX_MARKER = "FirstContent"
         const val CHANGED_INDEX_MARKER = "SecondContent"
