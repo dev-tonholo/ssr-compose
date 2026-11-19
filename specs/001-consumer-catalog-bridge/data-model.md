@@ -182,7 +182,7 @@ A parameter the screen did not give is absent from all three maps, and the app's
 | `name` | the component's name |
 | `values` | value parameter name to `DataValue` |
 | `callbacks` | callback parameter name to `ActionId` |
-| `slots` | slot parameter name to an ordered list of `PlacedComponent` |
+| `slots` | slot parameter name to an ordered list of `PlacedComponent` (provisional for Feature 1, see `ScreenContent`) |
 
 The wire form has no catalog version: the session's version is known to both sides from the introduction. The consumer reads a placed component through `PlacedComponentScope`, its own type in `consumer`, which wraps this one with the session. There is no second `PlacedComponent` type.
 
@@ -208,6 +208,8 @@ A short text the producer assigns to one callback of one placed component. Uniqu
 ### ScreenContent (`core`)
 
 An ordered list of `PlacedComponent`.
+
+This model is provisional for Feature 1, and so is `PlacedComponent.slots`. Feature 2 extends or replaces `ScreenContent` with server-rendered documents that can embed placed components and live inside app slots (#194).
 
 ## What is public in `core`
 
