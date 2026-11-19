@@ -8,10 +8,10 @@ import javax.inject.Inject
  *
  * @property version the catalog version this block declares.
  */
-abstract class HeldCatalogSettings @Inject constructor(val version: String) {
+public abstract class HeldCatalogSettings @Inject constructor(public val version: String) {
     /** The address of the catalog's manifest: a web address or a file path. */
-    abstract val location: Property<String>
+    public abstract val location: Property<String>
 
     /** The package the compiler creates this catalog's bridge in. */
-    abstract val bridgePackage: Property<String>
+    public abstract val bridgePackage: Property<String>
 }

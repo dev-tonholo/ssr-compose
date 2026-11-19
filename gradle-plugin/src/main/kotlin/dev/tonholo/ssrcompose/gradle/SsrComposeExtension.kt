@@ -9,12 +9,12 @@ import javax.inject.Inject
 /**
  * The `ssrCompose { }` block. Configure `consumer { }` in an app project or `producer { }` in a server project.
  */
-abstract class SsrComposeExtension @Inject constructor(objects: ObjectFactory) {
+public abstract class SsrComposeExtension @Inject constructor(objects: ObjectFactory) {
     internal val consumerSettings: ConsumerSettings = objects.newInstance(ConsumerSettings::class.java)
     internal val producerSettings: ProducerSettings = objects.newInstance(ProducerSettings::class.java)
 
     /** The largest manifest or part, in bytes, that a catalog step reads. */
-    abstract val catalogFileSizeLimit: Property<Long>
+    public abstract val catalogFileSizeLimit: Property<Long>
 
     init {
         catalogFileSizeLimit.convention(DEFAULT_CATALOG_FILE_SIZE_LIMIT)
@@ -23,12 +23,12 @@ abstract class SsrComposeExtension @Inject constructor(objects: ObjectFactory) {
     private var consumerConfigured = false
     private var producerConfigured = false
 
-    fun consumer(action: Action<ConsumerSettings>) {
+    public fun consumer(action: Action<ConsumerSettings>) {
         consumerConfigured = true
         action.execute(consumerSettings)
     }
 
-    fun producer(action: Action<ProducerSettings>) {
+    public fun producer(action: Action<ProducerSettings>) {
         producerConfigured = true
         action.execute(producerSettings)
     }
