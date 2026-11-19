@@ -13,6 +13,8 @@ import kotlin.test.assertTrue
 import org.junit.jupiter.api.io.TempDir
 
 private const val MAX_NAME_LENGTH = 64
+private const val PARAMETER_NAME_LOCATION = "ParameterUnsupportedName.fixture.kt:8:29"
+private const val FUNCTION_NAME_LOCATION = "ComposableUnsupportedName.fixture.kt:6:1"
 
 class ConsumerNameValidationTest {
     @TempDir
@@ -52,6 +54,7 @@ class ConsumerNameValidationTest {
             composable = "BacktickParameterBanner",
             parameter = "main-title",
         )
+        assertTrue(actual = result.messages.contains(other = PARAMETER_NAME_LOCATION), message = result.messages)
         assertTrue(actual = result.messages.contains(other = expectedMessage), message = result.messages)
         assertEquals(expected = emptyList(), actual = readFragments())
     }
@@ -67,6 +70,7 @@ class ConsumerNameValidationTest {
         // Assert
         assertEquals(expected = ExitCode.COMPILATION_ERROR, actual = result.exitCode, message = result.messages)
         val expectedMessage = composableNameError(composable = "Main-Banner")
+        assertTrue(actual = result.messages.contains(other = FUNCTION_NAME_LOCATION), message = result.messages)
         assertTrue(actual = result.messages.contains(other = expectedMessage), message = result.messages)
         assertEquals(expected = emptyList(), actual = readFragments())
     }
