@@ -732,6 +732,7 @@ Validation limits, all configurable: introduction frame at most 8 KB; density ab
 - Catalogs are fetched at sync and pinned (R6).
 - Module layout and targets, with the build-time `catalog-model` library (R11, R17).
 - Screens per catalog version, and the guard (R10).
+- Text the user reads (R19), in [ADR 0011](../../docs/adr/0011-replaceable-text-through-a-string-manager.md), and the look of the problem message (R19), in [ADR 0012](../../docs/adr/0012-problem-message-style-parameters.md).
 
 ## R16. Scale and build performance
 
@@ -1021,3 +1022,160 @@ Rationale: principle II asks for one definition of everything both sides agree o
 Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds and the conversion in the bridge's `Callback` (R8).
 
 Catalog code written in `core` before this decision is moved into `catalog-model` by T113, except `ValueKind`, which stays in `core` and moves from `core/catalog/` to `core/data/`.
+
+## R19. Text the user reads and the look of the problem message (#196)
+
+Status: approved by the owner on 2026-11-19, with two changes: the problem message takes Material's shape of several style parameters instead of one style object, and the producer writes its reasons in the language the app sent, with English as the fallback. Both changes are written into this section. Decision records: [ADR 0011](../../docs/adr/0011-replaceable-text-through-a-string-manager.md) for the text and [ADR 0012](../../docs/adr/0012-problem-message-style-parameters.md) for the look. Contract: [consumer-api.md](contracts/consumer-api.md#text-the-user-reads).
+
+Decision: every text the library writes for the user has a key in a public enum, `SsrComposeStringResource`. Composition reads the text from a `SsrComposeStringResourceManager` held in a `CompositionLocal`, whose default is the library's English manager. The session never writes user text: `ScreenProblem` carries what happened, and the text is chosen in composition. The default problem message becomes the public `ScreenProblemMessage` composable. It takes several style parameters, each defaulting to a value of `ScreenProblemMessageDefaults`, the way Material components and their `Defaults` objects work. The two colours are grouped in `ScreenProblemMessageColors`. The producer writes the `reason` of `Refused` and `ScreenUnavailable` in the language the app sent in the handshake, with English as the fallback.
+
+The owner's words: "For the text, we must have something that can be changed by the consumer app. The reasoning is because the consumer app may provide localization for other languages that we don't provide." And: "For the styling, we should follow the same approach the material components follows: style parameters in the composable, Defaults object with our defaults. We don't need to follow that exact rule, and we can have a better one that fits best with our library, but we must not hardcode these things."
+
+The owner's review on 2026-11-19 approved the two new `ScreenProblem` cases, the four keys, the manager in a `CompositionLocal` with the English default and partial replacement with fallback, and plurals waiting for the first plural text. It changed the style shape to Material's, and settled that the producer writes reasons in the app's language.
+
+This changes code from PR #190, which was merged on 2026-11-19. No version of `consumer` has been released, so no app breaks.
+
+### What the user reads today
+
+Every string literal in `consumer/src/commonMain` was read on 2026-11-19 (`consumer/src/androidMain` does not exist). Four are written for the user:
+
+| Text | Where | When the user sees it | Key |
+|---|---|---|---|
+| "Try again" | `internal/screen/DefaultScreenProblem.kt` | the retry button of every problem | `ScreenProblemRetry` |
+| "This screen cannot be shown right now." | `internal/screen/DefaultScreenProblem.kt` | `ScreenProblem.Mismatch` | `ScreenProblemMismatch` |
+| "The connection to the server ended. Please try again." | `internal/session/ConsumerSession.kt` | the connection fails or ends | `ScreenProblemConnectionEnded` |
+| "The app could not read the answer from the server." | `internal/session/ConsumerSession.kt` | a frame cannot be decoded, a `Screen` or `ScreenUnavailable` arrives before `Accepted`, or `Accepted` names another contract version | `ScreenProblemAnswerUnreadable` |
+
+None of the four needs a plural or an argument. FR-059 forbids internal details in user text, and FR-037 forbids a developer placeholder, so no key may take the component name of a `Mismatch` or any kind name as an argument.
+
+The other literals stay as they are, because no user reads them:
+
+- `PlacedValueException` messages in `internal/read/PlacedValueProblems.kt` and the kind names in `internal/read/KindName.kt` are for the developer. Inside `SsrScreen` a failed read reports instead of throwing (R7).
+- `SEND_CANCELLED` in `ConsumerSession.kt` is the message of an internal exception. The session turns it into the end of the conversation, and the user sees `ScreenProblemConnectionEnded`.
+- The `require` message in `ComponentBindings.kt` is for the developer who binds a name twice.
+- `TEXT_STAND_IN` in `PlacedComponentScope.kt` is an empty stand-in that is never drawn (R7).
+- `ConsumerModule.name` is the module's placeholder class from before the feature code.
+
+The `reason` of `ScreenProblem.Refused` and `ScreenProblem.Unavailable` is written by the producer, in the language the app sent in the handshake (`DeviceContext.language`, principle IV), and in the latest language after a `DeviceChanged`. When the language is missing, not valid, or the producer has no text in it, the reason is in English. This is [messages.md](contracts/messages.md) rule 7 and [producer-api.md](contracts/producer-api.md#setting-up), and T051 builds it. This design changes no producer code. The app shows reasons as given; the manager does not translate them. An app that wants its own words for a refusal can still map `Refused.kind` in its own `unavailable` composable. `Unavailable` has no kind, so an app can only replace its reason with one text of its own for every case.
+
+### 1. Boundaries
+
+- `consumer` owns the keys, the manager interface, the English text, the `CompositionLocal`, `ScreenProblemMessage` and its style. All of it lives in `consumer/src/commonMain`. Nothing needs Android.
+- `core` is not touched. `producer` is not touched by this design: the rule that it writes reasons in the app's language is in the contracts, and T051 builds it.
+- The session (`internal/session/`) owns what happened and must not know any user text or any key. Composition owns which words and which look.
+- `ScreenProblemMessage` draws one message and one retry button inside the space its `modifier` gives it. It arranges nothing of the server's screen, so the library still owns no screen arrangement in its public API.
+- No Material dependency. `consumer` depends on Compose runtime, foundation and ui only (`consumer/build.gradle.kts`), and the style uses their types: `Color`, `TextStyle`, `Dp` and `PaddingValues`.
+
+### 2. Interfaces and contracts
+
+The signatures are in [consumer-api.md](contracts/consumer-api.md#text-the-user-reads). In short:
+
+- `ScreenProblem` gains two cases, `ConnectionEnded` and `AnswerUnreadable`, both `data object`. `Refused` and `Unavailable` now carry only the producer's reasons. An unreadable answer is no longer a `Refused` with the kind `IntroductionNotValid`, because the app did not send an invalid introduction and the producer did not refuse.
+- `SsrComposeStringResource` is an enum with the four keys above.
+- `SsrComposeStringResourceManager` has one `@Composable` lookup, `stringResource(resource, vararg arguments: Any): String`. Its shape matches `androidx.compose.ui.res.stringResource(id, vararg formatArgs)`, so an Android app can forward a key to its own `R.string` with one line per key.
+- `LocalSsrComposeStringResourceManager` is a `staticCompositionLocalOf` whose default is the internal English manager. An app that never provides one sees the English text of today.
+- An app that replaces only some keys reads the current manager before it provides its own, and falls back to it. The probe below runs exactly this.
+- `ScreenProblemMessage(problem, retry, modifier, colors, textStyle, contentPadding, spacing, maxContentWidth, retryContentPadding, retryBorderWidth)` is public. Each style parameter defaults to a value of `ScreenProblemMessageDefaults`. `SsrScreen`'s default `unavailable` calls it with `Modifier.fillMaxSize()` and the defaults.
+- The model is Material 3's `Button`, read in `material3-android-1.4.0-sources.jar`: `colors: ButtonColors = ButtonDefaults.buttonColors()` and `contentPadding: PaddingValues = ButtonDefaults.ContentPadding`. `ButtonColors` is a plain class, not a `data class`, with a public constructor and a `copy` in which `Color.Unspecified` keeps the old value. `buttonColors()` is `@Composable` because it reads the theme, and `ContentPadding` is a plain value.
+- Grouped: the background and the content colour, in `ScreenProblemMessageColors(containerColor, contentColor)`. They change together with the theme and must be chosen as a readable pair, and their default reads `isSystemInDarkTheme()`, so it is a `@Composable` function, `ScreenProblemMessageDefaults.colors(containerColor, contentColor)`, whose parameters default to `Color.Unspecified`, meaning the theme's default. The class follows `ButtonColors`: `@Immutable`, public constructor, `copy` with the same `Color.Unspecified` rule, and hand-written `equals` and `hashCode`.
+- Not grouped: the text style, the padding, the gap, the maximum width, and the retry button's padding and border width. None of them depends on the theme, so each is a plain value in `ScreenProblemMessageDefaults` (`MessageTextStyle`, `ContentPadding`, `Spacing`, `MaxContentWidth`, `RetryContentPadding`, `RetryBorderWidth`), like `ButtonDefaults.ContentPadding`. The retry border takes its colour from `contentColor`, so it is a width and not a `BorderStroke`, which would hold a second colour.
+- `contentColor` colours the text and the retry border and replaces the colour of `textStyle`, as Material's content colour does.
+- Files and packages, one public type per file and one package per component, as the owner's entry wds2m4d5 ("Compose UI: previews, ImageVector icons, own theme object, package per component") asks: `SsrComposeStringResource` and `SsrComposeStringResourceManager` (with `LocalSsrComposeStringResourceManager` in the same file) in `dev.tonholo.ssrcompose.consumer.text`; the English manager, `EnglishStringResourceManager`, in `dev.tonholo.ssrcompose.consumer.internal.text`; `ScreenProblemMessage`, `ScreenProblemMessageColors` and `ScreenProblemMessageDefaults` in `dev.tonholo.ssrcompose.consumer.problem`. `ScreenProblem` stays in `dev.tonholo.ssrcompose.consumer`, where `SsrScreen` names it.
+- An app's own `unavailable` composable must handle the two new cases. For them it can show its own text, or the library's through `LocalSsrComposeStringResourceManager.current`. The contract has the example.
+
+Plurals: no text needs one today. The contract fixes the signature for when the first one appears: an enum `SsrComposePluralResource` and `@Composable fun pluralResource(resource: SsrComposePluralResource, quantity: Int, vararg arguments: Any): String`. `quantity` picks the plural form and is not added to `arguments` by itself, which matches `pluralStringResource(id, count, vararg formatArgs)` on Android. Shipping it now would mean an enum with no entries. A `when` over such an enum does not compile without an `else` branch (probe below), so every app's manager would need dead code. The owner chose on 2026-11-19 to wait for the first plural text and to add the lookup then, with a default body.
+
+Compatibility: adding a key to an enum is a source break for an app whose manager has an exhaustive `when` with no `else`. That is on purpose: the build tells the app that a new text needs a translation. An app that does not want this writes `else -> fallback.stringResource(...)`. Adding the plural lookup later as a new interface member with a default body that uses the English manager should keep existing managers compiling. Whether it also keeps them binary compatible on the JVM was not checked.
+
+### 3. Data flow
+
+1. The session ends a conversation or hears from the producer, and publishes `SessionState.Problem(problem)` with a `ScreenProblem` that holds no library text.
+2. `SsrScreen` calls `unavailable(problem, retry)` in composition.
+3. The default `unavailable` calls `ScreenProblemMessage`, which reads `LocalSsrComposeStringResourceManager.current`.
+4. For `ConnectionEnded`, `AnswerUnreadable` and `Mismatch` it asks the manager for the matching key. For `Refused` and `Unavailable` it shows the producer's `reason` as it is. It always asks for `ScreenProblemRetry`.
+5. It draws with its style parameters.
+
+The retry rules do not change. A retry after `Refused`, `ConnectionEnded` or `AnswerUnreadable` introduces the app again, because the conversation has ended. A retry after `Unavailable` or `Mismatch` asks for the screen again.
+
+Failure: a manager that throws, during composition, stops the app's recomposer (R7), and a `try/catch` cannot wrap a composable call. The library cannot guard against it. The manager's documentation says it must return a text for every key and must not throw.
+
+A language change: a manager that reads Android resources through `stringResource` reads the configuration, so it gives the new text on the next composition. The English manager does not change. A producer `reason` stays in the language it was written in until the producer sends another message. Not run on a device.
+
+### 4. Constraints and non-functional requirements
+
+- Cost: `ScreenProblemMessage` does two lookups per composition, and only while a problem shows. There is one message per `SsrScreen`. No lookup runs while a screen is shown, so a screen of thousands of components (R7) pays nothing.
+- Reliability: the default works with no setup. An app that does not localize keeps today's English text and look.
+- Maintainability: each English text has one definition, in the internal English manager. `ConsumerSession` holds no user text.
+- Trade-off: a key enum and a `vararg` lookup give up type-checked arguments. No key has arguments, and the shape matches Android, so an Android app writes the least code. Typed arguments were turned down below.
+
+### 5. Invariants
+
+1. With no manager provided, every key shows its English text of today, word for word. A common host test reads each key through the default manager and compares it with a fixed table.
+2. Every key is used by `ScreenProblemMessage`. A device test shows every library-written problem with a manager that returns a marked text for each key, and checks that `SsrComposeStringResource.entries` were all shown.
+3. `ConsumerSession` holds no user text. Check: `grep -n 'const val' consumer/src/commonMain/kotlin/dev/tonholo/ssrcompose/consumer/internal/session/ConsumerSession.kt` lists only `MIN_WINDOW_PX` and `SEND_CANCELLED`.
+4. The only English user text in `consumer/src/commonMain` is in `internal/text/EnglishStringResourceManager.kt`. Check: `grep -rn '"' consumer/src/commonMain` finds no text for the user in any other file. The reviewer sorts the hits with the list above.
+5. No Material dependency. Check: `grep -n material consumer/build.gradle.kts` finds nothing.
+6. All of it is in common code. Check: `grep -rn 'android\.' --include='*.kt' consumer/src/commonMain` finds nothing (ui-compose rule 1).
+7. The default colours are readable in light and in dark theme. The device test that measures the luminance range inside the text and the retry label runs for both themes.
+8. The default look is unchanged. The device test that checks the insets and the gap of today's message still passes against `ScreenProblemMessage` with its defaults.
+
+### 6. Risks and edge cases
+
+- An app's manager that misses a key fails its own build when it has no `else`, and shows the fallback when it has one. No runtime path shows a key name.
+- A manager that throws crashes composition. Handled by documentation only (see Data flow).
+- `isSystemInDarkTheme()` reads the system theme. An app with its own theme switch passes its own `colors`. The defaults never guess the app's theme.
+- An app that changes only `containerColor` can end with unreadable text. That is the app's choice; the defaults pair both colours.
+- The producer refuses an introduction it cannot read before it knows a language, and may have no text in the app's language. Both give an English reason (messages.md rule 7). The app can map `Refused.kind`. `RefusalKind` has four entries today (`core/handshake/RefusalKind.kt`).
+- Input size: four keys, one message per `SsrScreen`. Nothing grows with the screen.
+
+### 7. Rejected alternatives
+
+- Android string resources, which an app overrides and translates by resource merging. It works on Android only, so common code would need an `expect`/`actual` for every text, and the session would need a `Context` to write its reasons. An override is matched by name with no compile check, so a typo falls back to English in silence. A probe on 2026-11-19 put `consumer/src/androidMain/res/values/strings.xml` in the module and built `:consumer:bundleAndroidMainAar`: the build passed and the AAR held only `R.txt` (empty), `AndroidManifest.xml`, `classes.jar` and the AAR metadata, so the Android library target in this build packages no resources unless the build is changed. An Android app keeps the good part of this option: its manager can return its own `R.string` texts, which it translates as usual.
+- Compose Multiplatform resources. They are not in `gradle/libs.versions.toml`, they would add a dependency, and they generate a `Res` class owned by the library, with no documented way for an app to replace a library's text. The owner's need is languages the library does not ship. Read in the Compose Multiplatform documentation, not run.
+- Writing the text in the session with a manager that is not composable. The session runs outside composition, so Android's `stringResource` cannot be used there, and the text would stay in the old language after a change.
+- Keeping `reason: String` and filling it in `SsrScreen` from the manager before the session starts. The public API would not change, but the app could not tell a connection that ended from a producer's reason, and the text would freeze.
+- A `ProblemReason` type in place of `reason: String`, with one case for producer text and one per library key. It answers the brief's "key and arguments" question in its general form, but every app that reads `reason` would have to resolve it, and two new `ScreenProblem` cases say the same with less code. No library text takes an argument.
+- One interface member per text, with typed arguments, in place of a key enum. It checks arguments at compile time, but an app must implement every member, a new text breaks every app with no `else` to fall back on, and it moves away from the owner's sketch for a gain no key needs yet.
+- One style object, `ScreenProblemMessageStyle`, filled by `ScreenProblemMessageDefaults.style(...)`, as the first version of this design proposed. It kept the composable at four parameters and every field in one factory. The owner chose Material's shape instead on 2026-11-19.
+- A style `CompositionLocal` alone, or style parameters on `SsrScreen`. The first hides the look from the call site, and the second mixes the problem message into the screen's API.
+- A slot for the retry button. Not asked for. It can come later without breaking the style parameters.
+- An opt-in annotation for the new API. The types are plain Compose types and our own, none of them alpha or experimental (rule 9), and the whole library is unreleased. An opt-in would add an annotation to every app's call for no stated risk.
+
+### 8. Slices
+
+Each slice holds one new mechanism, is its own public API change (rule 11), and is built tests first.
+
+1. Problems that hold no text. Add `ScreenProblem.ConnectionEnded` and `ScreenProblem.AnswerUnreadable`. The session publishes them in place of `Unavailable(CONNECTION_ENDED)` and `Refused(IntroductionNotValid, UNREADABLE_MESSAGE)`, and loses both constants. `DefaultScreenProblem` maps them to the same English text for now. Tests first: the `ConsumerSessionTest` cases that assert `Refused` for an unreadable frame, an early `Screen` or `ScreenUnavailable` and another contract version expect `AnswerUnreadable`, and those that assert `Unavailable` for a failed or ended connection expect `ConnectionEnded`. A `DefaultScreenProblemTest` case shows both with today's English text. The session still ends the conversation for an unreadable answer, as [messages.md](contracts/messages.md) rule 10 asks; only the `ScreenProblem` it shows changes. T085 in `tasks.md` says an undecodable message "is treated as a refusal" and that the default message says why; the engineering-manager updates it to name `AnswerUnreadable`.
+2. Replaceable text. Add `SsrComposeStringResource`, `SsrComposeStringResourceManager`, the internal English manager and `LocalSsrComposeStringResourceManager`. `DefaultScreenProblem` reads its four texts through the local. Tests first: invariant 1 in `commonTest` with `composeOnce`; invariant 2 as a device test; and an `SsrScreen` device test in which an app's manager, provided above `SsrScreen`, shows its own text when the connection ends.
+3. Styleable problem message. Move `DefaultScreenProblem` to the public `ScreenProblemMessage` in `consumer/problem/`, add `ScreenProblemMessageColors` and `ScreenProblemMessageDefaults`, and call it from `SsrScreen`'s default `unavailable`. Tests first: a device test passes `colors` with a container and a content colour that the defaults never use and finds both in the captured image, and passes a `contentPadding` and a `spacing` and measures them; invariants 7 and 8 run against the defaults; a common host test checks `ScreenProblemMessageColors` equality and that `copy` with `Color.Unspecified` keeps the old colour. `ScreenProblemMessage` gets a light and a dark `@Preview` in its own file, as the owner's entry wds2m4d5 asks.
+4. Plurals, only when the first plural text is specified. Add `SsrComposePluralResource` and `pluralResource` with the signature above. Tests first: a manager that records `quantity` and returns a marked text for 0, 1 and 2, and the English text of each form.
+
+### 9. Validation checklist
+
+1. `ScreenProblem` has exactly the cases `Refused`, `Unavailable`, `ConnectionEnded`, `AnswerUnreadable` and `Mismatch`, as in the contract.
+2. `ConsumerSession` holds no user text (invariant 3), and publishes `ConnectionEnded` and `AnswerUnreadable` in the cases of slice 1.
+3. `SsrComposeStringResource` has the four keys, with the English text of the table, word for word (invariant 1).
+4. `SsrComposeStringResourceManager` has one `@Composable` lookup with the signature of the contract, and no plural lookup yet.
+5. `LocalSsrComposeStringResourceManager` is a `staticCompositionLocalOf` whose default is the English manager, and the English manager is internal.
+6. `ScreenProblemMessage` reads every text through the local, shows producer reasons as they are, and its test proves that an app's manager replaces each key (invariant 2).
+7. An `SsrScreen` device test proves that a manager provided above `SsrScreen` reaches the default `unavailable`.
+8. `ScreenProblemMessage` takes the parameters of the contract in its order, each style parameter defaulting to `ScreenProblemMessageDefaults`, applies `modifier` to its root, and `SsrScreen`'s default `unavailable` calls it with `Modifier.fillMaxSize()`.
+9. `ScreenProblemMessageColors` is `@Immutable`, not a `data class`, with a public constructor, `copy`, `equals` and `hashCode`. `ScreenProblemMessageDefaults.colors()` and the plain values give today's look.
+10. A device test proves that an app's colours, padding and gap reach the composable, and the default look is unchanged and readable in both themes (invariants 7 and 8).
+11. No Material dependency and nothing Android in common code (invariants 5 and 6).
+12. Public in `consumer` are only the types the contract lists under "What is public".
+13. A rendering slice names the device and has screenshots in light and dark theme (ui-compose rule 7).
+
+### Probes
+
+Run on 2026-11-19 in this workspace with throwaway files that were deleted afterwards. `git status --short` was empty after each.
+
+- An app's manager replaces a text. A `commonTest` file defined a key enum, a manager interface with a `@Composable` `vararg` lookup, an internal English manager, a `staticCompositionLocalOf` with it as the default, and an app manager that replaces one key and falls back to the manager it read before providing itself. Composed with `composeOnce`, it read "Try again" with no provider, then "Tentar de novo" and the English mismatch text inside the provider. `./gradlew :consumer:testAndroidHostTest --tests dev.tonholo.ssrcompose.consumer.probe.ProbeTest` exited 0 with `tests="1"` and `failures="0"`.
+- An empty enum. `internal enum class ProbeEmpty` with `when (value) {}` failed `:consumer:compileAndroidMain` with `'when' expression must be exhaustive. Add an 'else' branch.` (`NO_ELSE_IN_WHEN`), and detekt reported `EmptyWhenBlock`.
+- Android resources: see the first rejected alternative.
+
+Not checked:
+
+- Binary compatibility of an app's compiled manager after the plural lookup is added with a default body. Needs two builds of an app against two versions of `consumer`; not run.
+- A language change during a session on a device.
+- Why detekt's `LongParameterList` does not report `SsrScreen`'s seven parameters. A probe with a seven-parameter function and a seven-parameter composable in `commonMain` was not reported either, though the default limit is 5 (`allowedFunctionParameters: 5` in detekt 2.0.0-alpha.6's default config). A ten-parameter composable with defaults, the shape of `ScreenProblemMessage`, was not reported either: `./gradlew :consumer:detekt` exited 0 on 2026-11-19. The style choice does not rest on detekt.
