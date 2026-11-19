@@ -4,32 +4,31 @@ import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
 import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
 import dev.tonholo.ssrcompose.catalog.validation.isKotlinIdentifier
-import dev.tonholo.ssrcompose.compiler.SsrNames
 import dev.tonholo.ssrcompose.compiler.consumer.slot.SlotParameterMapper
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.DirectDeclarationsAccess
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
-import org.jetbrains.kotlin.fir.declarations.hasAnnotation
+import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 
 private const val PATH_SEPARATOR = "/"
 
 /**
  * What one source file holds: its [source], the [choices] and [components] of its marked composables, and the
- * [parameterErrors] of those composables.
+ * [declarationErrors] of the functions it marks and of the functions that cannot be marked.
  */
 internal class ScannedFile(
     val source: String,
     val choices: List<ChoiceList> = emptyList(),
     val components: List<ComponentDescriptor>,
-    val parameterErrors: List<ConsumerError>,
+    val declarationErrors: List<ConsumerError>,
 ) {
     private val hasValidSource: Boolean = CatalogFragment.isValidSource(source = source)
 
     val errors: List<ConsumerError>
         get() = when {
-            parameterErrors.isNotEmpty() -> parameterErrors
+            declarationErrors.isNotEmpty() -> declarationErrors
             components.isNotEmpty() && !hasValidSource -> listOf(UnsupportedSource(source = source))
             else -> emptyList()
         }
@@ -44,25 +43,54 @@ internal class ScannedFile(
 }
 
 /**
- * Finds the marked composables of a source file. A marked `expect` is left out and its marked `actual` is kept, so
- * a pair counts once.
+ * Finds the marked composables of a source file, and every function in it that is marked but cannot be. A marked
+ * `expect` is left out and its marked `actual` is kept, so a pair counts once.
  */
 internal class MarkedComposables(private val session: FirSession) {
-    @OptIn(DirectDeclarationsAccess::class)
+    private val markable = MarkableFunction(session = session)
+
     fun scan(file: FirFile): ScannedFile {
-        val marked = file.declarations.filterIsInstance<FirNamedFunction>().filter(::isMarked)
-        val errors = marked.flatMap(::errorsOf)
+        val problems = namedFunctionsIn(file = file)
+            .filter(markable::concerns)
+            .associateWith { function -> markable.problemsOf(function = function) }
+        val functionErrors = problems.flatMap { (function, found) ->
+            found.map { problem ->
+                UnmarkableFunction(
+                    function = function.name.asString(),
+                    problem = problem,
+                    sourceElement = function.source,
+                )
+            }
+        }
+        val marked = problems.filterValues { it.isEmpty() }.keys.toList()
+        val errors = functionErrors + marked.flatMap(::errorsOf)
         val described = if (errors.isEmpty()) marked.map(::describe) else emptyList()
         return ScannedFile(
             source = file.sourcePath(),
             choices = described.flatMap { it.choices }.distinctBy { it.name },
             components = described.map { it.component },
-            parameterErrors = errors,
+            declarationErrors = errors,
         )
     }
 
-    private fun isMarked(function: FirNamedFunction): Boolean =
-        function.hasAnnotation(classId = SsrNames.consumerComposable, session = session) && !function.status.isExpect
+    private fun namedFunctionsIn(file: FirFile): List<FirNamedFunction> {
+        val collector = NamedFunctionCollector()
+        file.accept(collector)
+        return collector.functions
+    }
+
+    private class NamedFunctionCollector : FirVisitorVoid() {
+        val functions: MutableList<FirNamedFunction> = mutableListOf()
+
+        override fun visitElement(element: FirElement) {
+            element.acceptChildren(this)
+        }
+
+        override fun visitNamedFunction(namedFunction: FirNamedFunction) {
+            functions += namedFunction
+            namedFunction.acceptChildren(this)
+        }
+    }
 
     private fun describe(function: FirNamedFunction): DescribedComponent {
         val mapped = function.valueParameters

@@ -23,7 +23,8 @@ class SsrComposePluginTest {
         // Arrange
         val fixture = FixtureProject(projectDir)
             .configure(ssrComposeBlock = FixtureSources.CONSUMER_BLOCK)
-            .addFile(relativePath = FixtureSources.MARKED_SOURCE_PATH, text = FixtureSources.MARKED_SOURCE)
+            .addFile(relativePath = FixtureSources.COMPOSABLE_STAND_IN_PATH, text = FixtureSources.COMPOSABLE_STAND_IN)
+            .addFile(relativePath = FixtureSources.MARKED_SOURCE_PATH, text = FixtureSources.MARKED_COMPOSABLE_SOURCE)
 
         // Act
         val result = fixture.compile()

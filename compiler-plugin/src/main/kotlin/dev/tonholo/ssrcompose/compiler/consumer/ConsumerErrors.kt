@@ -67,3 +67,35 @@ internal data class UnsupportedSource(
             "no empty segment, no segment that starts or ends with a dot, no two dots in a row, and a file name " +
             "that fits a file system"
 }
+
+/**
+ * The reasons a function cannot be marked with `@ConsumerComposable`.
+ */
+internal enum class FunctionProblem(private val template: String) {
+    NOT_COMPOSABLE("The marked function '%s' is not @Composable. Only @Composable functions can be marked."),
+    NOT_TOP_LEVEL("The marked composable '%s' is not a top-level function. $TOP_LEVEL_RULE"),
+    EXTENSION_RECEIVER("The marked composable '%s' has an extension receiver. $EXTENSION_RECEIVER_RULE"),
+    CONTEXT_PARAMETERS("The marked composable '%s' has context parameters. $CONTEXT_PARAMETERS_RULE"),
+    TYPE_PARAMETERS("The marked composable '%s' has type parameters. $TOP_LEVEL_RULE"),
+    PRIVATE("The marked composable '%s' is private. Only internal or public composables can be marked."),
+    ;
+
+    fun messageFor(function: String): String = template.format(function)
+}
+
+/**
+ * A marked function whose shape the catalog cannot describe.
+ */
+internal data class UnmarkableFunction(
+    val function: String,
+    val problem: FunctionProblem,
+    override val sourceElement: KtSourceElement? = null,
+) : ConsumerError {
+    override val message: String = problem.messageFor(function = function)
+}
+
+private const val TOP_LEVEL_RULE = "Only top-level composables without type parameters can be marked."
+private const val EXTENSION_RECEIVER_RULE =
+    "Only top-level composables without an extension receiver or type parameters can be marked."
+private const val CONTEXT_PARAMETERS_RULE =
+    "Only top-level composables without an extension receiver or context parameters can be marked."

@@ -16,10 +16,8 @@ internal class ConsumerFirRegistrar(
     override fun ExtensionRegistrarContext.configurePlugin() {
         +::RendererDeclarationGenerator
         +::RendererCheckersExtension
-        if (writer != null) {
-            +FirAdditionalCheckersExtension.Factory { session ->
-                ConsumerCheckersExtension(session = session, writer = writer, messages = messages)
-            }
+        +FirAdditionalCheckersExtension.Factory { session ->
+            ConsumerCheckersExtension(session = session, writer = writer, messages = messages)
         }
     }
 

@@ -310,7 +310,7 @@ class RendererExperimentTest {
         const val SECOND_DUPLICATE_DIAGNOSTIC = "DuplicateMarkedGreeting.fixture.kt:11:1 $DUPLICATE_MARKED_BODY"
         const val EXTENSION_RECEIVER_DIAGNOSTIC =
             "ExtensionMarkedComposable.fixture.kt:6:1 The marked composable 'Tag' has an extension receiver. " +
-                "Only top-level composables without an extension receiver or context parameters can be marked."
+                "Only top-level composables without an extension receiver or type parameters can be marked."
         const val CONTEXT_PARAMETERS_DIAGNOSTIC =
             "ContextMarkedComposable.fixture.kt:6:1 The marked composable 'Tag' has context parameters. " +
                 "Only top-level composables without an extension receiver or context parameters can be marked."
@@ -318,7 +318,7 @@ class RendererExperimentTest {
         const val PRIVATE_MARKED_COMPOSABLE_FIXTURE = "PrivateMarkedComposable"
         const val TYPE_PARAMETERS_DIAGNOSTIC =
             "GenericMarkedComposable.fixture.kt:6:1 The marked composable 'Tag' has type parameters. " +
-                "Only non-generic composables can be marked."
+                "Only top-level composables without type parameters can be marked."
         const val PRIVATE_DIAGNOSTIC =
             "PrivateMarkedComposable.fixture.kt:6:1 The marked composable 'Tag' is private. " +
                 "Only internal or public composables can be marked."
