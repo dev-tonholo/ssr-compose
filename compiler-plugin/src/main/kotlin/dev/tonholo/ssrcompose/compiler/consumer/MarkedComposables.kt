@@ -43,8 +43,8 @@ internal class ScannedFile(
 }
 
 /**
- * Finds the marked composables of a source file, and every function in it that is marked but cannot be. A marked
- * `expect` is left out and its marked `actual` is kept, so a pair counts once.
+ * Finds the marked composables of a source file, and every function in it that is marked but cannot be, or must be
+ * marked and is not. A marked `expect` is left out and its marked `actual` is kept, so a pair counts once.
  */
 internal class MarkedComposables(private val session: FirSession) {
     private val markable = MarkableFunction(session = session)

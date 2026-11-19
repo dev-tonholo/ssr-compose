@@ -83,6 +83,24 @@ internal class CompileTestSupport(
             classpath = emptyList(),
         )
 
+    /** Compiles inline [common] and [platform] sources with multiplatform enabled. */
+    fun compileExpectAndActual(
+        common: SourceText,
+        platform: SourceText,
+        options: List<Pair<String, String>> = emptyList(),
+    ): JvmCompilationResult {
+        val compilation = newCompilation(options = options)
+        val commonDir = compilation.workingDir.resolve("sources")
+        commonDir.mkdirs()
+        val commonPath = commonDir.resolve(common.fileName).absolutePath
+        return compilation.apply {
+            sources = listOf(common, platform).map { source ->
+                SourceFile.kotlin(name = source.fileName, contents = source.contents)
+            }
+            kotlincArguments = kotlincArguments + listOf("-Xmulti-platform", "-Xcommon-sources=$commonPath")
+        }.compile()
+    }
+
     private fun sourceFile(fixtureName: String, fileName: String): SourceFile {
         val name = if (fileName.endsWith(KT_EXTENSION)) fileName else "$fileName$FIXTURE_SUFFIX"
         return SourceFile.kotlin(name = name, contents = readFixture(fixtureName = fixtureName))
@@ -96,13 +114,21 @@ internal class CompileTestSupport(
         composeOptions: List<Pair<String, String>> = emptyList(),
         moduleName: String? = null,
     ): JvmCompilationResult =
-        KotlinCompilation().apply {
-            val composeProcessor = ComposeCommandLineProcessor()
+        newCompilation(options = options, classpath = classpath, composeOptions = composeOptions).apply {
             this.moduleName = moduleName
-            jvmTarget = JvmTarget.JVM_17.description
-            classpaths = classpath
             this.friendPaths = friendPaths
             this.sources = sources
+        }.compile()
+
+    private fun newCompilation(
+        options: List<Pair<String, String>>,
+        classpath: List<File> = emptyList(),
+        composeOptions: List<Pair<String, String>> = emptyList(),
+    ): KotlinCompilation =
+        KotlinCompilation().apply {
+            val composeProcessor = ComposeCommandLineProcessor()
+            jvmTarget = JvmTarget.JVM_17.description
+            classpaths = classpath
             compilerPluginRegistrars = registrars
             commandLineProcessors = listOfNotNull(SsrCommandLineProcessor().takeIf { runsSsrPlugin }, composeProcessor)
             pluginOptions = options.map { (name, value) ->
@@ -115,7 +141,7 @@ internal class CompileTestSupport(
                 PluginOption(pluginId = composeProcessor.pluginId, optionName = name, optionValue = value)
             }
             inheritClassPath = true
-        }.compile()
+        }
 
     private fun readFixture(fixtureName: String): String {
         val resourcePath = "$FIXTURES_FOLDER/$fixtureName$FIXTURE_SUFFIX"
