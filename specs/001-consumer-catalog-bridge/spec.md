@@ -46,7 +46,7 @@ The owner turned down a content model whose only case was the app's catalog comp
 - Q: How does an app composable get its size, when only the device knows it? → A: The device measures it and reports the size back, and the producer places it.
 - Q: Does the producer know the user's font scale? → A: It joins the introduction.
 - Q: How does the producer measure text with the app's fonts? → A: The app's fonts reach the producer in this feature, in a separate pinned font bundle with its own version, not inside the catalog. The catalog stays build time only.
-- Q: What font does text with no app font use? → A: Roboto, bundled in both the producer and the consumer. Default text is measured and drawn with it, never with the system font.
+- Q: What font does text with no app font use? → A: Roboto, bundled in both the producer and the consumer, as the library's default family. A server text names a family, and a text with no family or `FontFamily.Default` is refused. Text in the default family is measured and drawn with Roboto, never with the system font.
 - Q: Can the introduction and messages carry more than the font scale? → A: Yes: the layout direction, the space the app gives the screen and its changes, in contract version 1.
 - Q: Is there an interaction that needs no round trip? → A: Yes, a minimal local state now. After the review the owner chose its sizing: the chosen variant shows at once in a box the size of the largest variant, then the device tells the producer, which lays out again so the content around moves; the device keeps its choice.
 - Q: Does the contract version change? → A: No. It stays 1, and the content model is replaced inside it, since nothing is released.
@@ -304,7 +304,7 @@ Server-rendered content ([research.md R20](research.md#r20-server-rendered-conte
 - **FR-081**: A server developer MUST be able to define a region with 2 to 16 variants, all measured by the producer, and taps that switch between them on the device with no round trip to the producer. The chosen variant MUST show at once, in a box the size of the largest variant; the device then tells the producer, which lays the screen out again so the content around the region moves into place, and the device keeps its choice. The device MUST NOT move any other content on its own. Scrolling a scroll container MUST also need no round trip.
 - **FR-082**: Server text MUST be real text on the device: read by accessibility services, drawn by the device's text engine, with the click labels, roles, descriptions and headings the server gave.
 - **FR-083**: The producer MUST serve at least 10,000 open screens at once, measured by a load test that reports memory and the time to the first screen.
-- **FR-084**: Text with no app font MUST be measured on the producer and drawn on the device with the same font, Roboto, which the library carries on both sides. The device's system font MUST NOT be used for it.
+- **FR-084**: A server text MUST name a font family. Text in the library's default family, the bundled Roboto, MUST be measured on the producer and drawn on the device with the same font, which the library carries on both sides, and the device's system font MUST NOT be used for it. The producer MUST refuse a text with no family, or with `FontFamily.Default`, with `onScreenNotSendable`, since Compose has no public way to remap the default.
 
 ### Key Entities
 
