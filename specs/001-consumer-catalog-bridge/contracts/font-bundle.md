@@ -47,13 +47,13 @@ ssr/fonts/1/
 - `fonts.json` and each font file are refused, before they are read, when they are larger than their cap: 1 MiB for `fonts.json` and 16 MiB for a font file by default.
 - The bundle's fingerprint is the SHA-256 of `fonts.json`, which holds every file's fingerprint, so it covers the whole bundle. A changed font file needs a new font version: the app's `ssrFontCheck` fails otherwise.
 - A font file is untrusted input on the server. It is pinned by its fingerprint and by the lock file, reviewed when it is first saved like a catalog, and parsed only by the producer, with Skia, when it starts. The producer checks each file's fingerprint again and that Skia reads it as a font; a file that fails stops `Producer { }` at start and names the version, the family and the file.
-- The library's own default font, Roboto, is not in a font bundle. The producer and the consumer each carry it ([ADR 0020](../../../docs/adr/0020-bundle-roboto-as-the-default-font.md)).
+- The library's own default font, Roboto, is not in a font bundle. The producer and the consumer each carry it ([ADR 0020](../../../docs/adr/0020-bundle-roboto-as-the-default-font.md)). Server code reaches the producer's copy through `LocalConsumer.current.fonts`, the default family.
 
 ## How the two sides agree at run time
 
 - The app sends its font version in `Introduce` (`fontVersion`, absent when the app declares no font). The build writes it into a generated resource, or the app gives it to `SsrScreen` by hand with its `ConsumerFonts`.
 - The producer serves the font versions it loaded. An app whose font version it does not hold is refused with the kind "font version not supported". An app with no font version gets only the default font.
-- Inside a session, `LocalConsumer.current.fonts` holds the families of that session's font bundle and the default font. A text in another family stops the screen with `ScreenUnavailable`.
+- Inside a session, `LocalConsumer.current.fonts` holds the families of that session's font bundle and the default family, the bundled Roboto. A text in another family, a text with no family and a text with `FontFamily.Default` stop the screen with `ScreenUnavailable`.
 - A font version change during a session is sent with `FontVersionChanged`: the producer switches to that bundle and lays the screen out again with its state kept, or refuses the session when it does not hold it ([messages.md](messages.md#rules), rule 3e).
 - The consumer draws a text's `family` with the family of that name from its `ConsumerFonts`, built from the same declared files the bundle was made from. A family it does not have makes the screen `ScreenProblem.Mismatch`.
 - The producer only sends a text whose weight and italic match a file of its family exactly, so neither side picks another weight or fakes one. Any other weight or italic stops the screen with `onScreenNotSendable` ([ADR 0020](../../../docs/adr/0020-bundle-roboto-as-the-default-font.md)).

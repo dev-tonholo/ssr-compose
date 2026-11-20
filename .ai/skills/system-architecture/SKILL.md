@@ -42,7 +42,7 @@ Rules 14 and 15 hold the principle I invariants.
 - The file formats and messages are defined in `specs/001-consumer-catalog-bridge/contracts/`.
 - The producer composes every screen with Compose UI foundation in an `ImageComposeScene`, reads the result through the public semantics and inspector API, and sends a positioned document; the consumer arranges nothing (`specs/001-consumer-catalog-bridge/research.md` R20, `docs/adr/0015-producer-renders-with-compose-ui-foundation.md`).
 - App components are measured on the device and reported with `ComponentMeasured` (`docs/adr/0016-app-components-measured-on-the-device.md`).
-- The app's fonts travel in a font bundle with its own version, separate from the catalog, and default text uses Roboto carried on both sides (`specs/001-consumer-catalog-bridge/contracts/font-bundle.md`, `docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md`, `docs/adr/0020-bundle-roboto-as-the-default-font.md`).
+- The app's fonts travel in a font bundle with its own version, separate from the catalog, and the default family is Roboto carried on both sides, with a server text naming a family and no family refused (`specs/001-consumer-catalog-bridge/contracts/font-bundle.md`, `docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md`, `docs/adr/0020-bundle-roboto-as-the-default-font.md`).
 
 ### Platform limits
 
