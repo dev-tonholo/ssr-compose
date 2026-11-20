@@ -1655,7 +1655,7 @@ The app's fonts travel in a font bundle of their own, with its own version, sepa
 
 ### 5. Invariants
 
-1. The consumer never arranges nodes on its own. Check: `git grep -n -E 'foundation.layout.(Column|Row)' -- consumer/src/commonMain` finds nothing, and every node is placed by the one internal positioned layout at its `x` and `y`.
+1. The consumer never arranges nodes on its own. Check: `git grep -n -E 'foundation.layout.(Column|Row)' -- consumer/src/commonMain ':!consumer/src/commonMain/kotlin/dev/tonholo/ssrcompose/consumer/problem'` finds nothing (the problem message is the app's own UI), and every node is placed by the one internal positioned layout at its `x` and `y`.
 2. Nothing on the wire is a bare list of app components. Check: `ScreenDocument.root` is a `DocumentNode.Box`, and `SlotContent.nodes` is a list of `DocumentNode`, any case. A codec test decodes example 3 exactly.
 3. The consumer checks a document before drawing it. A negative or non-finite size, a non-finite position or one beyond 100,000 dp either way, a font size not above 0 or above 1,000, `maxLines` below 1, a weight outside 1 to 1,000, a repeated id, a `Local` click to a switcher that is not in the document or a variant it does not have, a `selected` variant the switcher does not have, a largest size smaller than a variant's box, or a switcher with fewer than 2 or more than 16 variants fails decoding with `MessageDecodingException`. Check: one codec test per rule.
 4. An app with no `@ConsumerComposable` renders server screens. Check: a consumer test with `ComponentBindings {}` and example 1, and T055's empty index test.
@@ -1699,7 +1699,7 @@ R18's `PlacedNode`, `ScreenApplier` and `PlacedNodeContent` parts describe code 
 
 T048's remaining pull requests (value, choice and list kinds in the compiler plugin) do not change: bridges call `ConsumerComponent` with the same parameters. Only its body changes, in slice 5 here, inside `producer`. Slice 1 moves the marker, which changes `ProducerNames` in `compiler-plugin`; it lands after the open T048 pull request merges, or the later of the two rebases.
 
-Changes to `tasks.md` for the engineering-manager:
+Changes to `tasks.md` for the engineering-manager. Applied on 2026-11-20: tasks.md has T120 to T129 for slices 1 to 9 and the text gate, in this order, and every change below.
 
 - New tasks for slices 1 to 9 and the text gate below, placed after T050 and before T054 is called done, since the MVP must show a server-rendered screen. Slice 6 is the exception: it needs the action IDs of T067, so it sits in User Story 2 after T067, and nothing in User Story 1 waits for it.
 - T049: the applier and `PlacedNode` are replaced by the scene of slice 3. Mark it superseded by the slice 3 task.
@@ -1782,6 +1782,8 @@ Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `
 - P10: a consumer device test that draws a node tree with foundation, and the existing `ScreenProblemMessageTest`, both failed on a physical Pixel 7 Pro with Android 17, where they should never have been run (device work belongs on `emulator-5554` only), with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso. Consumer drawing was not checked on a device.
 
 ### Guardrails proposed for the rules
+
+Applied on 2026-11-20: the owner approved this wording, and rule 14 of .ai/rules/architecture.md carries it word for word. Its Column and Row check leaves out the problem message, the app's own UI: `git grep -n -E 'foundation.layout.(Column|Row)' -- consumer/src/commonMain ':!consumer/src/commonMain/kotlin/dev/tonholo/ssrcompose/consumer/problem'`.
 
 Rule 14 of [the architecture rules](../../.ai/rules/architecture.md) and its checks still allow the top-to-bottom fallback and name `ScreenContent`. Proposed wording, for the engineering-manager to bring to the owner:
 
