@@ -10,7 +10,7 @@ import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 internal const val EVERY_KIND_MANIFEST_RESOURCE = "golden/manifest.json"
 internal const val EVERY_KIND_PART_FINGERPRINT = "642a1ffc374431f6e07f96bd63a9d968f8424688cf4ed6cd7df7a8fa54e65d1b"
 
-internal const val EVERY_KIND_CATALOG_FINGERPRINT = "ea757c870b4487a017a8db18e23c698a79adf0802d8911d8da2a68a165116d91"
+internal const val EVERY_KIND_CATALOG_FINGERPRINT = "05ee2b91fa9eefc1eb5dc0587fa01aec8a3ca194bf1e4a1a71ca41c7f98075f8"
 
 internal const val FINGERPRINT_LENGTH = 64
 
@@ -28,7 +28,7 @@ internal fun manifestText(vararg entries: String, version: String = "1"): String
     """{"format":1,"version":"$version","parts":[${entries.joinToString(separator = ",")}]}"""
 
 internal fun everyKindManifest(): CatalogManifest = CatalogManifest(
-    version = CatalogVersion(value = "v \"1\" \\ ü"),
+    version = CatalogVersion(value = "release-1.0_beta"),
     parts = listOf(PartEntry(name = PartName(value = "every-kind"), fingerprint = EVERY_KIND_PART_FINGERPRINT)),
 )
 
