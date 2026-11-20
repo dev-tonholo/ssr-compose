@@ -134,7 +134,7 @@ A catalog of version 3, from an app with two modules that have marked composable
 | Field | Meaning | Rule |
 |---|---|---|
 | `format` | the version of the manifest format | a whole number. A reader refuses a format it does not know. |
-| `version` | the catalog version the app developer set | at most 64 characters, no control characters. A label with no order. |
+| `version` | the catalog version the app developer set, `CatalogVersion` | a label the app developer sets, 1 to 64 characters of lowercase ASCII letters, digits, dots, hyphens and underscores, that neither starts nor ends with a dot, and that is never a Windows device name (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`), alone or before a dot, since it names the folder `ssr/catalogs/<version>/`. Lowercase only, so `A` and `a` cannot meet on a file system that ignores case; no trailing dot, so `1` and `1.` cannot meet on Windows, which drops trailing dots. Two different labels never name the same folder. The rule is the same as for the font bundle `version` in [font-bundle.md](font-bundle.md#fields). Only equal or not equal matters. |
 | `parts` | one entry per part | sorted by `name`. Empty when the app has no marked composable. |
 | `parts[].name` | the part's name | lowercase letters, digits and hyphens, 1 to 64 characters, never a Windows device name (see "Part names" below). Unique in the manifest. |
 | `parts[].file` | the part's file name | always `<name>.part.json`, built from the part's `name`. Unique in the manifest. A reader rejects the whole manifest otherwise. See "Part file names" below. |

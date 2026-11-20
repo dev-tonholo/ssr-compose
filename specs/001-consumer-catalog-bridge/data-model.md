@@ -10,7 +10,7 @@ Entities from the spec with their fields and rules. Kotlin names are proposals. 
 
 ### CatalogVersion (`core`)
 
-A label the app developer sets. At most 64 characters, no control characters. No order: only equal or not equal matters. It lives in `core` so the handshake can carry it. `catalog-model` uses this same type.
+A label the app developer sets: 1 to 64 characters of lowercase ASCII letters, digits, dots, hyphens and underscores, neither starting nor ending with a dot, and never a Windows device name alone or before a dot, since it names the folder `ssr/catalogs/<version>/` on file systems that may ignore case or drop a trailing dot ([contracts/catalog-bundle.md](contracts/catalog-bundle.md#manifest-fields)). The check is the same one `FontBundleVersion` uses, written once in `core`. No order: only equal or not equal matters. It lives in `core` so the handshake can carry it. `catalog-model` uses this same type.
 
 ### ValueKind (`core`)
 
