@@ -6,19 +6,34 @@ import dev.tonholo.ssrcompose.core.message.internal.JsonMessageCodec
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class DeviceContextTest {
     private val codec = JsonMessageCodec()
 
-    private fun deviceChanged(fontScale: String? = "1.0", direction: String? = "Rtl"): String {
-        val added = listOfNotNull(
-            fontScale?.let { scale -> /* language=json */ """"fontScale":$scale""" },
-            direction?.let { name -> /* language=json */ """"layoutDirection":"$name"""" },
+    private fun deviceChanged(
+        fontScale: Float? = 1f,
+        direction: String? = "Rtl",
+        curve: JsonArray? = ONE_POINT_CURVE,
+    ): String = buildJsonObject {
+        put(key = "type", value = "DeviceChanged")
+        put(
+            key = "device",
+            element = buildJsonObject {
+                put(key = "density", value = 2.5f)
+                put(key = "screenWidthPx", value = 1080)
+                put(key = "screenHeightPx", value = 2400)
+                put(key = "theme", value = "Dark")
+                put(key = "language", value = "ar-EG")
+                fontScale?.let { scale -> put(key = "fontScale", value = scale) }
+                curve?.let { points -> put(key = "fontScaleCurve", element = points) }
+                direction?.let { name -> put(key = "layoutDirection", value = name) }
+            },
         )
-        return /* language=json */ """{"type":"DeviceChanged","device":{"density":2.5,"screenWidthPx":1080,""" +
-            """"screenHeightPx":2400,"theme":"Dark","language":"ar-EG",""" +
-            added.joinToString(separator = ",") + "}}"
-    }
+    }.toString()
 
     private fun failuresOf(texts: List<String>): List<KClass<out Throwable>?> = texts.map { text ->
         runCatching { codec.decodeConsumerMessage(frame = text.encodeToByteArray()) }
@@ -28,7 +43,7 @@ class DeviceContextTest {
     @Test
     fun `given a right-to-left device at the largest font scale, when DeviceChanged is decoded, then it holds both`() {
         // Arrange
-        val frame = deviceChanged(fontScale = MAX_FONT_SCALE.toString()).encodeToByteArray()
+        val frame = deviceChanged(fontScale = MAX_FONT_SCALE).encodeToByteArray()
 
         // Act
         val actual = (codec.decodeConsumerMessage(frame = frame) as ConsumerMessage.DeviceChanged).device
@@ -41,7 +56,7 @@ class DeviceContextTest {
     @Test
     fun `given a font scale not above 0 or above 4, when DeviceChanged is decoded, then it is refused`() {
         // Arrange
-        val texts = listOf("0.0", "-1.0", "4.5").map { scale -> deviceChanged(fontScale = scale) }
+        val texts = listOf(0f, -1f, MAX_FONT_SCALE + 0.5f).map { scale -> deviceChanged(fontScale = scale) }
 
         // Act
         val actual = failuresOf(texts = texts)
@@ -75,11 +90,12 @@ class DeviceContextTest {
     }
 
     @Test
-    fun `given a device without a font scale or a layout direction, when decoded, then it is refused`() {
+    fun `given a device without a font scale, its curve or a layout direction, when decoded, then it is refused`() {
         // Arrange
         val texts = listOf(
             deviceChanged(fontScale = null),
             deviceChanged(direction = null),
+            deviceChanged(curve = null),
         )
 
         // Act
@@ -91,5 +107,14 @@ class DeviceContextTest {
 
     private companion object {
         const val MAX_FONT_SCALE = 4f
+
+        val ONE_POINT_CURVE = buildJsonArray {
+            add(
+                element = buildJsonObject {
+                    put(key = "sp", value = 12f)
+                    put(key = "dp", value = 12f)
+                },
+            )
+        }
     }
 }

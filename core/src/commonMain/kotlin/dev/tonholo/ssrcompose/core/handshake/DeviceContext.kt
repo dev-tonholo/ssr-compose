@@ -7,7 +7,7 @@ private const val MAX_FONT_SCALE = 4f
 /**
  * What the producer may know about the device. It can change during a session.
  * [orientation] is derived from the size. The producer measures text with [fontScale] and lays out in
- * [layoutDirection].
+ * [layoutDirection], turning text sizes into dp with [fontScaleCurve].
  *
  * @throws IllegalArgumentException when [fontScale] is not above 0 or is above 4.
  */
@@ -19,6 +19,7 @@ public data class DeviceContext(
     val theme: Theme,
     val language: String,
     val fontScale: Float,
+    val fontScaleCurve: FontScaleCurve,
     val layoutDirection: LayoutDirection,
 ) {
     init {

@@ -3,6 +3,8 @@ package dev.tonholo.ssrcompose.consumer.testing
 import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
+import dev.tonholo.ssrcompose.core.handshake.FontScaleCurve
+import dev.tonholo.ssrcompose.core.handshake.FontScalePoint
 import dev.tonholo.ssrcompose.core.handshake.Introduction
 import dev.tonholo.ssrcompose.core.handshake.LayoutDirection
 import dev.tonholo.ssrcompose.core.handshake.Theme
@@ -27,6 +29,9 @@ private val DEVICE = DeviceContext(
     theme = Theme.Light,
     language = "en-US",
     fontScale = 1f,
+    fontScaleCurve = FontScaleCurve(
+        points = FontScaleCurve.SAMPLED_SIZES.map { sp -> FontScalePoint(sp = sp, dp = sp) },
+    ),
     layoutDirection = LayoutDirection.Ltr,
 )
 
