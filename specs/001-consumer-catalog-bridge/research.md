@@ -466,7 +466,7 @@ Checked on 2026-11-17.
 - A strict read fails for an absent value, a `None` value, a value of another kind and an unknown choice entry. All four failures are a `PlacedValueException`. The contract did not name a type for the first, second and fourth, so they use the same one as the third.
 - `PlacedComponentScope` is `@Immutable` and equal when its placed components are equal. A test recomposes a screen with a new but equal scope and sees the binding skipped, and sees it run again when the component changes.
 - `@Immutable` is a promise the types do not enforce: `PlacedComponent` holds `Map` and `List` interfaces and `DataValue.Bytes` wraps a `ByteArray`. A scope over a map that is changed in place would be skipped with stale values, so the scope documents that the placed component must not change after it is made. Decoded messages are new objects, so this holds.
-- The equality walks the whole placed component, slots included, for each equal but new scope on every recomposition of its parent. The codec refuses JSON nesting deeper than 128 levels and a slot takes 3, so slots nest about 40 deep at most. Nothing caps the components on a screen. The owner's three apps have 621 to 1,085 composables in the whole app, so a screen is expected to have hundreds. The cost is about components times depth field comparisons, 40,000 for 1,000 components at depth 40. T054 measured a whole screen, see "Failed reads during composition". If it proves too slow, a later task can compare each decoded component once when a `Screen` arrives and reuse the old scope for an equal one, so later comparisons stop at the identity check.
+- The equality walks the whole placed component, slots included, for each equal but new scope on every recomposition of its parent. The codec refuses JSON nesting deeper than 128 levels and a slot takes 4 since the tagged content of R20 (3 before), so components nest at most 32 deep. Nothing caps the components on a screen. The owner's three apps have 621 to 1,085 composables in the whole app, so a screen is expected to have hundreds. The cost is about components times depth field comparisons, 32,000 for 1,000 components at depth 32. T054 measured a whole screen, see "Failed reads during composition". If it proves too slow, a later task can compare each decoded component once when a `Screen` arrives and reuse the old scope for an equal one, so later comparisons stop at the identity check.
 - Every device value is read in common code, so nothing was put in `consumer/src/androidMain/`. Density comes from `LocalDensity`, the window size from `LocalWindowInfo.containerSize`, the theme from `isSystemInDarkTheme()` and the language from `Locale.current`.
 - The values are published to `DeviceValues.current` in a `SideEffect`, so a reader outside composition, such as T098, sees them after the screen is committed.
 - Tested: each value, and a change of density, window size and theme followed by a recomposition. The theme and language tests live in `consumer/src/androidHostTest/`, because `isSystemInDarkTheme()` reads Android's `LocalConfiguration` on Android and the test must provide one. The host tests return default values for Android stubs, set in the kmp-library convention plugin for every KMP module, because Compose's runtime calls them.
@@ -1470,3 +1470,218 @@ Not checked:
 - Binary compatibility of an app's compiled manager after the plural lookup is added with a default body. Needs two builds of an app against two versions of `consumer`; not run.
 - A language change during a session on a device.
 - Why detekt's `LongParameterList` does not report `SsrScreen`'s seven parameters. A probe with a seven-parameter function and a seven-parameter composable in `commonMain` was not reported either, though the default limit is 5 (`allowedFunctionParameters: 5` in detekt 2.0.0-alpha.6's default config). A ten-parameter composable with defaults, the shape of `ScreenProblemMessage`, was not reported either: `./gradlew :consumer:detekt` exited 0 on 2026-11-19. The style choice does not rest on detekt.
+
+## R20. The content model seam (#194)
+
+Status: designed on 2026-11-19 for #194, which the owner approved the same day. It must land before US3 (T072 to T078). The owner settled its two open points on 2026-11-19: one opt-in marker for `core` and `producer`, moved into `core`, with module-wide opt-in in our own modules ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md), Accepted), and contract version 1 kept for the new shape. Contract: [messages.md](contracts/messages.md#screen-content). Model: [data-model.md](data-model.md#screencontent-core).
+
+Decision: `ScreenContent` becomes a `@Serializable` sealed interface. Its one case today, `ScreenContent.Components`, is the provisional ordered list of placed components. `Screen.content` and every slot become a tagged JSON object instead of a bare array. `PlacedComponent.slots` becomes `Map<String, ScreenContent>`. Feature 2 adds a case for server-rendered documents next to `Components`, without changing the type of `content` or of a slot. The wire types that `core` makes public only for the library's own modules carry the opt-in marker `@InternalSsrComposeApi`, the same marker T048 puts on the bridge entry points of `producer`, moved into `core`.
+
+This keeps principle I open without designing server-rendered documents. Rule 14 of [the architecture rules](../../.ai/rules/architecture.md) forbids a content model that hardens a screen or a slot holding only catalog components; after this change neither field is typed as a list of components. Rule 15 is not touched: a screen with no catalog component is an empty `Components` case, and the producer still handles every node kind.
+
+What was read for this design: `main` at 3c101dd4; T048 PR 1 on `feat/52/consumer-component-map` at 2166c823; the earlier T048 design branch `feat/52/bridge-kinds` at ed900ded (documents only); explicit API mode on `chore/135/explicit-api` at 1b041a21.
+
+### 1. Boundaries
+
+- `core` owns `ScreenContent`, its `Components` case, `PlacedComponent`, their JSON shape and the opt-in marker. It knows nothing of layout, rendering or nodes.
+- `producer` turns its node tree into `ScreenContent` in one internal function, used for the screen root and for every slot. That function is the only place in `producer` that picks a case. It never filters node kinds (rule 15).
+- `consumer` reads `ScreenContent` with an exhaustive `when` in its internal code. The top-to-bottom `Column` for the screen root stays inside `ProvisionalScreenContent`, internal and marked temporary (rule 14). Slot content, once T078 renders it, is emitted in order into the app composable's own layout: the library arranges nothing inside a slot. The public API of `consumer` does not change.
+- `compiler-plugin` needs no change for the content model. Created code names no marked `core` type: bridges name `CatalogVersion`, `DataValue` and `ConsumerComponent` (`ProducerNames` on 2166c823), and renderers name `PlacedComponentScope` (`RendererNames` on 3c101dd4). The only change is the class id of the marker, if the marker moves (section 2).
+- Not changed: `PlacedComponentScope`, `ComponentBindings`, `SsrScreen`'s signature, the catalog formats, the handshake and the guard, which reads the producer's nodes and not `ScreenContent`.
+
+### 2. Interfaces and contracts
+
+#### The types (`core`, package `dev.tonholo.ssrcompose.core.message`)
+
+```kotlin
+@InternalSsrComposeApi
+@Serializable
+public sealed interface ScreenContent {
+    @Serializable
+    @SerialName("Components")
+    public data class Components(val components: List<PlacedComponent>) : ScreenContent
+}
+
+@InternalSsrComposeApi
+@Serializable
+public data class PlacedComponent(
+    val name: String,
+    val values: Map<String, DataValue> = emptyMap(),
+    val callbacks: Map<String, ActionId> = emptyMap(),
+    val slots: Map<String, ScreenContent> = emptyMap(),
+)
+```
+
+- The KDoc of `Components` says it is provisional until Feature 2: an ordered list of placed components, which the receiving layout arranges. At the screen root the consumer's internal fallback shows it top to bottom.
+- Both stay in `core/src/commonMain/kotlin/dev/tonholo/ssrcompose/core/message/ScreenContent.kt`, next to `ActionId`. Moving files is left out, so this public API change carries no cleanup (rule 11).
+- Explicit API mode (#135): every declaration above is written `public`, and so is any new public function, with an explicit return type. A probe with explicit API mode on (below) showed that properties in the primary constructor of a public `data class` need no modifier, while a plain class's do. So `components` and the `PlacedComponent` fields need none, as `DataValue` and `ScreenProblem` already show.
+
+#### The wire shape
+
+The discriminator is `type`, the JSON default of kotlinx.serialization, which `core`'s codec already uses for messages and for `DataValue`. The serial name of the case is `Components`. A content object is always tagged: a screen root, a slot holding components and an empty slot. An absent slot is left out of `slots`, and empty maps are left out, as today.
+
+A `Screen`:
+
+```json
+{"type":"Screen","screen":"home","content":{"type":"Components","components":[{"name":"Greeting","values":{"title":{"type":"Text","value":"Hi"}}}]}}
+```
+
+A placed component with a slot, inside `components`:
+
+```json
+{"name":"Card","callbacks":{"onClick":"a1"},"slots":{"content":{"type":"Components","components":[{"name":"Label","values":{"text":{"type":"Text","value":"Inside"}}}]}}}
+```
+
+A slot that was given but placed nothing, and a slot that was not given:
+
+```json
+{"name":"Card","slots":{"content":{"type":"Components","components":[]}}}
+{"name":"Card"}
+```
+
+#### How the producer fills a slot
+
+`PlacedNodeContent.kt` gets one function from a list of nodes to `ScreenContent`. `PlacedNode.Root.toScreenContent()` calls it on the root's children, and each `PlacedNode.Slot` calls it on its own children, so a slot becomes `slot.name to ScreenContent.Components(...)`. Every branch is an exhaustive `when` over `PlacedNode`, as T048 PR 1 already writes it: a `Slot` outside a component and a `Root` inside a screen fail with `error(...)`. A given slot that places nothing is `Components(emptyList())`; a slot that was not given has no `PlacedNode.Slot` and is absent (FR-062, R18).
+
+#### How the consumer reads it
+
+`ProvisionalScreenContent` takes `ScreenContent` and branches with `when (content) { is ScreenContent.Components -> ... }`: the `Components` branch keeps today's `Column` and calls `PlacedComponents` with the list. `PlacedProblems.firstComponent` takes `ScreenContent` and branches the same way. No consumer code reads `components` outside such a branch, so Feature 2's new case is a compile error at each place that must decide what to do with it. T078 adds `PlacedComponentScope.slot(name)`, which reads `placed.slots[name]` and renders it through the same `when`, with no layout container.
+
+#### The opt-in marker
+
+Chosen by the owner on 2026-11-19 (ADR 0014): one marker, `InternalSsrComposeApi`, moved from `producer` to `core` in package `dev.tonholo.ssrcompose.core.annotation`, next to `@ConsumerComposable` and `@ProducerComposable`:
+
+```kotlin
+@RequiresOptIn(
+    level = RequiresOptIn.Level.WARNING,
+    message = "Internal to SSR Compose: used by its own libraries, compiler-created code and hand-written " +
+        "bridges, and it can change without notice. Opt in with @OptIn(InternalSsrComposeApi::class).",
+)
+@Retention(AnnotationRetention.BINARY)
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION, AnnotationTarget.PROPERTY)
+public annotation class InternalSsrComposeApi
+```
+
+- Level: `WARNING`, as R18 chose for the bridge entry points, so one marker has one level.
+- Carried in `core`: `ScreenContent`, `PlacedComponent`, `ConsumerMessage`, `ProducerMessage`, `Answer`, `MessageFrame`, `MessageCodec` and `MessageDecodingException`. Nested cases need no marker of their own. These are the second group of [the public `core` list](data-model.md#what-is-public-in-core), which exists only because Kotlin's `internal` does not cross modules.
+- Not carried in `core`: the first group of that list (`CatalogVersion`, `ContractVersion`, `AppIdentity`, `DeviceContext`, `Introduction`, `RefusalKind`, `ValueKind`, `DataValue`, `ActionId`, `Connection` and the two composable annotations), because app and server developers and created bridges name them.
+- Carried in `producer`: unchanged from R18 (`ConsumerComponent`, the five list helpers, `UnplaceableBridge`, later `Callback`), now importing the marker from `core`.
+- `core`, `consumer`, `producer` and `contract-tests` opt in once each in their build file, with `kotlin { compilerOptions { optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi") } }`, for main and test sources. They are the users the marker is for, and use within the declaring module needs an opt-in too (probe below). `core-testing` names no marked type today and gets no opt-in.
+- Never module-wide anywhere else: not in samples, not in compile-test sources of `compiler-plugin`, not in a user's build (R18).
+- Created code: bridges keep the `@OptIn` that R18's FIR step attaches, now naming the marker's class id in `core` (`ProducerNames.internalSsrComposeApi`). Renderers need none. If created code ever names a marked `core` type, the same `@OptIn` already covers it, which is one reason for a single marker.
+- Hand-written bridges and app code opt in per declaration or per file, as R18 says.
+
+#### Contract version
+
+The owner said yes on 2026-11-19: the contract stays at version 1. Nothing has been released: `gradle.properties` has `version=0.1.0-SNAPSHOT` and the repository has no tag. No app or server built from an earlier commit is in use, so there is no older peer to keep serving (principle IX).
+
+How an older peer fails, from the probe below, through the codec's own path (`parseToJsonElement` then `decodeFromJsonElement`):
+
+- A consumer built before #194 that receives the new `Screen` fails to decode it (`Expected JsonArray, but had JsonObject`). The failure is a `JsonDecodingException`, which is an `IllegalArgumentException`, so `JsonMessageCodec` turns it into `MessageDecodingException` and the app shows `ScreenProblem.AnswerUnreadable` ([messages.md](contracts/messages.md) rule 10).
+- A consumer built after #194 that receives an old `Screen` fails the same way (`Expected JsonObject, but had JsonArray`).
+- The producer never decodes a `Screen`, so an older producer and a newer consumer fail only at the consumer.
+- Both sides still say contract version 1, so the handshake accepts, and the failure comes at the first `Screen`, not as a clean `Refused`. This is the cost of staying at 1, and it reaches only development builds.
+
+Principle IX asks for a new version on a breaking change. Here it is met at the first change that can reach a released peer: Feature 2's document case brings contract version 2, and from then on the producer serves version 1 consumers in a form they read, refuses the versions it no longer supports, and states how long version 1 is served.
+
+Feature 2's document case does change the contract version: a version 1 consumer cannot read a case it does not know (probe: `Serializer for subclass 'Document' is not found`). The producer then sends a version 1 consumer only the `Components` case, or `ScreenUnavailable` for a screen that needs a document, for as long as it supports version 1. So `Components` stays in the version 1 wire format even after Feature 2; what is provisional is the screen root's top-to-bottom fallback, not the case.
+
+### 3. Data flow
+
+1. The producer composes; `ScreenApplier` builds the `PlacedNode` tree.
+2. After each applied change, `PlacedNode.Root.toScreenContent()` builds a `ScreenContent.Components` for the root and one for each given slot, nested as placed.
+3. The guard checks the catalog version of every placed node, slots included, on the node tree as today.
+4. The codec writes `Screen` with tagged content. Frames carry the tag on every content object.
+5. The consumer decodes. Any shape problem (an array where an object is expected, a missing `type`, an unknown case, nesting past 128 levels) fails the whole frame with `MessageDecodingException`, and the app shows `AnswerUnreadable`. A consumer never sees part of a screen.
+6. `SessionState.Showing` holds the `ScreenContent`. `ShownScreen` passes it to `ProvisionalScreenContent` and `PlacedProblems`, which branch on the case.
+
+### 4. Constraints and non-functional requirements
+
+- Size: each content object wraps the array in `{"type":"Components","components":` and `}`, 35 bytes more per screen root and per given slot. A screen of 1,000 components with 1,000 given slots grows by about 35 KB. Counted from the JSON of section 2, not measured on a real screen.
+- Nesting: `MAX_NESTING_DEPTH` stays 128. The tag adds one object level, so a slot step takes 4 levels instead of 3 and the screen root 4 instead of 3. Components nest at most 32 deep instead of 42 (`(128 - 4) / 4 + 1`). Compose screens nest catalog slots far less than that. Raising the limit was turned down: it guards the decoder's stack, and nothing asks for deeper slots.
+- Decode time: one discriminator lookup per content object. Not measured; it is small next to the components it holds.
+- Compatibility: as in section 2. Feature 2 adds a case under a new contract version.
+- Maintainability: the case is chosen in one producer function and read in exhaustive `when`s, so a new case is found by the compiler.
+
+### 5. Invariants
+
+1. `Screen.content` and every slot are a tagged object on the wire. A `core` codec test encodes a `Screen` with one slot and compares the frame with the JSON of section 2, character for character.
+2. A slot holds `ScreenContent`, not only a list. A `core` round trip test of a slot holding `ScreenContent.Components`, and the field type `Map<String, ScreenContent>` itself (#194's done-when).
+3. The old array shape, a content object with no `type` and an unknown case are refused only with `MessageDecodingException`. One `core` codec test each, with the existing `failureClassOf` helper.
+4. The nesting limit holds at the new depth. The two slot tests of `JsonMessageCodecTest` use 4 levels per slot step and 4 for the screen root: the deepest allowed slots decode, one step more is refused.
+5. The producer fills slots without filtering. A producer test: a given slot becomes `Components` with its components in order, a given empty slot is `Components(emptyList())`, a slot not given is absent. Check: `grep -n filterIsInstance producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/internal/content/PlacedNodeContent.kt` finds nothing.
+6. Every existing screen still renders. The existing `consumer` host and device tests and `producer` tests pass with only their `ScreenContent` construction changed.
+7. The consumer reads content only through a `when` on the case. Check: `grep -rn '\.components' consumer/src/commonMain` finds hits only inside an `is ScreenContent.Components` branch. `SsrScreen.kt` still imports no `Column` or `Row` (rule 14 check).
+8. Each marked `core` type warns when used without an opt-in. `InternalSsrComposeApiTest` in `compiler-plugin` gains a hand-written source that names each of the eight marked `core` types and counts eight warnings. Its existing test, a server screen calling a created bridge with no opt-in warning, keeps passing. No library module turns warnings into errors: `grep -rn allWarningsAsErrors build-logic` finds only `build-logic/build.gradle.kts` line 10, which covers the convention plugins' own Kotlin code, and no convention plugin sets it for the modules it configures. So this test is the check.
+9. No public signature of `consumer`, `producer` or `core-testing` names a marked type, since an `@OptIn` hides that silently (probe). Check: `git grep -n -E '^\s*public .*(PlacedComponent\b|ScreenContent|MessageCodec|ConsumerMessage|ProducerMessage|\bAnswer\b|MessageFrame|MessageDecodingException)' -- consumer/src/commonMain producer/src/main core-testing/src` finds nothing. It found nothing on 3c101dd4. T108 runs it again.
+10. No second marker named `InternalSsrComposeApi`. Check: `git grep -n 'annotation class InternalSsrComposeApi'` finds one file, in `core`.
+
+### 6. Risks and edge cases
+
+- An older development build of either side fails at the first `Screen` with `AnswerUnreadable`, not at the handshake. Accepted by the owner because nothing is released (section 2).
+- T048 PR 1 changes the same producer files (section "Overlap" below). Building #194 before PR 1 merges would mean two rewrites of `PlacedNodeContent.kt` and of the marker. The build waits for PR 1.
+- #135 may merge before or after #194. Every new public declaration is written `public` with an explicit type, so it compiles either way.
+- A `WARNING` marker does not fail the build. Invariant 8 is the check, and the marker's KDoc and message say the API can change without notice.
+- Module-wide opt-in in our own modules hides an accidental public exposure. Invariant 9 is the check.
+- kotlinx.serialization reads the `type` key in any position (probe), and the producer always writes it first. Nothing depends on its position.
+- Input size: hundreds to about a thousand components per screen (R7). The cost is 35 bytes per content object and one lookup per content object, linear in the number of slots.
+- Not settled here: how a placed component keeps a stable identity across updates inside documents and slots (#183). The consumer keeps keying by position and name.
+
+### 7. Rejected alternatives
+
+- Keep `ScreenContent` a value class over the list and add an optional field later. The root and the slots would stay bare arrays, which is the hardening rule 14 forbids.
+- A custom serializer that reads both the array and the object. It keeps old development builds working, but it adds a hand-written `JsonContentPolymorphicSerializer` to `core` for a contract no released peer speaks.
+- A new contract version 2, with version 1 refused. The handshake would turn the late `AnswerUnreadable` into a clean `Refused`, but it spends a version on a draft that was never released, and the producer would carry a version it refuses from the start. The owner turned it down on 2026-11-19.
+- Another discriminator key, such as `kind`, with `@JsonClassDiscriminator`. It needs `ExperimentalSerializationApi` and differs from the messages and `DataValue`.
+- A serial name that says provisional, such as `ProvisionalComponents`. A serial name lives as long as its contract version, and the case outlives the root's fallback (section 2).
+- One list of mixed nodes, components and documents side by side. It designs Feature 2 now: whether a document embeds components or sits next to them is Feature 2's decision.
+- Two markers, or module-wide opt-in only through a convention plugin. See ADR 0014.
+
+### Overlap with T048 PR 1
+
+T048 PR 1, on `feat/52/consumer-component-map`, is based on c400190e and is 19 commits behind 3c101dd4. Files that both it and #194 change:
+
+| File | T048 PR 1 | #194 |
+|---|---|---|
+| `producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/internal/content/PlacedNodeContent.kt` | exhaustive `when`, `DataValue` values | slots and root to `ScreenContent.Components` |
+| `producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/InternalSsrComposeApi.kt` | adds the marker | removes it, moved to `core` |
+| `producer` files that carry the marker (`ConsumerComponent.kt`, `ListValues.kt`, `UnplaceableBridge.kt`) | add `@InternalSsrComposeApi` | import it from `core` |
+| `compiler-plugin/src/main/kotlin/dev/tonholo/ssrcompose/compiler/producer/ProducerNames.kt` | adds `internalSsrComposeApi` | points it at `core` |
+| `producer/src/test/kotlin/dev/tonholo/ssrcompose/producer/ConsumerComponentTest.kt` and `producer/src/test/kotlin/dev/tonholo/ssrcompose/producer/testing/Label.kt` | expected screens | construct `ScreenContent.Components` |
+| `specs/001-consumer-catalog-bridge/research.md`, `data-model.md`, `contracts/messages.md` | R18, placed node, messages | R20, `ScreenContent`, screen content |
+
+`PlacedNode.kt` and `ConsumerComponent.kt`'s body are not changed by #194. `producer/build.gradle.kts` is changed only by #194, for the opt-in; T048 PR 1 (8a2ef5ca) does not touch it. The #194 build bases on `main` after T048 PR 1 merges. R18 is not on `main` yet, so this section is R20 and leaves R18's place free.
+
+### 8. Slices
+
+Each slice is tests first, one mechanism, and buildable on every commit.
+
+1. One marker in `core`. Test first: `InternalSsrComposeApiTest` gains the hand-written source of invariant 8 and expects eight warnings; it fails because no `core` type is marked. Then move the marker to `core.annotation`, mark the eight types, point `ProducerNames` at it, update the `producer` imports and add the module opt-in in the four build files. Doc change in the same slice: R18's "How hand-written bridges and tests opt in" and point 6 of R18's validation checklist ("Hand-written tests opt in locally") are narrowed to code outside our own modules, since `core`, `consumer`, `producer` and `contract-tests` now opt in module-wide; the rule against module-wide opt-in in `compiler-plugin` compile-test sources and server builds stays. The break: remove the marker from one `core` type and the test counts seven.
+2. Tagged `ScreenContent`. Tests first in `core`: the frame of invariant 1 (fails, because the content is an array), the three refusals of invariant 3 (the old shape decodes today, so its test fails), the round trip of invariant 2, and the nesting constants of invariant 4. Then the producer test of invariant 5, which fails on the old slot type. Then make `ScreenContent` sealed and change `slots`, `PlacedNodeContent.kt`, `ProvisionalScreenContent` and `PlacedProblems`, and every construction in tests, in one commit, since the type change breaks every caller at once. Update the KDoc of `NestingDepth.kt` ("a slot 3" becomes 4). Each break: put back the bare list in one place and the matching test fails.
+
+### 9. Validation checklist
+
+1. `ScreenContent` is a `@Serializable public sealed interface` with exactly one case, `Components`, serial name `Components`, KDoc marking it provisional.
+2. `PlacedComponent.slots` is `Map<String, ScreenContent>`.
+3. A codec test compares a `Screen` frame with a slot to the JSON of section 2 exactly.
+4. The old array shape, a missing `type` and an unknown case each fail with `MessageDecodingException` only.
+5. `MAX_NESTING_DEPTH` is 128, the slot nesting tests use 4 levels per step, and the `NestingDepth.kt` KDoc says so.
+6. `PlacedNodeContent.kt` builds every `ScreenContent` through one function with an exhaustive `when`, and has no `filterIsInstance`.
+7. Producer tests cover a given slot, a given empty slot and a slot not given.
+8. Consumer code reads `components` only inside an `is ScreenContent.Components` branch; `SsrScreen.kt` imports no layout container; the public API of `consumer` is unchanged.
+9. The marker exists once, in `core.annotation`, at `WARNING`, on the eight `core` types and R18's `producer` declarations.
+10. `core`, `consumer`, `producer` and `contract-tests` opt in in their build files; no sample and no compile-test source does.
+11. `InternalSsrComposeApiTest` counts the `core` warnings, and the created-bridge test has no opt-in warning.
+12. The public-signature grep of invariant 9 finds nothing.
+13. Every new public declaration has `public` and an explicit return type.
+14. The contract version stays 1, as the owner chose; `JsonMessageCodec.contractVersion` and messages.md agree.
+15. `./gradlew build detekt --configuration-cache` and `./gradlew check --configuration-cache` pass.
+
+### Probes
+
+Run on 2026-11-19 in a throwaway worktree of `chore/135/explicit-api` at 1b041a21 (explicit API mode on), with a probe type in `core/src/commonMain` and a test in `core/src/jvmTest`, run by `./gradlew :core:jvmTest --tests dev.tonholo.ssrcompose.core.probe.ProbeTest --configuration-cache` (exit 0). The worktree was removed afterwards.
+
+- Encoding a sealed content type inside a sealed wire message gives `{"type":"Screen","screen":"home","content":{"type":"Components","components":[{"name":"Card","slots":{"content":{"type":"Components","components":[{"name":"Label"}]}}}]}}` and decodes back equal. Empty maps are left out (`{"name":"Box"}`).
+- Decoding through `parseToJsonElement` then `decodeFromJsonElement`, as `JsonMessageCodec` does: old shape with the new reader, new shape with the old reader, an unknown case and a missing `type` each throw `JsonDecodingException`, which is an `IllegalArgumentException`. A `type` key after the other keys decodes.
+- A `RequiresOptIn` marker at `WARNING`: a use without opt-in in the declaring module gave two warnings. A public function with `@OptIn` whose parameter is a marked type compiled with no warning.
+- Explicit API mode: a top-level function with no visibility, a public function with no return type and a plain class's constructor property with no visibility each failed with an explicit API error. The constructor properties of a public `data class` with no modifier compiled.
