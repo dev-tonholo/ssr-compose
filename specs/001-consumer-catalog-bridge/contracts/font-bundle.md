@@ -35,7 +35,7 @@ ssr/fonts/1/
 |---|---|---|
 | `format` | the version of this format | a whole number. A reader refuses a format it does not know. |
 | `version` | the font bundle's version, `FontBundleVersion` | a label the app developer sets, 1 to 64 characters of lowercase ASCII letters, digits, dots, hyphens and underscores, that neither starts nor ends with a dot, and that is never a Windows device name (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`), alone or before a dot, since it names the folders `ssr/fonts/<version>/` and `ssrcompose/fonts/<version>/`. Lowercase only, so `A` and `a` cannot meet on a file system that ignores case; no trailing dot, so `1` and `1.` cannot meet on Windows, which drops trailing dots. A restriction is used rather than an encoding of the folder name, because it needs no encoding and decoding in every reader and keeps the folder name equal to the version. Two different labels never name the same folder. Only equal or not equal matters. |
-| `fonts[].family` | the family name a server text names | a plain Kotlin identifier of at most 64 characters, as for a component name. Never `default`, which names the library's own font. |
+| `fonts[].family` | the family name a server text names | a plain Kotlin identifier of at most 64 characters, as for a component name. Never `default`, which names the library's own font. It also names the folder `<family>/`, so it is never a Windows device name (`con`, `prn`, `aux`, `nul`, `com1` to `com9`, `lpt1` to `lpt9`) in any case, and two families of one bundle never differ only by case, so they cannot meet on a file system that ignores case. |
 | `fonts[].weight` | the weight | 1 to 1,000 |
 | `fonts[].italic` | whether it is italic | true or false |
 | `fonts[].file` | the file, next to `fonts.json` | always `<family>/<weight>-<normal or italic>.<ttf or otf>`, built from the fields above. A reader rejects the whole bundle otherwise, so a file name never holds a parent folder or a scheme. |
@@ -43,7 +43,7 @@ ssr/fonts/1/
 
 ## Rules
 
-- `fonts` is sorted by family, weight and italic. Two entries with the same family, weight and italic are rejected.
+- `fonts` is sorted by family, weight and italic. Two entries with the same family, weight and italic are rejected, and so are two families that differ only by case.
 - `fonts.json` and each font file are refused, before they are read, when they are larger than their cap: 1 MiB for `fonts.json` and 16 MiB for a font file by default.
 - The bundle's fingerprint is the SHA-256 of `fonts.json`, which holds every file's fingerprint, so it covers the whole bundle. A changed font file needs a new font version: the app's `ssrFontCheck` fails otherwise.
 - A font file is untrusted input on the server. It is pinned by its fingerprint and by the lock file, reviewed when it is first saved like a catalog, and parsed only by the producer, with Skia, when it starts. The producer checks each file's fingerprint again and that Skia reads it as a font; a file that fails stops `Producer { }` at start and names the version, the family and the file.
