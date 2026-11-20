@@ -1,12 +1,10 @@
 package dev.tonholo.ssrcompose.producer.testing
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.ImageComposeScene
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
+import dev.tonholo.ssrcompose.producer.internal.scene.ScreenScene
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 
@@ -21,33 +19,22 @@ internal data class SceneSpec(
     val dispatcher: CoroutineContext = Dispatchers.Unconfined,
 )
 
-internal class SceneSession(spec: SceneSpec, content: @Composable () -> Unit) : AutoCloseable {
-    init {
-        isDebugInspectorInfoEnabled = true
-    }
-
-    val scene = ImageComposeScene(
-        width = spec.widthPx,
-        height = spec.heightPx,
+internal fun openTestScene(spec: SceneSpec, content: @Composable () -> Unit): ScreenScene = ScreenScene(
+    setup = SceneSetup(
+        widthPx = spec.widthPx,
+        heightPx = spec.heightPx,
         density = spec.density,
-        coroutineContext = spec.dispatcher,
-        content = { CompositionLocalProvider(LocalLayoutDirection provides spec.layoutDirection) { content() } },
-    )
-
-    fun render() {
-        scene.render()
-    }
-
-    override fun close() {
-        scene.close()
-    }
-}
+        layoutDirection = spec.layoutDirection,
+    ),
+    coroutineContext = spec.dispatcher,
+    content = content,
+)
 
 internal fun <T> withRenderedScene(
     spec: SceneSpec = SceneSpec(),
     content: @Composable () -> Unit,
-    read: (ImageComposeScene) -> T,
-): T = SceneSession(spec, content).use { session ->
-    session.render()
-    read(session.scene)
+    read: (ScreenScene) -> T,
+): T = openTestScene(spec = spec, content = content).use { scene ->
+    scene.render()
+    read(scene)
 }
