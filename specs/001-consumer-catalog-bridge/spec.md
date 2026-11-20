@@ -37,6 +37,23 @@ The owner approved these changes later the same day, after the design was planne
 - Q: How does one server keep apps of older catalogs working? → A: Like a versioned endpoint. An app of catalog version 1 gets the screens written for version 1, and an app of version 2 gets the screens written for version 2. An app of a version with no screens is refused. The server chooses when to stop serving each version. Every held catalog has its own bridge, and nothing is adapted for an older app.
 - Q: How does the producer read the contract version before it decodes the introduction? → A: The app's first frame starts with the contract version, in a fixed form that every codec shares. No other frame has it.
 
+### Session 2026-11-20, server-rendered content
+
+The owner turned down a content model whose only case was the app's catalog components, arranged top to bottom by the app: "THIS PROJECT IS NOT SERVER-DRIVEN RENDERING, NON-NEGOTIABLE." The core of Feature 2, server-rendered content, comes into this feature. The design is in [research.md R20](research.md#r20-server-rendered-content-194).
+
+- Q: Who arranges a screen? → A: The producer. "We already send the device's density and screen size in the handshake. The server knows this information and can use it to properly measure the components." The producer measures and places everything, and the app draws what it receives.
+- Q: How does a server developer write that content? → A: With real Compose UI foundation on the producer, read through public semantics and inspector API and sent as a positioned document. The Skiko native jars per server OS, a process-wide inspector flag and the memory cost are accepted. A load test at 10,000 sessions and tests that pin which nodes the producer can read are required.
+- Q: How does an app composable get its size, when only the device knows it? → A: The device measures it and reports the size back, and the producer places it.
+- Q: Does the producer know the user's font scale? → A: It joins the introduction.
+- Q: How does the producer measure text with the app's fonts? → A: The app's fonts reach the producer in this feature, in a separate pinned font bundle with its own version, not inside the catalog. The catalog stays build time only.
+- Q: What font does text with no app font use? → A: Roboto, bundled in both the producer and the consumer. Default text is measured and drawn with it, never with the system font.
+- Q: Can the introduction and messages carry more than the font scale? → A: Yes: the layout direction, the space the app gives the screen and its changes, in contract version 1.
+- Q: Is there an interaction that needs no round trip? → A: Yes, a minimal local state now. After the review the owner chose its sizing: the chosen variant shows at once in a box the size of the largest variant, then the device tells the producer, which lays out again so the content around moves; the device keeps its choice.
+- Q: Does the contract version change? → A: No. It stays 1, and the content model is replaced inside it, since nothing is released.
+- Q: What wraps a screen? → A: The producer wraps every screen in its own box.
+- Q: Are lazy lists supported? → A: Not in this version. Server content scrolls with a plain scroll container, and the bound is stated.
+- Q: Can a slot that accepts only producer content be filled now? → A: Yes. The block on such a slot lifts. Checking that a slot that accepts only consumer content gets only app composables stays out of this feature.
+
 ## User Scenarios & Testing *(mandatory)*
 
 Three people are served by this feature:
@@ -45,9 +62,11 @@ Three people are served by this feature:
 - The server developer, who writes screens in a project that may live in another repository.
 - The end user of the app, who must never see a broken or unknown composable because the app and the server disagree.
 
+Every screen is server-rendered: the producer composes it, measures it with the device's values and arranges it, and the app draws what it receives. The app's own composables are places inside that content.
+
 ### User Story 1 - A server screen places an app composable (Priority: P1)
 
-An app developer marks a composable as usable by the server. Building the app produces a catalog that describes it: its name, its parameters, and any choice types they use. The server developer points the server project at that catalog. After a sync, the server developer can call the composable by the same name with the same parameters, as if it were part of the server project, even though none of the app's code is there. The app connects, introduces itself, and shows the screen. The composable is drawn by the app's own code, with the values the server gave.
+An app developer marks a composable as usable by the server. Building the app produces a catalog that describes it: its name, its parameters, and any choice types they use. The server developer points the server project at that catalog. After a sync, the server developer can call the composable by the same name with the same parameters, as if it were part of the server project, even though none of the app's code is there. The app connects, introduces itself, and shows the screen. The screen's own content is rendered by the server, and the composable is drawn by the app's own code, with the values the server gave, at the place the server gave it.
 
 **Why this priority**: It is the smallest slice that proves the whole chain: mark, produce, share, bridge, connect, render. It puts something on a real device, and every other story builds on it.
 
@@ -66,6 +85,9 @@ An app developer marks a composable as usable by the server. Building the app pr
 9. **Given** no saved catalog and a location that cannot be reached, **When** the server project is synced, **Then** the sync fails with a message that names the location.
 10. **Given** an app with marked composables in two modules, **When** the app is built, **Then** the catalog has one manifest and one part for each of the two modules, and together they describe every marked composable.
 11. **Given** a manifest that names a part with a folder, a parent folder or a scheme in its file name, **When** the server project is synced, **Then** the catalog is rejected, nothing is saved, and the message names the manifest and the part.
+12. **Given** a server screen with text, boxes and a scroll container and no app composable, **When** an app with no marked composable asks for it, **Then** the app shows it, arranged and sized as the server laid it out.
+13. **Given** a server screen that places an app composable between two server texts, **When** the app shows it, **Then** the composable has the size the app's own code gives it, and the server's content is arranged around it.
+14. **Given** a server text in a font the app declared, **When** the app shows it, **Then** it is drawn in that font, within the box the server measured with that same font.
 
 ---
 
@@ -89,15 +111,15 @@ An app composable has a callback, such as "pay was clicked". On the server, that
 
 ### User Story 3 - Server content sits inside an app composable (Priority: P3)
 
-An app composable has a slot: a place where it shows content given to it. The server developer fills that slot on the server with other catalog composables. In the app, that content appears exactly where the composable puts its slot, drawn by the app's own code, and it can be nested.
+An app composable has a slot: a place where it shows content given to it. The server developer fills that slot on the server with server-rendered content, which can hold other catalog composables. The server lays that content out in the space the app's composable gives the slot. In the app, it appears exactly where the composable puts its slot, and it can be nested.
 
-**Why this priority**: It shows that server content can sit inside the app's own containers, drawn by the app's code. It is only part of server-side rendering. Feature 2, server-rendered documents, adds content the app has no component for, and that content can embed placed composables and fill these slots.
+**Why this priority**: It shows both directions in one screen: app composables inside server content, and server content inside the app's own containers.
 
-**Independent Test**: A sample app container with a slot, and a server screen that puts two other catalog composables inside it. See them inside the container on a device.
+**Independent Test**: A sample app container with a slot, and a server screen that puts server text and another catalog composable inside it. See them inside the container on a device.
 
 **Acceptance Scenarios**:
 
-1. **Given** an app composable with a slot, **When** a screen fills the slot with other catalog composables, **Then** the app shows them inside that composable, where it places its slot.
+1. **Given** an app composable with a slot, **When** a screen fills the slot with server content and other catalog composables, **Then** the app shows them inside that composable, where it places its slot, laid out by the server in the space the slot has.
 2. **Given** slots inside slots, **When** the screen is shown, **Then** the nesting in the app matches the nesting written on the server.
 3. **Given** a slot the screen leaves empty, **When** the composable allows that, **Then** the composable is shown with an empty slot.
 4. **Given** an app composable with a required slot that passes arguments to its content, **When** a server developer tries to place that composable, **Then** the server does not build, and the message names the composable and the slot and says that slots with arguments are not supported yet.
@@ -144,7 +166,10 @@ A server developer writes a screen that reads what the app said about itself: de
 - Two composables marked for the server have the same name, in one module or in two. The app build fails and names both places. (FR-006, FR-063)
 - Two parts describe the same choice list differently. The app build fails and names both parts. (FR-063)
 - Two modules would give parts with the same name. The app build fails and names both modules. (FR-065)
-- A marked composable takes a modifier. Modifiers are out of scope: the parameter is left out of the catalog and the composable gets its default. (FR-007)
+- A marked composable takes a modifier. Modifiers of app composables are out of scope: the parameter is left out of the catalog and the composable gets its default. The server sizes and places the composable through its own content around it. (FR-007)
+- A server screen uses something the producer cannot send, such as an image, a gradient, a lazy list, or a font the app's font bundle does not have. The screen is not sent, the app is told it cannot be shown, and the server developer is told why. (FR-079)
+- A font file in a font bundle is missing or is not a font. The producer does not start, and the message names the font version, the family and the file. An app whose font version the producer does not hold is refused with a reason. (FR-080)
+- An app composable's size depends on its slot content, and the slot content on the composable. Once every composable has a size, the server stops measuring again after a few rounds and sends the latest sizes. (FR-076)
 - The manifest at the given location changed since it was last saved, without the server developer asking for it. The saved copy is still used, and the difference is reported at the next sync. (FR-016)
 - The location cannot be reached during a sync. The saved copy is used and the developer is told. With no saved copy, the sync fails with a clear message. (FR-015)
 - A fetched manifest or part is not valid, does not match its fingerprint, or holds names that cannot be used as names in code. The catalog is rejected and nothing is created from it. (FR-017)
@@ -174,17 +199,17 @@ Marking composables and producing the catalog:
 - **FR-004**: A parameter MUST be one of these kinds: a plain value (text, whole number, decimal number, yes or no), a choice from a fixed list, a list of one kind, a callback with no arguments, a callback with up to four arguments, a slot, or a slot whose content receives arguments. A marked composable with a callback of more than four arguments MUST fail the app build with a message that says so. A callback argument is a plain value, a choice, or a block of bytes.
 - **FR-005**: Each part MUST describe every fixed list of choices that its components use, with its name and its choices, so a part can be read on its own.
 - **FR-006**: The app build MUST fail, with a message that names the composable, the parameter and the reason, when a marked composable has a parameter the catalog cannot describe, and when two marked composables share a name. The build MUST fail in the same way when a marked function is a member, an extension or has type parameters.
-- **FR-007**: A modifier parameter MUST be left out of the catalog. The composable is drawn with that parameter's default.
+- **FR-007**: A modifier parameter of a marked composable MUST be left out of the catalog. The composable is drawn with that parameter's default. This is about the app's composables only: the server's own content uses Compose modifiers freely (FR-074).
 - **FR-008**: The manifest and every part MUST be plain, readable text that gives the same bytes for the same composables, so a change to the catalog shows up as a small, reviewable difference.
 - **FR-009**: A catalog MUST have a version the app developer sets. Catalog versions are labels with no order. An app with several build variants has a catalog version per variant, the project's by default, and variants that share a version MUST have the same marked composables.
 - **FR-010**: The app build MUST fail when the catalog it produces no longer matches the saved catalog of the same version, byte for byte, so a catalog cannot change without a new version. Moving a marked composable to another module is such a change. When no saved catalog exists yet for that version, the build MUST fail and say how to save one. It MUST NOT create one by itself, so a new catalog version is always a deliberate step.
-- **FR-011**: The catalog format MUST be able to say, for each slot, what content it accepts: anything, only consumer composables (the app's own), or only producer composables (server-defined). In this feature all slot content is consumer composables, and the restriction is not checked on content. A required slot that accepts only producer composables makes its component unplaceable until Feature 2, and an optional one is left out (FR-036).
+- **FR-011**: The catalog format MUST be able to say, for each slot, what content it accepts: anything, only consumer composables (the app's own), or only producer composables (server-defined). In this feature the restriction is not checked on content: any slot can be filled with server-rendered content, which can hold app composables (FR-078).
 - **FR-063**: Marked composables MAY live in several modules of one app. Each module with marked composables gives its own part, and the catalog covers all of them. A component name MUST be unique across the whole catalog, and a choice list used by two parts MUST be the same in both. Otherwise the app build fails and names both places.
 - **FR-065**: A part's name MUST come from the module's path in the build, and the app developer MUST be able to set another one. The path is made lowercase, every run of characters other than ASCII letters and digits becomes one hyphen, and hyphens at the start and the end are dropped, so a module at `feature/home` or `feature_home` gives `feature-home`. The root module of the build gives `root`. A part name holds only lowercase letters, digits and hyphens, is at most 64 characters long, and is not a name that some systems keep for devices, such as `con` or `nul`, so every part can be saved as a file on every system. A name that breaks this, and two modules whose parts would have the same name, MUST fail the app build, with a message that names the module or both modules and says how to set a name.
 
 Sharing the catalog with the server project:
 
-- **FR-012**: The app's code and the server's code MUST be able to live in different repositories. The catalog, its manifest and its parts, MUST be the only thing the two builds share. This project's own libraries, which both builds use, are not part of what they share with each other.
+- **FR-012**: The app's code and the server's code MUST be able to live in different repositories. The catalog, its manifest and its parts, and the font bundle (FR-080) MUST be the only things the two builds share. The font bundle is the plan's deviation from principle IV, chosen by the owner on 2026-11-20 ([plan.md](plan.md#complexity-tracking)). This project's own libraries, which both builds use, are not part of what they share with each other.
 - **FR-013**: A server developer MUST be able to give the server project the location of each catalog it uses. A catalog's location is the address of its manifest. A plain `https` address MUST be enough, and a file path MUST work too.
 - **FR-014**: The catalog MUST be fetched during the build tool's sync step, and MUST NOT be fetched while code is being compiled. The sync step is a step of the build tool that a developer or a build server runs on purpose, and that an editor's sync also triggers where the build tool allows.
 - **FR-015**: A fetched catalog MUST be saved inside the server project, with the location it came from and a fingerprint of its manifest. Builds MUST use the saved copy, MUST work with no network, and MUST give the same result for the same saved copy.
@@ -219,9 +244,9 @@ Connecting and introducing:
 Showing a screen:
 
 - **FR-033**: A screen MUST have a name the server developer gives it, and MUST be registered for one catalog version. The same name can be registered for several catalog versions, each with its own screen. The app asks for a screen by name, and the producer serves the screen registered under that name for the session's catalog version. A session has at most one open screen, and asking for another replaces it.
-- **FR-034**: The app MUST draw each composable the server placed with the app's own code for it, in the place and order the server put it, with the values the server gave. When a screen places more than one composable at its top level, they are shown top to bottom. This arrangement is provisional until Feature 2, server-rendered documents, arranges the screen.
+- **FR-034**: The app MUST draw a screen as the producer measured and arranged it: every part at the place and size the producer gave it. The app MUST NOT arrange any part of a screen on its own. It draws each composable the server placed with the app's own code for it, with the values the server gave, at the place the server gave it.
 - **FR-035**: Content the server put in a slot MUST appear where the app's composable places that slot, and slots inside slots MUST keep their nesting.
-- **FR-036**: In this feature, a slot that accepts any content can be filled only with the app's own catalog composables. A slot that accepts only producer composables, and a slot whose content receives arguments, cannot be filled at all. When such a slot can be left out, the server has no way to give it and the app uses its own default. When it cannot be left out, the composable cannot be placed by the server, and trying to MUST fail the server build with a message that names the composable and the slot, and says why the slot is not supported yet. The compiler plugin reports it on every call and every reference in each module where it runs, and the build tool plugin MUST run it in every module that can call a bridge. A call that still gets past the compiler fails with the same message when the bridge is composed, so a component that cannot be placed is never placed without its slot.
+- **FR-036**: A slot that accepts any content, or only producer content, can be filled with server-rendered content that may hold the app's own catalog composables (FR-078). A slot whose content receives arguments cannot be filled in this feature. When such a slot can be left out, the server has no way to give it and the app uses its own default. When it cannot be left out, the composable cannot be placed by the server, and trying to MUST fail the server build with a message that names the composable and the slot, and says why the slot is not supported yet. The compiler plugin reports it on every call and every reference in each module where it runs, and the build tool plugin MUST run it in every module that can call a bridge. A call that still gets past the compiler fails with the same message when the bridge is composed, so a component that cannot be placed is never placed without its slot.
 - **FR-037**: If the app receives something it cannot draw, the library MUST NOT crash the app and MUST NOT show a developer placeholder. It tells the user the screen cannot be shown. A crash in the app's own binding code, for example code that fails on a stand-in value, is the app's responsibility. Reporting the mismatch outside the screen is follow-up work (#186). A choice read on an enum with no entries will be rejected by the build (#188); until then it throws as a last guard.
 - **FR-062**: When the server does not give a parameter that can be left out, nothing is sent for it and the app's composable uses its own default. This holds for values, callbacks and slots. The catalog never holds the default, since only the app knows it.
 
@@ -267,11 +292,25 @@ Build time and build performance:
 - **FR-071**: A change in one app module MUST produce again, of the catalog, only that module's part and the manifest. The parts of the other modules are reused as they are.
 - **FR-072**: What the catalog steps of a build produce MUST hold no absolute path and no timestamp, so a build cache shared between machines and checkouts can reuse it.
 
+Server-rendered content ([research.md R20](research.md#r20-server-rendered-content-194)):
+
+- **FR-074**: A server developer MUST write a screen's own content with Compose UI foundation (layouts, text, modifiers, scroll containers) on the producer. The producer MUST compose it, measure it and place it with the density, screen size, font scale and layout direction the app sent, and the space the app gives the screen, and send the result as a document in which every part has its place and size.
+- **FR-075**: The introduction MUST also carry the user's font scale, the layout direction and the app's font version (FR-080). A change of any of them, or of the space the app gives the screen, MUST lay the screen out again and keep its state. A change of the font version during a session MUST reach the producer in a message of its own; the producer MUST switch to that font bundle when it holds it, and otherwise refuse the session with "font version not supported". The app MUST draw each screen with the fonts it was laid out with.
+- **FR-076**: The app MUST measure each of its composables that a screen places, and each slot's space, and report them to the producer, which places them and lays the screen out again. The app MUST NOT show a screen before every composable on it has a reported size; while a new layout is pending it keeps showing the last one. Once every composable has a reported size, the producer MUST stop sizes that keep changing after a configurable number of measuring rounds for one change (4 by default) and send the latest reported sizes. A screen with more than 10,000 app composables is not sent.
+- **FR-077**: An app with no marked composable MUST connect and show server screens.
+- **FR-078**: A slot of an app composable MUST be able to hold server-rendered content, laid out by the producer in the space the app gives the slot, and that content MUST be able to hold app composables again.
+- **FR-079**: Content the producer cannot send in this version (images, gradients and other brushes, shapes other than rectangles and rounded corners, lazy lists, text with several styles, fonts the app's font bundle does not have, a weight or italic a font family has no file for, app composables inside a switcher variant) MUST stop the screen with "screen unavailable" and a report to the server developer that names the reason. Custom drawing cannot be seen by the producer and is not sent, and the documentation MUST say so.
+- **FR-080**: An app developer MUST be able to declare the app's font families. The build MUST produce from them a font bundle with its own version, separate from the catalog, with a fingerprint for each file, saved and published like a catalog. The server build MUST fetch it, pin it in a lock file, verify it and make it available to the producer, and the producer MUST measure server text with it. The app MUST send its font version in the introduction, and the producer MUST refuse an app whose font version it does not hold. A missing or unreadable font file MUST stop the producer at start with a message that names the font version, the family and the file. A text in a family the app does not have MUST make the screen a mismatch, not a crash.
+- **FR-081**: A server developer MUST be able to define a region with 2 to 16 variants, all measured by the producer, and taps that switch between them on the device with no round trip to the producer. The chosen variant MUST show at once, in a box the size of the largest variant; the device then tells the producer, which lays the screen out again so the content around the region moves into place, and the device keeps its choice. The device MUST NOT move any other content on its own. Scrolling a scroll container MUST also need no round trip.
+- **FR-082**: Server text MUST be real text on the device: read by accessibility services, drawn by the device's text engine, with the click labels, roles, descriptions and headings the server gave.
+- **FR-083**: The producer MUST serve at least 10,000 open screens at once, measured by a load test that reports memory and the time to the first screen.
+- **FR-084**: Text with no app font MUST be measured on the producer and drawn on the device with the same font, Roboto, which the library carries on both sides. The device's system font MUST NOT be used for it.
+
 ### Key Entities
 
 - **Marked composable**: a composable in the app that the app developer made usable by the server.
 - **Component**: a marked composable as it appears in a catalog. The word is used only for a catalog entry. What the developer writes and what the user sees is a composable.
-- **Catalog**: the description of every marked composable of one app release, with a version. Produced by the app's build, as a bundle of one manifest and its parts. It is the only thing the app's build and the server's build share, and it is used only while building.
+- **Catalog**: the description of every marked composable of one app release, with a version. Produced by the app's build, as a bundle of one manifest and its parts. With the font bundle, it is one of the two things the app's build and the server's build share, and it is used only while building.
 - **Manifest**: the entry point of a catalog. It names the catalog version and lists each part with its name, its file name and a fingerprint of its content. The fingerprint of the manifest is the fingerprint of the whole catalog.
 - **Part**: the components of one app module, with every choice list they use. A part can be read on its own.
 - **Parameter**: one input of a marked composable. It has a name, a kind, and whether it can be left out.
@@ -283,12 +322,13 @@ Build time and build performance:
 - **Held catalog**: a saved catalog in the server project. It has its own bridge.
 - **Bridge**: what stands for the composables of one held catalog in the server project, so a server developer can call them by name. It holds none of the app's code. Each held catalog has its own bridge, in a place the server developer names.
 - **Served catalog version**: a catalog version that has screens registered on the producer. Apps of any other catalog version are refused.
-- **Introduction**: what an app says about itself when it first connects: the device context, the app identity, the catalog version and the contract version.
-- **Device context**: density, orientation, screen size, theme and language. These can change during a session.
+- **Introduction**: what an app says about itself when it first connects: the device context, the app identity, the catalog version, the contract version, and the font version when the app declares fonts.
+- **Device context**: density, orientation, screen size, theme, language, font scale and layout direction. These can change during a session.
 - **App identity**: the app's version, variant and flavor. Fixed for a session and not proven.
 - **Contract version**: the version of what the two sides say to each other.
 - **Answer**: an acceptance, or a refusal with a kind and a reason.
-- **Screen**: what the app asks for by name and the producer builds for that app, as placed composables with their values, their slot content and their callbacks. This content model is provisional: Feature 2 adds server-rendered documents that can hold placed composables and fill slots (#194). It is registered for one catalog version and uses that version's bridge.
+- **Screen**: what the app asks for by name and the producer builds for that app: a document the producer composed, measured and arranged, made of server-rendered content and the app composables it places, with their values, their slot content and their callbacks. It is registered for one catalog version and uses that version's bridge.
+- **Font bundle**: the app's declared font families and their files, with a version of their own, shared with the server build like a catalog, so the producer measures server text with the fonts the app draws it with.
 - **Session**: one accepted connection between one app and the producer. It has at most one open screen, and holds that screen's state.
 
 ## Success Criteria *(mandatory)*
@@ -317,8 +357,8 @@ Build time and build performance:
 - The catalog is produced and the bridge is created by the Kotlin compiler plugin, as the owner decided. The spec states what must happen. How the compiler does it belongs to the plan.
 - This feature covers the consumer catalog only: the app's composables used by the server. The other direction, server-defined content used by the app under its own name, is a later feature.
 - Slots that pass arguments to their content need server-defined content with places for those values. That is the remote composables feature. Here the catalog can describe such a slot, and the server build refuses to fill it.
-- Until remote composables exist, all slot content is built from the app's own catalog composables.
-- The two sides are named consumer and producer everywhere, as the owner decided. A slot can be marked as accepting only consumer composables (`@ConsumerComposable`) or only producer composables (`@ProducerComposable`), and an unmarked slot accepts either. The catalog describes this now so the format does not have to change later. Checking it is built with the remote composables feature, since in this feature all slot content is the app's own.
+- Slot content is server-rendered content, which can hold the app's own catalog composables. Remote composables, server composables the app calls by name, are a later feature.
+- The two sides are named consumer and producer everywhere, as the owner decided. A slot can be marked as accepting only consumer composables (`@ConsumerComposable`) or only producer composables (`@ProducerComposable`), and an unmarked slot accepts either. The catalog describes this now so the format does not have to change later. Checking what a slot accepts comes with the remote composables feature.
 - What a screen holds lives as long as its session. When the connection ends it is gone, and an app that connects again starts fresh. Keeping it across connections, and what the user sees when a tap cannot reach the server, belong to the later connection feature.
 - A catalog shows the names of an app's components and their parameters to anyone who can read its location. Where it is hosted, and who can read it, is the app team's choice.
 - Each release of the library names the version of the Kotlin language tools it supports. A new version is supported once the compiler plugin's tests pass on it.
@@ -333,3 +373,5 @@ Build time and build performance:
 - Who the user is, and whether they may see a screen, is outside this feature. Nothing proves the app identity, and each server developer decides how far to trust it.
 - Developers need one setting in their editor to see what the compiler creates. That is a documented setup step, not something this feature removes.
 - The proof of concept in `poc/` is a reference for behaviour only. Nothing in this feature depends on it.
+- Lazy lists are not supported in this version: the producer lays out all of a scroll container's content, so a screen's size is bounded by what the producer can lay out and send (8 MiB of document by default).
+- The producer measures text with the same font files the app draws it with. A device's text engine can still break a line differently; such text is clipped to the box the producer measured.
