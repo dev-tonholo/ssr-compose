@@ -206,12 +206,14 @@ class SsrScreenTest {
         // Arrange
         val lastPosition = LARGE_SCREEN_COMPONENTS - 1
         val components = List(size = LARGE_SCREEN_COMPONENTS) { index -> greeting(title = "Item$index") }
-        val connection = FakeConnection(content = ScreenContent(components = components))
+        val connection = FakeConnection(content = ScreenContent.Components(components = components))
 
         // Act
         composeRule.setContent { robot.Screen(connection = { connection }) }
         robot.waitForText(text = "Item$lastPosition", timeoutMillis = LARGE_SCREEN_WAIT_MILLIS)
-        val updated = ScreenContent(components = components.dropLast(n = 1) + greeting(title = CHANGED_TITLE))
+        val updated = ScreenContent.Components(
+            components = components.dropLast(n = 1) + greeting(title = CHANGED_TITLE),
+        )
         connection.deliver(message = ProducerMessage.Screen(screen = SCREEN, content = updated))
         robot.waitForText(text = CHANGED_TITLE, timeoutMillis = LARGE_SCREEN_WAIT_MILLIS)
 

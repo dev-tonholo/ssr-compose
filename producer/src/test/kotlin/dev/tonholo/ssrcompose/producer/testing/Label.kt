@@ -26,8 +26,12 @@ internal fun expectedLabel(text: String, children: List<PlacedComponent> = empty
     PlacedComponent(
         name = LABEL_COMPONENT,
         values = mapOf(LABEL_TEXT_PARAMETER to DataValue.Text(text)),
-        slots = if (children.isEmpty()) emptyMap() else mapOf(LABEL_CONTENT_SLOT to children),
+        slots = if (children.isEmpty()) {
+            emptyMap()
+        } else {
+            mapOf(LABEL_CONTENT_SLOT to ScreenContent.Components(components = children))
+        },
     )
 
 internal fun expectedScreen(vararg components: PlacedComponent): ScreenContent =
-    ScreenContent(components = components.toList())
+    ScreenContent.Components(components = components.toList())

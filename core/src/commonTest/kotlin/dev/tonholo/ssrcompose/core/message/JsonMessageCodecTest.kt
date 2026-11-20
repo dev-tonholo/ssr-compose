@@ -54,11 +54,14 @@ class JsonMessageCodecTest {
 
     private fun nestedSlots(levels: Int): PlacedComponent =
         (1 until levels).fold(initial = PlacedComponent(name = "Box")) { inner, _ ->
-            PlacedComponent(name = "Box", slots = mapOf("content" to listOf(inner)))
+            PlacedComponent(
+                name = "Box",
+                slots = mapOf("content" to ScreenContent.Components(components = listOf(inner))),
+            )
         }
 
     private fun screenWith(component: PlacedComponent) =
-        ProducerMessage.Screen(screen = "home", content = ScreenContent(components = listOf(component)))
+        ProducerMessage.Screen(screen = "home", content = ScreenContent.Components(components = listOf(component)))
 
     private fun deepTriggerText(levels: Int): String = buildString {
         append(/* language=json */ """{"type":"Trigger","action":"a","arguments":[""")
@@ -68,10 +71,12 @@ class JsonMessageCodecTest {
     }
 
     private fun deepScreenText(levels: Int): String = buildString {
-        append(/* language=json */ """{"type":"Screen","screen":"home","content":[""")
-        repeat(times = levels) { append(/* language=json */ """{"name":"Box","slots":{"content":[""") }
-        repeat(times = levels) { append("]}}") }
-        append("]}")
+        append(/* language=json */ """{"type":"Screen","screen":"home","content":{"type":"Components","components":[""")
+        repeat(times = levels) {
+            append(/* language=json */ """{"name":"Box","slots":{"content":{"type":"Components","components":[""")
+        }
+        repeat(times = levels) { append("]}}}") }
+        append("]}}")
     }
 
     @Test
@@ -236,11 +241,14 @@ class JsonMessageCodecTest {
             name = "Button",
             values = mapOf("enabled" to DataValue.Flag(value = true)),
             callbacks = mapOf("onClick" to ActionId(value = "a1")),
-            slots = mapOf("content" to listOf(leaf)),
+            slots = mapOf("content" to ScreenContent.Components(components = listOf(leaf))),
         )
         val card = PlacedComponent(
             name = "Card",
-            slots = mapOf("header" to listOf(leaf), "body" to listOf(button, leaf)),
+            slots = mapOf(
+                "header" to ScreenContent.Components(components = listOf(leaf)),
+                "body" to ScreenContent.Components(components = listOf(button, leaf)),
+            ),
         )
         val message = screenWith(component = card)
 
@@ -249,6 +257,77 @@ class JsonMessageCodecTest {
 
         // Assert
         assertEquals(expected = message, actual = actual)
+    }
+
+    @Test
+    fun `given a Screen with a slot, when it is encoded, then the screen and the slot are tagged content objects`() {
+        // Arrange
+        val label = PlacedComponent(name = "Label", values = mapOf("text" to DataValue.Text(value = "Inside")))
+        val card = PlacedComponent(
+            name = "Card",
+            callbacks = mapOf("onClick" to ActionId(value = "a1")),
+            slots = mapOf("content" to ScreenContent.Components(components = listOf(label))),
+        )
+        val message = screenWith(component = card)
+
+        // Act
+        val actual = codec.encode(message = message).decodeToString()
+
+        // Assert
+        assertEquals(expected = TAGGED_SCREEN_FRAME, actual = actual)
+    }
+
+    @Test
+    fun `given a Screen with a slot that placed nothing, when it is encoded, then the slot is a tagged empty list`() {
+        // Arrange
+        val emptySlot = ScreenContent.Components(components = emptyList())
+        val message = screenWith(component = PlacedComponent(name = "Card", slots = mapOf("content" to emptySlot)))
+
+        // Act
+        val actual = codec.encode(message = message).decodeToString()
+
+        // Assert
+        assertEquals(expected = EMPTY_SLOT_SCREEN_FRAME, actual = actual)
+    }
+
+    @Test
+    fun `given a Screen whose content is a bare array, when it is decoded, then only a decoding error is thrown`() {
+        // Arrange
+        // language=json
+        val frame = """{"type":"Screen","screen":"home","content":[{"name":"Greeting"}]}""".encodeToByteArray()
+
+        // Act
+        val actual = failureClassOf { codec.decodeProducerMessage(frame = frame) }
+
+        // Assert
+        assertEquals(expected = MessageDecodingException::class, actual = actual)
+    }
+
+    @Test
+    fun `given a Screen whose content has no type, when it is decoded, then only a decoding error is thrown`() {
+        // Arrange
+        // language=json
+        val frame = """{"type":"Screen","screen":"home","content":{"components":[]}}""".encodeToByteArray()
+
+        // Act
+        val actual = failureClassOf { codec.decodeProducerMessage(frame = frame) }
+
+        // Assert
+        assertEquals(expected = MessageDecodingException::class, actual = actual)
+    }
+
+    @Test
+    fun `given a Screen whose content is an unknown case, when it is decoded, then only a decoding error is thrown`() {
+        // Arrange
+        // language=json
+        val frame = """{"type":"Screen","screen":"home","content":{"type":"Document","components":[]}}"""
+            .encodeToByteArray()
+
+        // Act
+        val actual = failureClassOf { codec.decodeProducerMessage(frame = frame) }
+
+        // Assert
+        assertEquals(expected = MessageDecodingException::class, actual = actual)
     }
 
     @Test
@@ -687,8 +766,14 @@ class JsonMessageCodecTest {
     private companion object {
         const val TRIGGER_LEVELS = 2
         const val LEVELS_PER_LIST = 2
-        const val SCREEN_LEVELS = 3
-        const val LEVELS_PER_SLOT_STEP = 3
+        const val SCREEN_LEVELS = 4
+        const val LEVELS_PER_SLOT_STEP = 4
         const val VERY_DEEP = 200_000
+
+        // language=json
+        const val TAGGED_SCREEN_FRAME = """{"type":"Screen","screen":"home","content":{"type":"Components","components":[{"name":"Card","callbacks":{"onClick":"a1"},"slots":{"content":{"type":"Components","components":[{"name":"Label","values":{"text":{"type":"Text","value":"Inside"}}}]}}}]}}"""
+
+        // language=json
+        const val EMPTY_SLOT_SCREEN_FRAME = """{"type":"Screen","screen":"home","content":{"type":"Components","components":[{"name":"Card","slots":{"content":{"type":"Components","components":[]}}}]}}"""
     }
 }

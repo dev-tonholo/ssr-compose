@@ -22,18 +22,24 @@ internal fun ProvisionalScreenContent(
     problems: PlacedProblems,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
-        PlacedComponents(content = content, bindings = bindings, problems = problems)
+    when (content) {
+        is ScreenContent.Components -> Column(modifier = modifier) {
+            PlacedComponents(components = content.components, bindings = bindings, problems = problems)
+        }
     }
 }
 
 /**
- * Composes the binding of each placed component of [content], in order. A component with no binding, or one whose
+ * Composes the binding of each of [components], in order. A component with no binding, or one whose
  * binding cannot read a value, is reported to [problems].
  */
 @Composable
-internal fun PlacedComponents(content: ScreenContent, bindings: ComponentBindings, problems: PlacedProblems) {
-    content.components.forEachIndexed { position, placed ->
+internal fun PlacedComponents(
+    components: List<PlacedComponent>,
+    bindings: ComponentBindings,
+    problems: PlacedProblems,
+) {
+    components.forEachIndexed { position, placed ->
         key(position, placed.name) {
             val reporter = remember(problems) { problems.reporterAt(position = position) }
             PlacedBinding(placed = placed, bindings = bindings, reporter = reporter)

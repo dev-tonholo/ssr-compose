@@ -4,7 +4,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 
-/** The deepest nesting of JSON objects and arrays a frame may have. A list inside a list takes 2 levels, a slot 3. */
+/** The deepest nesting of JSON objects and arrays a frame may have. A list inside a list takes 2 levels, a slot 4. */
 internal const val MAX_NESTING_DEPTH = 128
 
 internal fun JsonElement.exceedsNestingDepth(limit: Int): Boolean {

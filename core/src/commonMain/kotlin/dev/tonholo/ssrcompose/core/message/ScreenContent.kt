@@ -3,6 +3,7 @@ package dev.tonholo.ssrcompose.core.message
 import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.data.DataValue
 import kotlin.jvm.JvmInline
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -23,13 +24,21 @@ public data class PlacedComponent(
     val name: String,
     val values: Map<String, DataValue> = emptyMap(),
     val callbacks: Map<String, ActionId> = emptyMap(),
-    val slots: Map<String, List<PlacedComponent>> = emptyMap(),
+    val slots: Map<String, ScreenContent> = emptyMap(),
 )
 
 /**
- * Placed components shown top to bottom. This top-level arrangement is provisional.
+ * What a screen or a slot shows. On the wire it is an object tagged by `type`, so new kinds of content can join
+ * without changing the type of a screen or a slot.
  */
 @InternalSsrComposeApi
 @Serializable
-@JvmInline
-public value class ScreenContent(public val components: List<PlacedComponent>)
+public sealed interface ScreenContent {
+    /**
+     * An ordered list of placed components, which the receiving layout arranges. At the screen root the consumer
+     * shows it top to bottom. Provisional until Feature 2 adds server-rendered documents.
+     */
+    @Serializable
+    @SerialName("Components")
+    public data class Components(val components: List<PlacedComponent>) : ScreenContent
+}

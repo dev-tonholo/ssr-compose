@@ -59,7 +59,7 @@ val APP = AppIdentity(version = "2.4.0", variant = "release")
 fun greeting(title: String = PAY_NOW) =
     PlacedComponent(name = GREETING, values = mapOf(TITLE to DataValue.Text(value = title)))
 
-fun contentOf(vararg components: PlacedComponent) = ScreenContent(components = components.toList())
+fun contentOf(vararg components: PlacedComponent) = ScreenContent.Components(components = components.toList())
 
 /** Shows `SsrScreen` with test bindings and counts how often an amount reaches the screen. */
 class ScreenRobot(private val composeRule: ComposeContentTestRule) {

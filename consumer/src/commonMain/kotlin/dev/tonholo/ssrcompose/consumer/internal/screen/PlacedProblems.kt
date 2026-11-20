@@ -14,8 +14,12 @@ internal class PlacedProblems {
     private val failed = mutableStateMapOf<Int, PlacedComponent>()
 
     /** The name of the topmost component of [content] with a problem, or null when all of them can be drawn. */
-    fun firstComponent(content: ScreenContent): String? = failed.entries
-        .filter { (position, placed) -> content.components.getOrNull(index = position) == placed }
+    fun firstComponent(content: ScreenContent): String? = when (content) {
+        is ScreenContent.Components -> firstComponent(components = content.components)
+    }
+
+    private fun firstComponent(components: List<PlacedComponent>): String? = failed.entries
+        .filter { (position, placed) -> components.getOrNull(index = position) == placed }
         .minByOrNull { (position, _) -> position }
         ?.value
         ?.name

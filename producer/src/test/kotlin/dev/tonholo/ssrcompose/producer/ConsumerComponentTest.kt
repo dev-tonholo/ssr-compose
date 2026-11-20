@@ -24,6 +24,7 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -109,7 +110,7 @@ class ConsumerComponentTest {
     @Test
     fun `given a required nullable value given null, when converted to screen content, then it is sent as None`() {
         // Arrange
-        val expected = ScreenContent(
+        val expected = ScreenContent.Components(
             components = listOf(
                 PlacedComponent(
                     name = FIRST_COMPONENT,
@@ -191,7 +192,7 @@ class ConsumerComponentTest {
         assertEquals(expected = expected, actual = actual)
         assertEquals(
             expected = listOf(TITLE_PARAMETER, SUBTITLE_PARAMETER),
-            actual = actual.components.first().values.keys.toList(),
+            actual = assertIs<ScreenContent.Components>(value = actual).components.first().values.keys.toList(),
         )
     }
 
@@ -289,13 +290,13 @@ class ConsumerComponentTest {
     fun `given an optional slot that becomes given, when recomposed, then each slot keeps its own name and content`() =
         runTest {
             // Arrange
-            val expected = ScreenContent(
+            val expected = ScreenContent.Components(
                 components = listOf(
                     PlacedComponent(
                         name = FIRST_COMPONENT,
                         slots = mapOf(
-                            HEADER_SLOT to listOf(UNTITLED_HEADER),
-                            FOOTER_SLOT to listOf(DONE_FOOTER),
+                            HEADER_SLOT to ScreenContent.Components(components = listOf(UNTITLED_HEADER)),
+                            FOOTER_SLOT to ScreenContent.Components(components = listOf(DONE_FOOTER)),
                         ),
                     ),
                 ),
@@ -324,12 +325,12 @@ class ConsumerComponentTest {
     fun `given a given slot that becomes omitted, when recomposed, then the other slot keeps its name and content`() =
         runTest {
             // Arrange
-            val expected = ScreenContent(
+            val expected = ScreenContent.Components(
                 components = listOf(
                     PlacedComponent(
                         name = FIRST_COMPONENT,
                         slots = mapOf(
-                            FOOTER_SLOT to listOf(DONE_FOOTER),
+                            FOOTER_SLOT to ScreenContent.Components(components = listOf(DONE_FOOTER)),
                         ),
                     ),
                 ),
@@ -443,7 +444,7 @@ class ConsumerComponentTest {
     }
 
     private fun expectedMultiComponentScreen(): ScreenContent =
-        ScreenContent(
+        ScreenContent.Components(
             components = listOf(
                 PlacedComponent(
                     name = FIRST_COMPONENT,
@@ -456,10 +457,12 @@ class ConsumerComponentTest {
                     name = SECOND_COMPONENT,
                     values = mapOf(TITLE_PARAMETER to DataValue.Text(value = SECOND_TITLE)),
                     slots = mapOf(
-                        HEADER_SLOT to listOf(
-                            PlacedComponent(
-                                name = FIRST_COMPONENT,
-                                values = mapOf(TITLE_PARAMETER to DataValue.Text(value = FIRST_TITLE)),
+                        HEADER_SLOT to ScreenContent.Components(
+                            components = listOf(
+                                PlacedComponent(
+                                    name = FIRST_COMPONENT,
+                                    values = mapOf(TITLE_PARAMETER to DataValue.Text(value = FIRST_TITLE)),
+                                ),
                             ),
                         ),
                     ),
@@ -468,7 +471,7 @@ class ConsumerComponentTest {
         )
 
     private fun expectedBannerScreen(theme: Theme): ScreenContent =
-        ScreenContent(
+        ScreenContent.Components(
             components = listOf(
                 PlacedComponent(
                     name = FIRST_COMPONENT,

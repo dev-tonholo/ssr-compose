@@ -27,7 +27,9 @@ private const val LATE_POSITION = 3
 private const val LARGE_SCREEN_COMPONENTS = 10_000
 private const val CHANGED_POSITION = 4_321
 
-private fun contentOf(vararg names: String) = ScreenContent(components = names.map { PlacedComponent(name = it) })
+private fun componentsOf(vararg names: String) = names.map { PlacedComponent(name = it) }
+
+private fun contentOf(vararg names: String) = ScreenContent.Components(components = componentsOf(*names))
 
 private val FOUR_POSITIONS = contentOf(SECOND, FIRST, SECOND, THIRD)
 
@@ -52,7 +54,7 @@ class PlacedComponentsTest {
         // Act
         composeOnce {
             PlacedComponents(
-                content = contentOf(THIRD, FIRST, SECOND),
+                components = componentsOf(THIRD, FIRST, SECOND),
                 bindings = bindings,
                 problems = PlacedProblems(),
             )
@@ -74,7 +76,7 @@ class PlacedComponentsTest {
 
         // Act
         composeOnce {
-            PlacedComponents(content = contentOf(FIRST, SECOND, THIRD), bindings = bindings, problems = problems)
+            PlacedComponents(components = componentsOf(FIRST, SECOND, THIRD), bindings = bindings, problems = problems)
         }
 
         // Assert
@@ -112,20 +114,20 @@ class PlacedComponentsTest {
         // Arrange
         val problems = PlacedProblems()
         val bindings = ComponentBindings { bind(FIRST) { placed -> placed.text(name = PARAMETER) } }
-        val healthy = ScreenContent(components = listOf(titled(name = FIRST, title = "Fixed")))
-        var content by mutableStateOf(contentOf(FIRST))
+        val healthy = listOf(titled(name = FIRST, title = "Fixed"))
+        var components by mutableStateOf(componentsOf(FIRST))
 
         // Act
         composeAndRecompose(
-            content = { PlacedComponents(content = content, bindings = bindings, problems = problems) },
+            content = { PlacedComponents(components = components, bindings = bindings, problems = problems) },
             interact = { recompose ->
-                content = healthy
+                components = healthy
                 recompose()
             },
         )
 
         // Assert
-        assertNull(actual = problems.firstComponent(content = healthy))
+        assertNull(actual = problems.firstComponent(content = ScreenContent.Components(components = healthy)))
     }
 
     @Test
@@ -133,20 +135,23 @@ class PlacedComponentsTest {
         // Arrange
         val problems = PlacedProblems()
         val bindings = ComponentBindings { bind(FIRST) { placed -> placed.text(name = PARAMETER) } }
-        val equalContent = contentOf(FIRST)
-        var content by mutableStateOf(contentOf(FIRST))
+        val equalComponents = componentsOf(FIRST)
+        var components by mutableStateOf(componentsOf(FIRST))
 
         // Act
         composeAndRecompose(
-            content = { PlacedComponents(content = content, bindings = bindings, problems = problems) },
+            content = { PlacedComponents(components = components, bindings = bindings, problems = problems) },
             interact = { recompose ->
-                content = equalContent
+                components = equalComponents
                 recompose()
             },
         )
 
         // Assert
-        assertEquals(expected = FIRST, actual = problems.firstComponent(content = equalContent))
+        assertEquals(
+            expected = FIRST,
+            actual = problems.firstComponent(content = ScreenContent.Components(components = equalComponents)),
+        )
     }
 
     @Test
@@ -157,7 +162,7 @@ class PlacedComponentsTest {
 
         // Act
         composeOnce {
-            PlacedComponents(content = contentOf(FIRST), bindings = bindings, problems = problems)
+            PlacedComponents(components = componentsOf(FIRST), bindings = bindings, problems = problems)
         }
 
         // Assert
@@ -172,7 +177,7 @@ class PlacedComponentsTest {
 
         // Act
         composeOnce {
-            PlacedComponents(content = contentOf(FIRST, UNKNOWN), bindings = bindings, problems = problems)
+            PlacedComponents(components = componentsOf(FIRST, UNKNOWN), bindings = bindings, problems = problems)
         }
 
         // Assert
@@ -191,13 +196,13 @@ class PlacedComponentsTest {
             bind(FIRST, sharedContent)
             bind(SECOND, sharedContent)
         }
-        var content by mutableStateOf(contentOf(FIRST))
+        var components by mutableStateOf(componentsOf(FIRST))
 
         // Act
         composeAndRecompose(
-            content = { PlacedComponents(content = content, bindings = bindings, problems = PlacedProblems()) },
+            content = { PlacedComponents(components = components, bindings = bindings, problems = PlacedProblems()) },
             interact = { recompose ->
-                content = contentOf(SECOND)
+                components = componentsOf(SECOND)
                 recompose()
             },
         )
@@ -216,13 +221,13 @@ class PlacedComponentsTest {
                 placed.text(name = PARAMETER)
             }
         }
-        var content by mutableStateOf(ScreenContent(components = listOf(titled(name = FIRST, title = "Old"))))
+        var components by mutableStateOf(listOf(titled(name = FIRST, title = "Old")))
 
         // Act
         composeAndRecompose(
-            content = { PlacedComponents(content = content, bindings = bindings, problems = PlacedProblems()) },
+            content = { PlacedComponents(components = components, bindings = bindings, problems = PlacedProblems()) },
             interact = { recompose ->
-                content = ScreenContent(components = listOf(titled(name = FIRST, title = "New")))
+                components = listOf(titled(name = FIRST, title = "New"))
                 recompose()
             },
         )
@@ -238,22 +243,20 @@ class PlacedComponentsTest {
         val bindings = ComponentBindings {
             bind(FIRST) { placed -> largeScreenReads += placed.text(name = PARAMETER) }
         }
-        val components = List(size = LARGE_SCREEN_COMPONENTS) { index -> titled(name = FIRST, title = "Item$index") }
-        var content by mutableStateOf(ScreenContent(components = components))
+        val initial = List(size = LARGE_SCREEN_COMPONENTS) { index -> titled(name = FIRST, title = "Item$index") }
+        var components by mutableStateOf(initial)
         var firstReads = emptyList<String>()
         val problems = PlacedProblems()
 
         // Act
         composeAndRecompose(
-            content = { PlacedComponents(content = content, bindings = bindings, problems = problems) },
+            content = { PlacedComponents(components = components, bindings = bindings, problems = problems) },
             interact = { recompose ->
                 firstReads = largeScreenReads.toList()
                 largeScreenReads.clear()
-                content = ScreenContent(
-                    components = components.mapIndexed { index, component ->
-                        if (index == CHANGED_POSITION) titled(name = FIRST, title = CHANGED_TITLE) else component.copy()
-                    },
-                )
+                components = initial.mapIndexed { index, component ->
+                    if (index == CHANGED_POSITION) titled(name = FIRST, title = CHANGED_TITLE) else component.copy()
+                }
                 recompose()
             },
         )

@@ -72,8 +72,8 @@ private val ACCEPTED = ProducerMessage.Answered(
 private val REFUSED = ProducerMessage.Answered(
     answer = Answer.Refused(kind = RefusalKind.CatalogVersionNotSupported, reason = REASON),
 )
-private val CONTENT = ScreenContent(components = listOf(PlacedComponent(name = COMPONENT)))
-private val OTHER_CONTENT = ScreenContent(components = listOf(PlacedComponent(name = OTHER_COMPONENT)))
+private val CONTENT = ScreenContent.Components(components = listOf(PlacedComponent(name = COMPONENT)))
+private val OTHER_CONTENT = ScreenContent.Components(components = listOf(PlacedComponent(name = OTHER_COMPONENT)))
 private val UNREADABLE_FRAME = byteArrayOf(1, 2, 3)
 
 private class FakeDeviceValues(initial: DeviceContext) : DeviceValues {
@@ -754,7 +754,7 @@ class ConsumerSessionTest {
         harness.start()
         runCurrent()
         harness.accept()
-        val large = ScreenContent(
+        val large = ScreenContent.Components(
             components = List(size = LARGE_SCREEN_COMPONENTS) { index -> PlacedComponent(name = "Item$index") },
         )
 
