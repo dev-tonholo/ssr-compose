@@ -9,11 +9,15 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection as ComposeLayoutDirection
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
 import dev.tonholo.ssrcompose.consumer.testing.composeAndRecompose
 import dev.tonholo.ssrcompose.consumer.testing.composeOnce
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
+import dev.tonholo.ssrcompose.core.handshake.FontScalePoint
 import dev.tonholo.ssrcompose.core.handshake.LayoutDirection
 import dev.tonholo.ssrcompose.core.handshake.Theme
 import java.util.Locale
@@ -24,6 +28,7 @@ import kotlin.test.assertNotNull
 private const val DENSITY = 2.5f
 private const val FONT_SCALE = 1f
 private const val LARGE_FONT_SCALE = 1.3f
+private const val NON_LINEAR_OFFSET_DP = 4f
 private const val WIDTH_PX = 1080
 private const val HEIGHT_PX = 2400
 private const val BRAZILIAN_PORTUGUESE = "pt-BR"
@@ -32,6 +37,12 @@ private const val NEW_DENSITY = 3f
 private const val NEW_WIDTH_PX = 2400
 private const val NEW_HEIGHT_PX = 1080
 
+private class NonLinearDensity(override val density: Float) : Density {
+    override val fontScale: Float = LARGE_FONT_SCALE
+
+    override fun TextUnit.toDp(): Dp = (value + NON_LINEAR_OFFSET_DP).dp
+}
+
 private class FakeWindowInfo(override val containerSize: IntSize) : WindowInfo {
     override val isWindowFocused: Boolean = true
 }
@@ -39,15 +50,14 @@ private class FakeWindowInfo(override val containerSize: IntSize) : WindowInfo {
 private fun deviceContext(
     nightMode: Int = Configuration.UI_MODE_NIGHT_NO,
     windowSize: IntSize = IntSize(width = WIDTH_PX, height = HEIGHT_PX),
-    density: Float = DENSITY,
-    fontScale: Float = FONT_SCALE,
+    density: Density = Density(density = DENSITY, fontScale = FONT_SCALE),
     direction: ComposeLayoutDirection = ComposeLayoutDirection.Ltr,
 ): DeviceContext {
     var context: DeviceContext? = null
     val configuration = Configuration().apply { uiMode = nightMode }
     composeOnce {
         CompositionLocalProvider(
-            LocalDensity provides Density(density = density, fontScale = fontScale),
+            LocalDensity provides density,
             LocalWindowInfo provides FakeWindowInfo(containerSize = windowSize),
             LocalConfiguration provides configuration,
             LocalLayoutDirection provides direction,
@@ -65,7 +75,7 @@ class ComposeDeviceValuesTest {
         val windowSize = IntSize(width = WIDTH_PX, height = HEIGHT_PX)
 
         // Act
-        val actual = deviceContext(windowSize = windowSize, density = DENSITY)
+        val actual = deviceContext(windowSize = windowSize)
 
         // Assert
         assertEquals(expected = DENSITY, actual = actual.density)
@@ -77,13 +87,29 @@ class ComposeDeviceValuesTest {
     fun `given a font scale and a right-to-left layout, when the values are read, then the context carries them`() {
         // Arrange
         val direction = ComposeLayoutDirection.Rtl
+        val density = Density(density = DENSITY, fontScale = LARGE_FONT_SCALE)
 
         // Act
-        val actual = deviceContext(fontScale = LARGE_FONT_SCALE, direction = direction)
+        val actual = deviceContext(density = density, direction = direction)
 
         // Assert
         assertEquals(expected = LARGE_FONT_SCALE, actual = actual.fontScale)
         assertEquals(expected = LayoutDirection.Rtl, actual = actual.layoutDirection)
+    }
+
+    @Test
+    fun `given a density that scales text non-linearly, when the values are read, then the curve follows it`() {
+        // Arrange
+        val density = NonLinearDensity(density = DENSITY)
+        val expected = EXPECTED_SAMPLED_SIZES.map { sp ->
+            FontScalePoint(sp = sp, dp = sp + NON_LINEAR_OFFSET_DP)
+        }
+
+        // Act
+        val actual = deviceContext(density = density)
+
+        // Assert
+        assertEquals(expected = expected, actual = actual.fontScaleCurve.points)
     }
 
     @Test
@@ -193,5 +219,9 @@ class ComposeDeviceValuesTest {
             // Assert
             assertEquals(expected = Theme.Dark, actual = assertNotNull(values).current.theme)
         }
+    }
+
+    private companion object {
+        val EXPECTED_SAMPLED_SIZES = listOf(8f, 10f, 12f, 14f, 18f, 20f, 24f, 30f, 100f)
     }
 }

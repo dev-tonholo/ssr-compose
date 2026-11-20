@@ -14,6 +14,8 @@ import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
+import dev.tonholo.ssrcompose.core.handshake.FontScaleCurve
+import dev.tonholo.ssrcompose.core.handshake.FontScalePoint
 import dev.tonholo.ssrcompose.core.handshake.Introduction
 import dev.tonholo.ssrcompose.core.handshake.LayoutDirection
 import dev.tonholo.ssrcompose.core.handshake.RefusalKind
@@ -65,6 +67,9 @@ private val DEVICE = DeviceContext(
     theme = Theme.Dark,
     language = "pt-BR",
     fontScale = 1f,
+    fontScaleCurve = FontScaleCurve(
+        points = FontScaleCurve.SAMPLED_SIZES.map { sp -> FontScalePoint(sp = sp, dp = sp) },
+    ),
     layoutDirection = LayoutDirection.Ltr,
 )
 private val NO_WINDOW = DEVICE.copy(screenWidthPx = 0, screenHeightPx = 0)
