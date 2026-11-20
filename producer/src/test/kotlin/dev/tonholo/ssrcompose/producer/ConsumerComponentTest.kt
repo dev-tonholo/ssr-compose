@@ -12,6 +12,8 @@ import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
+import dev.tonholo.ssrcompose.core.handshake.FontScaleCurve
+import dev.tonholo.ssrcompose.core.handshake.FontScalePoint
 import dev.tonholo.ssrcompose.core.handshake.LayoutDirection
 import dev.tonholo.ssrcompose.core.handshake.Theme
 import dev.tonholo.ssrcompose.core.message.PlacedComponent
@@ -482,6 +484,11 @@ class ConsumerComponentTest {
             ),
         )
 
+    private fun linearCurve(): FontScaleCurve =
+        FontScaleCurve(
+            points = FontScaleCurve.SAMPLED_SIZES.map { sp -> FontScalePoint(sp = sp, dp = sp * INITIAL_FONT_SCALE) },
+        )
+
     private fun initialDevice(): DeviceContext =
         DeviceContext(
             density = INITIAL_DENSITY,
@@ -490,6 +497,7 @@ class ConsumerComponentTest {
             theme = Theme.Light,
             language = INITIAL_LANGUAGE,
             fontScale = INITIAL_FONT_SCALE,
+            fontScaleCurve = linearCurve(),
             layoutDirection = LayoutDirection.Ltr,
         )
 
@@ -501,6 +509,7 @@ class ConsumerComponentTest {
             theme = Theme.Dark,
             language = INITIAL_LANGUAGE,
             fontScale = INITIAL_FONT_SCALE,
+            fontScaleCurve = linearCurve(),
             layoutDirection = LayoutDirection.Ltr,
         )
 
