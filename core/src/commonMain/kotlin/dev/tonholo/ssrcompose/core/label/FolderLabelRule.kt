@@ -2,15 +2,7 @@ package dev.tonholo.ssrcompose.core.label
 
 private const val MAX_LENGTH = 64
 private const val DOT = '.'
-private const val DEVICE_NUMBER_FIRST = 1
-private const val DEVICE_NUMBER_LAST = 9
 private val ALLOWED_PUNCTUATION = setOf(DOT, '-', '_')
-private val BASE_DEVICE_NAMES = setOf("con", "prn", "aux", "nul")
-private val NUMBERED_DEVICE_PREFIXES = setOf("com", "lpt")
-
-private val DEVICE_NAMES: Set<String> = BASE_DEVICE_NAMES + NUMBERED_DEVICE_PREFIXES.flatMap { prefix ->
-    (DEVICE_NUMBER_FIRST..DEVICE_NUMBER_LAST).map { number -> "$prefix$number" }
-}
 
 /**
  * The rule for a label that names a folder: 1 to 64 characters of lowercase ASCII letters, digits, dots, hyphens
@@ -36,6 +28,6 @@ private fun String.isFolderLabel(): Boolean =
         all { it.isAllowed() } &&
         !startsWith(DOT) &&
         !endsWith(DOT) &&
-        substringBefore(DOT) !in DEVICE_NAMES
+        !isWindowsDeviceName(name = substringBefore(DOT))
 
 private fun Char.isAllowed(): Boolean = this in 'a'..'z' || this in '0'..'9' || this in ALLOWED_PUNCTUATION

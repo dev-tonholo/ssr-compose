@@ -123,7 +123,7 @@ A label the app developer sets: 1 to 64 characters of lowercase ASCII letters, d
 
 | Field | Rule |
 |---|---|
-| `family` | a plain identifier of at most 64 characters, never `default` |
+| `family` | a plain identifier of at most 64 characters, never `default`, never a Windows device name in any case, and never differing only by case from another family of the bundle |
 | `weight` | 1 to 1,000 |
 | `italic` | true or false |
 | `file` | always `<family>/<weight>-<normal or italic>.<ttf or otf>` |
