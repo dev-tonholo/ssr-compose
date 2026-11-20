@@ -98,6 +98,50 @@ Rules for `ssrCatalogSync`:
 7. Since a catalog is saved whole or not at all, and a changed manifest is kept out until `--update`, fetching only the missing parts happens in two cases: a sync with `--update`, where parts whose fingerprint did not change are kept, and a sync after a saved part file was removed by hand. A first sync of a version fetches every part. In every case each part is checked against the manifest before anything is saved.
 8. `ssr/catalogs/` and `ssr/catalogs.lock` are committed, so the same commit always builds the same way, with or without a network.
 
+## Fonts
+
+The app's fonts travel in a font bundle of their own, separate from the catalog, with its own version ([font-bundle.md](font-bundle.md), [research.md R20](../research.md#fonts)).
+
+In the app's project, in the module that sets `catalogVersion`:
+
+```kotlin
+ssrCompose {
+    fonts {
+        version = "1"
+        family("brand") {
+            font(file = "src/main/res/font/inter_regular.ttf", weight = 400)
+            font(file = "src/main/res/font/inter_bold.ttf", weight = 700)
+        }
+    }
+}
+```
+
+| Step | What it does |
+|---|---|
+| `ssrFontBundle` | Writes the font bundle (`fonts.json` and the font files) from the declared families, and the font version into a small generated resource the consumer reads, as for the catalog version. Cacheable: its inputs are the bytes of each declared file, each declaration's family, weight and italic, and the version, so a changed declaration with the same file and version is not taken from the cache and `ssrFontCheck` sees it. |
+| `ssrFontCheck` | Compares the font bundle with the saved one in `ssr/fonts/<version>/`, byte for byte, and names each file that differs. Fails when any differs, or when no saved bundle exists for that version, with a message that says to run `ssrFontDump`. Part of the normal check and build. |
+| `ssrFontDump` | Writes the font bundle to `ssr/fonts/<version>/` and removes any font file its `fonts.json` does not list. Run on purpose, after changing a font and raising the font version. The folder is committed and published like a catalog. |
+
+An app that declares no font family has no font bundle, and none of these steps does anything.
+
+In the server's project:
+
+```kotlin
+ssrCompose {
+    fonts {
+        bundle(version = "1", location = "https://example.com/ssr/fonts/1/fonts.json")
+    }
+}
+```
+
+| Step | What it does |
+|---|---|
+| `ssrFontSync` | For each held font bundle, fetches `fonts.json` and checks it. When the version has no saved copy yet, it fetches every font file, checks each against its fingerprint, saves them in `ssr/fonts/<version>/`, and records the location and the fingerprint of `fonts.json` in `ssr/fonts.lock`. When a saved copy exists and the fetched `fonts.json` no longer matches its fingerprint in the lock file, the step says so, fetches nothing and keeps the saved copy and the lock file as they were; `--update` replaces them, as for catalogs (rule 5 of `ssrCatalogSync`, FR-016). A bundle is saved whole or not at all. Runs with `ssrCatalogSync` on IDE sync, and can be run directly. A location that cannot be reached keeps the saved copy, as for catalogs. |
+| `ssrFontVerify` | Fails when a saved `fonts.json` does not match its fingerprint in the lock file, when a saved font file does not match its fingerprint, when a listed file is missing, when the folder holds a font file not listed, or when a declared font bundle has no saved copy. Part of the normal check and build. |
+| `ssrFontResources` | Copies every saved font bundle into the server's resources under `ssrcompose/fonts/<version>/`, with an index of the versions, where the producer loads them when it starts. Cacheable. It runs before the resources are processed and is not meant to be run by hand. |
+
+`ssr/fonts.lock` has the same shape as `ssr/catalogs.lock`: one entry per held font version with its location and the fingerprint of its `fonts.json`.
+
 ## The lock file
 
 ```json
