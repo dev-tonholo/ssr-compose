@@ -1,10 +1,8 @@
 package dev.tonholo.ssrcompose.contracttests
 
-import dev.tonholo.ssrcompose.contracttests.fixture.ScreenDocument
 import dev.tonholo.ssrcompose.contracttests.signature.CompiledClasses
 import dev.tonholo.ssrcompose.contracttests.signature.MarkedTypes
 import dev.tonholo.ssrcompose.contracttests.signature.PublicSignatureScanner
-import dev.tonholo.ssrcompose.contracttests.signature.metadataName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -97,8 +95,8 @@ class PublicSignatureScannerTest {
     }
 
     private fun reportedFixtureDeclarations(): List<String> {
-        val scanner = PublicSignatureScanner(markedTypes = MarkedTypes(names = setOf(MARKED_FIXTURE_TYPE)))
         val fixtureClasses = CompiledClasses.inPackage(packageName = FIXTURE_PACKAGE)
+        val scanner = PublicSignatureScanner(markedTypes = MarkedTypes.readFrom(classes = fixtureClasses))
         return scanner.violationsIn(classes = fixtureClasses).map { it.declaration }
     }
 
@@ -108,7 +106,6 @@ class PublicSignatureScannerTest {
         const val FIXTURE_PACKAGE = "dev.tonholo.ssrcompose.contracttests.fixture"
         val FIXTURE_FOLDER = FIXTURE_PACKAGE.replace(oldChar = '.', newChar = '/')
         val EXPOSING_SIGNATURES = "$FIXTURE_FOLDER/ExposingSignatures"
-        val MARKED_FIXTURE_TYPE = ScreenDocument::class.java.metadataName()
         const val CONSTRUCTOR = "<init>"
         const val SUPERTYPES = "<supertypes>"
         const val TYPE_PARAMETERS = "<type parameters>"
