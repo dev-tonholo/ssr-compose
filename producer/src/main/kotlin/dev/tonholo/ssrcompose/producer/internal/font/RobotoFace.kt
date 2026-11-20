@@ -34,4 +34,7 @@ internal enum class RobotoFace(
         bytesFont(identity = "roboto-${name.lowercase()}", data = readBytes(), weight = weight, style = style)
 }
 
-internal fun bundledRobotoFamily(): FontFamily = FontFamily(RobotoFace.entries.map { it.toFont() })
+private val bundledRoboto: FontFamily by lazy { FontFamily(RobotoFace.entries.map { it.toFont() }) }
+
+/** The library's default family, read once for the process. */
+internal fun bundledRobotoFamily(): FontFamily = bundledRoboto
