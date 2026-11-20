@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.document.internal.requireSize
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -7,6 +8,7 @@ import kotlinx.serialization.Serializable
 /**
  * How a box is drawn behind its content: a background, a border and a shape, sizes in dp.
  */
+@InternalSsrComposeApi
 @Serializable
 public data class Decoration(
     val background: DocumentColor? = null,

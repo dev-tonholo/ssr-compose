@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.font.FONT_WEIGHTS
 import kotlinx.serialization.Serializable
 
@@ -11,6 +12,7 @@ private const val MAX_SIZE = 1_000f
  * @throws IllegalArgumentException when [size] or [lineHeight] is not above 0 or is above 1,000, or [weight] is
  * outside 1 to 1,000.
  */
+@InternalSsrComposeApi
 @Serializable
 public data class TextStyleSpec(
     val family: String? = null,

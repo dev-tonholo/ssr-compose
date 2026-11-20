@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.message.ActionId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -7,6 +8,7 @@ import kotlinx.serialization.Serializable
 /**
  * What a tap on a node does.
  */
+@InternalSsrComposeApi
 @Serializable
 public sealed interface Click {
     /** Sends a `Trigger` for [action] with no arguments. */
