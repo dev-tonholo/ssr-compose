@@ -10,6 +10,7 @@ import dev.tonholo.ssrcompose.consumer.ScreenProblem
 import dev.tonholo.ssrcompose.consumer.internal.device.DeviceValues
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.connection.Connection
+import dev.tonholo.ssrcompose.core.document.Viewport
 import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
@@ -74,6 +75,10 @@ private val DEVICE = DeviceContext(
 )
 private val NO_WINDOW = DEVICE.copy(screenWidthPx = 0, screenHeightPx = 0)
 private val ROTATED = DEVICE.copy(screenWidthPx = 2400, screenHeightPx = 1080)
+
+// DEVICE's window of 1080 by 2400 px at density 2.5, and ROTATED's 2400 by 1080 px, in dp.
+private val DEVICE_VIEWPORT = Viewport(width = 432f, height = 960f)
+private val ROTATED_VIEWPORT = Viewport(width = 960f, height = 432f)
 private val ACCEPTED = ProducerMessage.Answered(
     answer = Answer.Accepted(contractVersion = CONTRACT_VERSION_OF_JSON_CODEC),
 )
@@ -308,10 +313,32 @@ class ConsumerSessionTest {
 
         // Assert
         assertEquals(
-            expected = listOf<ConsumerMessage>(ConsumerMessage.OpenScreen(screen = SCREEN)),
+            expected = listOf<ConsumerMessage>(ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT)),
             actual = harness.connection.messagesAfterIntroduction(),
         )
     }
+
+    @Test
+    fun `given a device change after acceptance, when the screen is asked again, then it opens in the new window`() =
+        runTest {
+            // Arrange
+            val harness = Harness(scope = this)
+            harness.start()
+            runCurrent()
+            harness.accept()
+            harness.changeDevice(device = ROTATED)
+            runCurrent()
+
+            // Act
+            harness.session.retry()
+            runCurrent()
+
+            // Assert
+            assertEquals(
+                expected = ConsumerMessage.OpenScreen(screen = SCREEN, viewport = ROTATED_VIEWPORT),
+                actual = harness.connection.messagesAfterIntroduction().last(),
+            )
+        }
 
     @Test
     fun `given an open screen, when each Screen arrives, then the state shows its content`() = runTest {
@@ -570,7 +597,7 @@ class ConsumerSessionTest {
 
         // Assert
         assertEquals(
-            expected = listOf<ConsumerMessage>(ConsumerMessage.OpenScreen(screen = SCREEN)),
+            expected = listOf<ConsumerMessage>(ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT)),
             actual = harness.connection.messagesAfterIntroduction(),
         )
     }
@@ -623,7 +650,7 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        val openScreen = ConsumerMessage.OpenScreen(screen = SCREEN)
+        val openScreen = ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT)
         assertEquals(
             expected = listOf<ConsumerMessage>(openScreen, openScreen),
             actual = harness.connection.messagesAfterIntroduction(),
@@ -699,7 +726,7 @@ class ConsumerSessionTest {
         runCurrent()
 
         // Assert
-        val openScreen = ConsumerMessage.OpenScreen(screen = SCREEN)
+        val openScreen = ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT)
         assertEquals(
             expected = listOf<ConsumerMessage>(openScreen, openScreen),
             actual = harness.connection.messagesAfterIntroduction(),
@@ -719,7 +746,7 @@ class ConsumerSessionTest {
 
         // Assert
         assertEquals(
-            expected = listOf<ConsumerMessage>(ConsumerMessage.OpenScreen(screen = SCREEN)),
+            expected = listOf<ConsumerMessage>(ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT)),
             actual = harness.connection.messagesAfterIntroduction(),
         )
     }
@@ -954,7 +981,7 @@ class ConsumerSessionTest {
         // Assert
         assertEquals(
             expected = listOf(
-                ConsumerMessage.OpenScreen(screen = SCREEN),
+                ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT),
                 ConsumerMessage.DeviceChanged(device = ROTATED),
             ),
             actual = harness.connection.messagesAfterIntroduction(),
@@ -1070,7 +1097,7 @@ class ConsumerSessionTest {
 
         // Assert
         assertEquals(
-            expected = listOf(ConsumerMessage.OpenScreen(screen = SCREEN)),
+            expected = listOf(ConsumerMessage.OpenScreen(screen = SCREEN, viewport = DEVICE_VIEWPORT)),
             actual = harness.connection.messagesAfterIntroduction(),
         )
     }

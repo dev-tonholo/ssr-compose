@@ -22,10 +22,12 @@ public sealed interface ConsumerMessage {
     @SerialName("Introduce")
     public data class Introduce(val introduction: Introduction) : ConsumerMessage
 
-    /** Asks for a screen by name. Asking again, or for another name, replaces the open screen. */
+    /**
+     * Asks for a screen by name, laid out in [viewport]. Asking again, or for another name, replaces the open screen.
+     */
     @Serializable
     @SerialName("OpenScreen")
-    public data class OpenScreen(val screen: String) : ConsumerMessage
+    public data class OpenScreen(val screen: String, val viewport: Viewport) : ConsumerMessage
 
     @Serializable
     @SerialName("DeviceChanged")
