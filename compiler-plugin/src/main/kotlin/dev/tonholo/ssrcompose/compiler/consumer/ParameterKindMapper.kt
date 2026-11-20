@@ -3,10 +3,10 @@ package dev.tonholo.ssrcompose.compiler.consumer
 import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.Parameter
 import dev.tonholo.ssrcompose.catalog.validation.CatalogLimits
-import dev.tonholo.ssrcompose.catalog.validation.isKotlinIdentifier
 import dev.tonholo.ssrcompose.compiler.SsrNames
 import dev.tonholo.ssrcompose.compiler.consumer.slot.SlotParameterMapper
 import dev.tonholo.ssrcompose.core.data.ValueKind
+import dev.tonholo.ssrcompose.core.identifier.isKotlinIdentifier
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter

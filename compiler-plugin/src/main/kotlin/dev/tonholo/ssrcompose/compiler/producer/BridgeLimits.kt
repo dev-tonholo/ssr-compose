@@ -1,8 +1,8 @@
 package dev.tonholo.ssrcompose.compiler.producer
 
 import dev.tonholo.ssrcompose.catalog.options.CatalogOptionValue
-import dev.tonholo.ssrcompose.catalog.validation.isKotlinPackageName
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
+import dev.tonholo.ssrcompose.core.identifier.isKotlinPackageName
 import java.util.Locale
 
 /** The largest bridge the JVM class file format can safely hold. Research note R16 has the measurements. */
