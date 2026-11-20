@@ -1,9 +1,9 @@
 package dev.tonholo.ssrcompose.core.document.internal
 
 import dev.tonholo.ssrcompose.core.document.SlotSpace
+import dev.tonholo.ssrcompose.core.identifier.MAX_IDENTIFIER_LENGTH
 
 private const val MAX_MEASURE = 100_000f
-private const val MAX_SLOT_NAME_LENGTH = 64
 
 /** The most slots an app component may have, the most parameters a bridge can have. */
 private const val MAX_SLOTS_PER_COMPONENT = 118
@@ -18,8 +18,8 @@ internal fun requireSlotSpaces(slots: Map<String, SlotSpace>) {
     require(slots.size <= MAX_SLOTS_PER_COMPONENT) {
         "A measurement holds at most $MAX_SLOTS_PER_COMPONENT slots, was ${slots.size}"
     }
-    require(slots.keys.all { name -> name.length <= MAX_SLOT_NAME_LENGTH }) {
-        "A slot name has at most $MAX_SLOT_NAME_LENGTH characters"
+    require(slots.keys.all { name -> name.length <= MAX_IDENTIFIER_LENGTH }) {
+        "A slot name has at most $MAX_IDENTIFIER_LENGTH characters"
     }
 }
 
