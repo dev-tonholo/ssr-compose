@@ -23,6 +23,7 @@ How tests are written and where they live. The source is principle VI of the [co
 | Core-testing, on the JVM | `core-testing/src/commonTest`, `core-testing/src/jvmTest` | `./gradlew :core-testing:jvmTest` |
 | Core-testing, as Android host tests | `core-testing/src/commonTest`, `core-testing/src/androidHostTest` | `./gradlew :core-testing:testAndroidHostTest` |
 | Contract tests | `contract-tests/src/androidHostTest` | `./gradlew :contract-tests:testAndroidHostTest` |
+| Text gate, device half (a measurement, not a pass or fail test) | `contract-tests/src/androidDeviceTest` | `ANDROID_SERIAL=emulator-5554 ./gradlew :contract-tests:connectedAndroidDeviceTest` (needs the emulator, never a physical phone) |
 | PoC shared contract | `poc/protocol/src/test` | `./poc/gradlew -p poc :protocol:test` |
 | PoC server | `poc/server/src/test` | `./poc/gradlew -p poc :server:test` |
 | PoC app view model and data | `poc/app/src/test` | `./poc/gradlew -p poc :app:testDebugUnitTest` |
