@@ -1470,3 +1470,321 @@ Not checked:
 - Binary compatibility of an app's compiled manager after the plural lookup is added with a default body. Needs two builds of an app against two versions of `consumer`; not run.
 - A language change during a session on a device.
 - Why detekt's `LongParameterList` does not report `SsrScreen`'s seven parameters. A probe with a seven-parameter function and a seven-parameter composable in `commonMain` was not reported either, though the default limit is 5 (`allowedFunctionParameters: 5` in detekt 2.0.0-alpha.6's default config). A ten-parameter composable with defaults, the shape of `ScreenProblemMessage`, was not reported either: `./gradlew :consumer:detekt` exited 0 on 2026-11-19. The style choice does not rest on detekt.
+
+## R20. Server-rendered content (#194)
+
+Design for #194, written on 2026-11-20 in design mode. It replaces the content model of Feature 1, where a screen was an ordered list of the app's catalog components shown top to bottom. The owner turned that model down on 2026-11-20 because it is server-driven rendering: "THIS PROJECT IS NOT SERVER-DRIVEN RENDERING, NON-NEGOTIABLE." From this version on, the producer renders and arranges every screen itself, and an app component is only a hole inside server-rendered content.
+
+The owner chose these on 2026-11-20, through the engineering-manager:
+
+- The producer measures and places what a screen shows, with the density, size and font scale the device sent: "The server knows this information and can use it to properly measure the components."
+- Server developers write normal Compose UI foundation on the producer, read through public semantics and inspector API, and the producer sends a positioned document ([ADR 0015](../../docs/adr/0015-producer-renders-with-compose-ui-foundation.md)).
+- App components are measured on the device, which reports their size back ([ADR 0016](../../docs/adr/0016-app-components-measured-on-the-device.md)).
+- The font scale joins the handshake. The app's fonts reach the producer in this item, in a separate pinned font bundle with its own version, and the catalog stays build time only ([ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md)).
+- Default text is measured and drawn with Roboto, bundled in both the producer and the consumer, never with the system font ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)).
+- The layout direction in the device context, the viewport in `OpenScreen` and `ViewportChanged` join contract version 1.
+- A minimal local state node lands now, as the switcher designed here ([ADR 0018](../../docs/adr/0018-local-switcher-for-interactions-without-a-round-trip.md)).
+- The contract stays at version 1, with the content model replaced inside it ([ADR 0019](../../docs/adr/0019-contract-version-1-carries-the-document.md)).
+- The producer wraps every screen in its own `Box`.
+- `LazyColumn` is not supported in this version. Server content scrolls with `verticalScroll`.
+- The block on required slots that accept only producer content lifts in T076. The consumer-only restriction stays unchecked, as FR-011 says.
+- One opt-in marker in `core` holds ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)).
+
+### The principle I gate
+
+1. Who owns what a screen shows and how it is arranged? The producer. The screen is a Compose function that runs in the producer's composition, and Compose UI foundation measures and places it with the device's values ([Probes](#probes-1), P4 and P5). The document carries the position and size of every node it holds, relative to its parent (section 2). The consumer places each node at the box it was given and decides nothing about order, size or position. The only sizes the device decides are the sizes of the app's own components, and the producer places those too, after the device reports them ([ADR 0016](../../docs/adr/0016-app-components-measured-on-the-device.md)).
+2. Can a screen with no app components render, also in an app with an empty catalog? Yes. A document is made of `Box`, `Text`, `Scroll` and `Switcher` nodes with no `Component` node at all (example 1 in section 2). The consumer renders it with `ComponentBindings {}`. Slice 4 proves it with a test of a screen with no app component and empty bindings, and T055 keeps the empty renderer index test.
+3. Does any line of the contract, data model, ADR or research make the app's catalog the only content, or give the consumer a layout decision? No. The `Components` list and the top-to-bottom fallback are removed (section 2, "What happens to the list of components"). [messages.md](contracts/messages.md#screen-content), [data-model.md](data-model.md#screen) and [spec.md](spec.md) FR-034 now say the producer places every node. The consumer never arranges nodes without a box from the producer, also inside slots: a slot's content is a positioned document too, laid out by the producer in the space the app's component gives that slot.
+4. Does composable logic run on the producer, with the consumer showing the result without that code? Yes. State, effects, conditions and loops are ordinary Compose code in the producer's composition. Probe P4 recomposed a screen from 1 to 3 rows when a state changed and laid the rows out at 0, 33 and 66 px. The consumer gets only the document. The one piece of behaviour the consumer runs is the switcher of [ADR 0018](../../docs/adr/0018-local-switcher-for-interactions-without-a-round-trip.md), and every variant it can show was composed and measured by the producer.
+
+### 1. Boundaries
+
+- `core` owns the wire model: the screen document and its nodes, in a new package `dev.tonholo.ssrcompose.core.document`, the new messages, and the new handshake fields. It checks a document when it decodes one. It also owns the font bundle format, in `dev.tonholo.ssrcompose.core.font`, since the build tooling and the running producer both read it. It knows nothing about Compose.
+- `producer` owns rendering: it hosts each open screen in an `ImageComposeScene` of Compose UI desktop, reads the result into a document, assigns action IDs, runs the measuring rounds of app components, loads fonts, and keeps the guard. It does not know the consumer's renderer. Its new dependencies are Compose UI, foundation and Skiko, all JVM. A server adds the Skiko runtime jar of the OS it runs on.
+- `consumer` owns drawing: it places each node at its box with one internal positioned layout, draws text, decorations, scroll containers and switchers with Compose foundation, measures app components and reports them, and resolves font families by name. It never arranges nodes on its own.
+- `tooling` and `gradle-plugin` own the font bundle steps: declaring the fonts, bundling, checking, saving, fetching, pinning, verifying and putting them in the server's resources ([contracts/build-tooling.md](contracts/build-tooling.md#fonts)). `catalog-model` does not change for fonts.
+- `compiler-plugin` does not change for this design. Bridges still call `ConsumerComponent` with the same parameters.
+
+### 2. Interfaces and contracts
+
+#### The document
+
+A `Screen` message carries a `ScreenDocument`. Its root is the `Box` the producer wraps around every screen, with the size of the viewport.
+
+Every node has an `id`, an `x` and `y` from the top-left corner of its parent in dp, and a `width` and `height` in dp. `x` is always from the left edge, in either layout direction. `x` and `y` can be negative, where Compose placed a node past its parent's top or left edge, for example with an `offset` or a centered child larger than its parent; the producer sends what Compose laid out and the consumer places it there, so the consumer never refuses a position the producer can send. Positions are bounded to 100,000 dp either way, and sizes are never negative. Ids are unique in a document and stay the same while the node lives on the producer, since they are the producer's semantics ids.
+
+| Node | Fields | Drawn as |
+|---|---|---|
+| `Box` | `decoration` (background color, border width and color, shape), `click`, `semantics`, `children` | a `Box` of that size with that decoration, holding its children |
+| `Text` | `text`, `style` (`family`, `size` in sp, `weight`, `italic`, `color`, `lineHeight` in sp, `align`), `maxLines`, `overflow` (`Clip` or `Ellipsis`), `click`, `semantics` | `BasicText` inside that box |
+| `Scroll` | `orientation` (`Vertical` or `Horizontal`), `contentWidth`, `contentHeight`, `children` | a box that scrolls its content on the device, with no round trip |
+| `Switcher` | `selected`, `largestWidth`, `largestHeight`, `variants` (2 to 16 lists of nodes) | the chosen variant; the box is the size of `selected`; the device keeps its choice by node id |
+| `Component` | `name`, `values`, `callbacks`, `slots`, `maxWidth`, `maxHeight` (null when unbounded) | the app's own composable, measured within the max size and placed at `x`, `y` |
+
+`width` and `height` of a `Component` are the size the device last reported, or 0 before it reported one. A slot is a `SlotContent`: its own `width`, `height` and `nodes`, positioned from the slot's top-left corner, laid out by the producer in the space the device reported for that slot.
+
+`click` is one of:
+
+- `Remote`: `action` (an action ID), `label`, `role`. A tap sends `Trigger` with no arguments, the same message app callbacks use.
+- `Local`: `switcher` (a node id) and `variant`. A tap shows that variant at once and sends `Switched`. The rule, chosen by the owner on 2026-11-20 ([ADR 0018](../../docs/adr/0018-local-switcher-for-interactions-without-a-round-trip.md)): A `Switcher` node's box is the size of its `selected` variant, the one the producer laid the screen out with, and `largestWidth` and `largestHeight` give the size of its largest variant. A tap on a `Local` click shows the chosen variant at once, in a fixed box of the largest variant's size anchored at the switcher's top-left corner and drawn above the nodes after it, and sends `Switched(switcher, variant)`. The producer makes that variant the selected one, lays the screen out again and sends a new revision in which the switcher's box and the content around it are placed for that variant. Until that revision arrives, a larger variant can cover the content below it and a smaller one leaves a gap: the device moves nothing on its own. The device keeps its choice by switcher id across updates, also when a revision still names the older selected variant.
+
+`semantics` holds `description`, `heading` and `role`, read from the producer's semantics. Colors are written `"#AARRGGBB"`. A shape is `Rectangle` or `Rounded` with four corner radii in dp.
+
+What is left for later: images, gradients and other brushes, shadows, custom drawing (`Canvas`, `drawBehind`), lazy lists, text with several styles (`AnnotatedString`), text fields, animations, interactions with no round trip other than the switcher and scrolling, app theme tokens, and sending only what changed. The producer refuses what it can see and cannot send: an image, a brush background, a shape other than a rectangle or rounded corners, a font family not in the session's font bundle, a weight or italic its font family has no file for (section "Fonts"), a lazy list, a text with several styles, more than 10,000 app components (rule 5a of messages.md), or an app component inside a switcher variant (a variant the device does not show is never measured, so its screen would stay pending). Each one stops the screen with `ScreenUnavailable` and a report that names the screen and the reason. Custom drawing has no semantics, so the producer cannot see it, and it is lost without a report. The server developer documentation says so.
+
+#### Example 1: a screen with no app component
+
+```json
+{"type":"Screen","screen":"home","revision":1,"pending":false,"content":{"root":{"type":"Box","id":1,"x":0.0,"y":0.0,"width":411.4,"height":843.4,"children":[
+  {"type":"Box","id":3,"x":16.0,"y":16.0,"width":379.4,"height":96.0,"decoration":{"background":"#FF6200EE","shape":{"type":"Rounded","topStart":12.0,"topEnd":12.0,"bottomEnd":12.0,"bottomStart":12.0}},"click":{"type":"Remote","action":"a1","label":"Add one","role":"Button"},"children":[
+    {"type":"Text","id":4,"x":16.0,"y":16.0,"width":200.0,"height":24.0,"text":"Tapped 2 times","style":{"size":16.0,"weight":500,"color":"#FFFFFFFF"}}
+  ]},
+  {"type":"Text","id":5,"x":16.0,"y":128.0,"width":379.4,"height":40.0,"text":"Served by the producer","style":{"size":14.0,"weight":400,"color":"#DE000000"},"maxLines":2,"overflow":"Ellipsis"}
+]}}}
+```
+
+#### Example 2: a screen with one app component
+
+The first `Screen` is pending, since the device has not measured the `Card` yet. The consumer composes and measures it but does not show it, and answers:
+
+```json
+{"type":"ComponentMeasured","revision":1,"components":[{"id":7,"width":379.4,"height":120.0,"slots":{}}]}
+```
+
+The producer lays the screen out again with that size and sends:
+
+```json
+{"type":"Screen","screen":"home","revision":2,"pending":false,"content":{"root":{"type":"Box","id":1,"x":0.0,"y":0.0,"width":411.4,"height":843.4,"children":[
+  {"type":"Component","id":7,"x":16.0,"y":16.0,"width":379.4,"height":120.0,"maxWidth":379.4,"maxHeight":null,"name":"Greeting","values":{"title":{"type":"Text","value":"Hi"}}},
+  {"type":"Text","id":8,"x":16.0,"y":152.0,"width":379.4,"height":20.0,"text":"Below the app's card","style":{"size":14.0,"weight":400,"color":"#FF000000"}}
+]}}}
+```
+
+#### Example 3: a slot holding server content
+
+The device reported the `Section` at 379.4 by 160 dp and gave its `content` slot 347.4 dp of width with no height bound. The producer laid the slot's server content out in that space, and that content holds another app component:
+
+```json
+{"type":"ComponentMeasured","revision":4,"components":[{"id":9,"width":379.4,"height":160.0,"slots":{"content":{"maxWidth":347.4,"maxHeight":null}}},{"id":12,"width":120.0,"height":40.0,"slots":{}}]}
+{"type":"Component","id":9,"x":16.0,"y":16.0,"width":379.4,"height":160.0,"maxWidth":379.4,"maxHeight":null,"name":"Section","values":{"title":{"type":"Text","value":"Today"}},"slots":{"content":{"width":347.4,"height":64.0,"nodes":[
+  {"type":"Text","id":11,"x":0.0,"y":0.0,"width":347.4,"height":20.0,"text":"Rendered by the server, inside the app's Section","style":{"size":14.0,"weight":400,"color":"#FF000000"}},
+  {"type":"Component","id":12,"x":0.0,"y":24.0,"width":120.0,"height":40.0,"maxWidth":347.4,"maxHeight":null,"name":"PayButton","callbacks":{"onClick":"a2"}}
+]}}}
+```
+
+#### What happens to the list of components
+
+`ScreenContent`, its top-to-bottom list, `PlacedComponent` as a separate wire type, and `PlacedComponent.slots` as a list of components are removed. `ProvisionalScreenContent` and the loop in `PlacedComponents.kt` are deleted. Nothing on the wire or in the consumer can show a screen as a list of app components any more: the only way content reaches the device is a positioned document. FR-034 is rewritten to match.
+
+#### Messages
+
+Consumer to producer:
+
+- `Introduce`: `device` gains `fontScale` (above 0, at most 4) and `layoutDirection` (`Ltr` or `Rtl`), and the introduction gains `fontVersion`, absent when the app declares no font. The producer measures text with the font scale and the session's font bundle, and lays out with the direction. `RefusalKind` gains "font version not supported".
+- `OpenScreen`: gains `viewport`, the width and height in dp the app gives `SsrScreen`. An unbounded side is sent as the window's size.
+- `ViewportChanged`: `viewport`. Sent when the space the app gives `SsrScreen` changes.
+- `ComponentMeasured`: `revision` and a list of `components`, each with `id`, `width`, `height` and, per slot, the `maxWidth` and `maxHeight` the app gave it (null when unbounded). Sent at most 20 times per second, with every component whose size or slot space changed, merging changes in between; at most 10,000 measurements in one message (section 4, Security).
+- `DeviceChanged` and `Trigger` keep their shape. A `Trigger` for a `Remote` click has no arguments.
+- `FontVersionChanged`: `fontVersion`, absent when the app now declares no font, sent when `SsrScreen`'s fonts change to another version during a session. Chosen by the owner on 2026-11-20. A message of its own, not a field of `DeviceChanged`, since fonts are the app's and `DeviceChanged` has no refusal path. It counts against the trigger limit; over it, the latest version is kept and applied the next second, never dropped.
+- `Switched`: `switcher` and `variant`, sent after a local click has already shown the variant. It counts against the trigger limit; over it, the producer keeps the latest variant of each switcher and applies it when the next second starts, so a `Switched` is never lost. A switcher the screen no longer has is ignored, a variant it does not have is refused, and both are reported.
+
+Producer to consumer:
+
+- `Screen`: `screen`, `revision` (rises by one with each `Screen` in a session), `pending`, `fontVersion` (the font version it was laid out with) and `content`. `pending` is true while an app component has no reported size or a slot has no reported space.
+
+#### Producer API
+
+- Server screens are plain Compose UI foundation code: `Column`, `Row`, `Box`, `Spacer`, `BasicText`, `Modifier` and `verticalScroll`, imported from `androidx.compose`. The library defines no layout composables of its own.
+- `LocalSwitcher(variants: Int, initial: Int = 0, modifier: Modifier = Modifier, content: @Composable LocalSwitcherScope.(variant: Int) -> Unit)` and `LocalSwitcherScope.switchTo(variant: Int): Modifier` in `dev.tonholo.ssrcompose.producer`.
+- `Consumer` (from `LocalConsumer.current`) gains `fonts: ConsumerFonts`, with `family(name: String): FontFamily`, which fails with a clear message for a name the session's font bundle does not have.
+- `ConsumerComponent` keeps its signature. Its body becomes a Compose UI `Layout` that sizes itself to the device's report and carries a semantics property with the component's name, catalog version, values and callbacks, so the reader finds it. Each slot is a child `Layout` measured in the space the device reported for it.
+- `ProducerLimits` gains `measuringRounds` (4 by default), `measurementsPerSecond` (30 by default, for `ComponentMeasured` and `ViewportChanged`, apart from the trigger limit) and `documentBytes` (8 MiB by default).
+- `ProducerObserver` gains `onScreenNotSendable(screen, reason)` for content the producer cannot send, and `onLayoutNotSettled(screen)` when the measuring rounds run out.
+- The font bundles are given to the producer by the build (section "Fonts"), or by hand with `fonts(version) { family(name) { font(bytes, weight, italic) } }` in `Producer { }`.
+
+#### Consumer API
+
+- `SsrScreen` gains `fonts: ConsumerFonts`: the app's font version and families, by hand for now, with a default that holds neither. The build creates it from the declared fonts later (T055).
+- `PlacedComponentScope.slot(name): @Composable () -> Unit` (T078) draws the slot's positioned content and reports the space the app gave it.
+- `ComponentBindings {}` with no binding is a valid argument.
+
+#### Fonts
+
+The app's fonts travel in a font bundle of their own, with its own version, separate from the catalog ([ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md)). The format is in [contracts/font-bundle.md](contracts/font-bundle.md), and the build steps in [contracts/build-tooling.md](contracts/build-tooling.md#fonts).
+
+1. What is in it: `fonts.json` (format, `version`, and one entry per file with family, weight, italic, file name and SHA-256 fingerprint) and the font files, at `<family>/<weight>-<normal or italic>.<ttf or otf>`. Roboto is not in it.
+2. How it is built: the app developer declares a font version and the families with their files in the module that sets `catalogVersion`. `ssrFontBundle` writes the bundle and the font version into a generated resource for the consumer. `ssrFontCheck`, part of the build, fails when the declared fonts differ from the saved bundle of that version, so a changed font needs a new font version. `ssrFontDump` saves it to `ssr/fonts/<version>/`, which is committed and published like a catalog.
+3. How its version is pinned and checked on the server: the server project declares each font version it holds with its location. `ssrFontSync` fetches `fonts.json` and the files, checks every fingerprint, saves them in `ssr/fonts/<version>/` and records the fingerprint of `fonts.json` in `ssr/fonts.lock`. `ssrFontVerify`, part of the build, checks the saved files against the lock file and `fonts.json`.
+4. How the server loads it: `ssrFontResources`, cacheable, copies every saved bundle into the server's resources under `ssrcompose/fonts/<version>/` with an index of the versions. `Producer { }` reads them at start, checks each file's fingerprint again and that Skia's `FontMgr.makeFromData` reads it as a font (probe P11; Compose's own `Font(identity, data)` falls back silently, probe P8), and builds one set of `FontFamily`s per version. A missing or unreadable file makes `Producer { }` fail at start and names the version, the family and the file.
+5. How the two sides agree at run time: the app sends its font version in `Introduce` (`fontVersion`, absent when it declares no font). The producer refuses an app whose font version it does not hold, with the kind "font version not supported". A session's `LocalConsumer.current.fonts` holds that bundle's families and the default font. When `SsrScreen`'s fonts change to another version during a session, the consumer sends `FontVersionChanged`; the producer switches the session's fonts and lays the screen out again with its state kept when it holds that version, and otherwise answers `Refused` with "font version not supported", which ends the session. Each `Screen` names the font version it was laid out with, and the consumer draws each document with the fonts of that version, keeping the older fonts until a `Screen` with the new version arrives, so it never draws with fonts the producer did not measure.
+6. On the producer, the reader maps each text's `FontFamily` back to its family name by the identity of its loaded fonts (probe P11). A family that is not from the session's bundle, and not the default, stops the screen with `ScreenUnavailable`. A text with the default font writes no `family`.
+7. On the consumer, `SsrScreen`'s `fonts` holds the same families, from the app's own resources. A `family` it does not have is a mismatch, like a component with no binding: `ScreenProblem.Mismatch`, whose `component` then holds the family's name.
+8. The default font is Roboto, carried by both the producer and the consumer ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)). Text with no `family` is measured and drawn with it, never with the device's system font. The producer makes `FontFamily.Default` resolve to its Roboto inside the scene; how is not proven, and slice 3 settles it with a test.
+9. Weights and italic: Skia and Android pick a missing weight, or fake bold and italic, in different ways, which would move line breaks. So the producer only sends a text whose weight and italic match a file of its family exactly. For the default Roboto those are 400, 500 and 700, and 400 italic ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)). Any other weight or italic stops the screen with `onScreenNotSendable`, which names the family, the weight and the italic. The device then draws with that exact file too, so nothing is faked on either side.
+
+### 3. Data flow
+
+1. The consumer waits for a positive window size, then sends `Introduce` with the font scale, the layout direction and its font version, and `OpenScreen` with the viewport. An app whose font version the producer does not hold is refused.
+2. The producer creates an `ImageComposeScene` with the viewport in pixels, `Density(density, fontScale)`, the layout direction and the session's dispatcher, and sets its content to `Box(Modifier.fillMaxSize()) { screen() }`.
+3. After each change it renders the scene, reads the semantics tree into a document (section 4), runs the guard over every `Component`, assigns action IDs to remote clicks, and sends `Screen`. A document over `documentBytes` is not sent: `ScreenUnavailable` and `onScreenNotSendable`.
+4. The consumer checks the document while decoding it (section 5, invariant 3). A pending document is composed and measured but not placed; the consumer keeps showing the last document that was not pending, or the loading state before the first one. Each `Component` is measured within its max size, and each slot reports its space. The consumer sends one `ComponentMeasured` with every changed component for the revision it holds, at most 20 times per second, merging changes in between.
+5. The producer ignores a `ComponentMeasured` for an older revision. Otherwise it writes the sizes into the holes' state, which lays the scene out again, and goes back to step 3. The document stays pending until every app component has a reported size and every slot a reported space. That takes one round per level of app components nested in slots, since a component inside a slot can only be measured after its parent's slot was laid out; the frame's depth limit (128 JSON levels, at least 4 per slot level) bounds it at 31 levels. Once everything has a reported size, sizes that keep changing stop after `measuringRounds` more rounds for one change: the producer sends the latest reported sizes, not pending, and calls `onLayoutNotSettled`. Every app component then has a reported size, so FR-076 holds.
+6. A tap on a remote click sends `Trigger`. The producer runs the node's semantics `OnClick` action through the same path as a callback (T067), and a state change goes back to step 3. A tap on a local click shows the variant at once in a box of the largest variant's size and sends `Switched`; the producer makes it the selected variant, which lays the scene out again, and goes back to step 3, so the content around the switcher moves into place one round trip later. The device keeps its choice by switcher id meanwhile.
+7. A device change, a viewport change, or a font scale change updates the scene's size or density and lays it out again. A `FontVersionChanged` for a held version switches the session's fonts and lays it out again. Remembered state is kept in each case. A `FontVersionChanged` for a version the producer does not hold ends the session with `Refused`.
+8. Failures: screen code that throws, content the producer cannot send, or a guard failure gives `ScreenUnavailable` and the session stays accepted. A document the consumer cannot decode or check ends the conversation with `AnswerUnreadable` (rule 10). A missing binding or font family is `ScreenProblem.Mismatch`.
+
+### 4. Constraints and non-functional requirements
+
+- Reading the result: the reader walks `ImageComposeScene.semanticsOwners` and each `SemanticsNode.children` of the unmerged tree, in order. Text, its style and line count come from `SemanticsProperties.Text` and `GetTextLayoutResult`. Background, border and shape come from each `ModifierInfo.modifier` as an `InspectableValue`, with `isDebugInspectorInfoEnabled` set once for the process. Clicks come from `SemanticsActions.OnClick`, scrolling from the `verticalScroll` and `horizontalScroll` inspector values. App components, slots and switchers come from the library's own semantics properties. A node with nothing to draw, no click and no semantics is folded into its parent, and its children's boxes are moved by its offset. None of these needed an opt-in (probe P9).
+- The reader takes each node's position and size from `layoutInfo.coordinates` and `layoutInfo.width` and `height`, the node's outer box. `SemanticsNode.boundsInRoot` is not used: for a box with a background and padding it gave the box inside the padding (probe P11). A text with no font size of its own reports `TextUnit.Unspecified`; the reader writes Compose's default text size for it, which slice 3 pins with a test (the value is not checked here).
+- What shows in that tree is observed, not documented: `Column`, `Row`, `Spacer`, a `Box` with only padding and an empty `Box` are not there; text, a background, a border, a click, a scroll container and a lazy list are (probes P5 and P6). Pinning tests (invariant 7) fail the build when a Compose upgrade changes it.
+- Cost on the producer: once warm, 22.7 ms and 297 KB of heap per composed screen of 50 text rows (P7); 5.5 ms per frame (P4); about 430 ms for the first scene of a cold JVM. Skia's native memory was not measured. At the 10,000 sessions bound the heap alone is about 3 GB. Slice 9 is a load test at 10,000 open screens that reports heap, native memory and the time to first screen, against SC-005 (under 1 second) and SC-011.
+- Size: the whole document is sent on each change. P3 measured 184 KB of JSON for 1,000 rows in a layout tree shape; a positioned node adds about 40 bytes. A screen of 5,000 nodes is about 1.3 MB, under the 8 MiB `documentBytes` default. Encoding and decoding 1,000 rows took 2.6 ms and comparing two equal copies 0.2 ms (P3). Sending only what changed is later work.
+- Nesting: each level of children takes 2 JSON levels and a slot takes 4 (component, `slots`, slot, `nodes`). P1 and P2 measured 2 per layout level and 3 per slot in a tree shape. The semantics tree is flatter than the layout tree, since layout-only nodes are folded. `MAX_NESTING_DEPTH` stays 128, which allows about 60 levels of nodes.
+- Latency: a screen with app components needs one round trip before it shows, and one more for each round of slot measuring. SC-005 (under 1 second on a local network) covers it; slice 9 measures it.
+- Text: the producer measures with the font files the device draws with ([ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md), [ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)), the device's font scale and its density. The consumer draws text in the box it was given with clipping, so a difference left in line breaking clips and does not move other nodes.
+- Accessibility: text is real `BasicText`, so TalkBack reads it and the device's text engine draws it. A remote click gets `onClickLabel` and `role`, a node with a description or heading gets them in its semantics, and the order of nodes is the producer's semantics order. App components keep their own semantics.
+- Theme and native look: the producer reads the theme from `LocalConsumer.current.device.theme` and writes explicit colors. App components keep the app's theme and look.
+- Lazy lists: not supported. The producer lays out all of a `verticalScroll` content. A `LazyColumn` or `LazyRow` stops the screen with `onScreenNotSendable`, since only its visible items are composed (P6: 7 of 1,000).
+- Security ([the security rules](../../.ai/rules/security.md)):
+  - Rule 3: the consumer checks every document while decoding it (invariant 3), and a broken one ends the conversation without a crash.
+  - Rules 6 and 7: `ComponentMeasured`, `ViewportChanged` and the new `DeviceContext` fields are untrusted input. The producer refuses, without laying anything out, a size or space that is negative, not finite, or above 100,000 dp, a font scale outside its range, more than one measurement for one component, and more than 10,000 measurements in one message. 10,000 is far above a real screen (the owner's largest app has 1,085 marked composables in all) and keeps one message near 600 KB at about 60 bytes per measurement; a screen with more app components is not sent, so a first report always fits in one message and FR-076 holds. A measurement for an id that is not an app component of the latest revision is ignored and reported, and never fails the session. `ComponentMeasured` and `ViewportChanged` have their own limit, 30 per second per session by default, apart from the trigger limit, so they never crowd out taps. The consumer sends at most 20 per second, merging changes in between, so a 120 Hz screen or an app component that animates its size stays under it. Over the limit the producer drops nothing: it keeps the latest size of each component and the latest viewport, bounded by the components of the latest revision, and applies them when the next second starts. A measurement that changes no size lays nothing out. With `measuringRounds`, this bounds the layouts one consumer can cause to 30 a second.
+  - Fonts: a font file is untrusted input on the server. It is capped at 16 MiB, pinned by its fingerprint in `fonts.json` and by `ssr/fonts.lock`, reviewed when first saved like a catalog, checked again by the producer at start, and parsed only by Skia. On the device, fonts come from the app's own resources. A `fontVersion` in an introduction is untrusted: it is checked like a catalog version and only names a bundle the producer already holds.
+  - Rule 8: the producer logs no document, measurement or handshake value at a level that ships.
+- Threads: a scene runs on the session's single-thread dispatcher, as `LiveScreen` does now. Whether `ImageComposeScene`'s recomposition runs well on that dispatcher with the shared snapshot notifier is not proven; slice 3 settles it.
+
+### 5. Invariants
+
+1. The consumer never arranges nodes on its own. Check: `git grep -n -E 'foundation.layout.(Column|Row)' -- consumer/src/commonMain` finds nothing, and every node is placed by the one internal positioned layout at its `x` and `y`.
+2. Nothing on the wire is a bare list of app components. Check: `ScreenDocument.root` is a `DocumentNode.Box`, and `SlotContent.nodes` is a list of `DocumentNode`, any case. A codec test decodes example 3 exactly.
+3. The consumer checks a document before drawing it. A negative or non-finite size, a non-finite position or one beyond 100,000 dp either way, a font size not above 0 or above 1,000, `maxLines` below 1, a weight outside 1 to 1,000, a repeated id, a `Local` click to a switcher that is not in the document or a variant it does not have, a `selected` variant the switcher does not have, a largest size smaller than a variant's box, or a switcher with fewer than 2 or more than 16 variants fails decoding with `MessageDecodingException`. Check: one codec test per rule.
+4. An app with no `@ConsumerComposable` renders server screens. Check: a consumer test with `ComponentBindings {}` and example 1, and T055's empty index test.
+5. Composable logic runs on the producer only. Check: the consumer has no code that runs server code; a producer test changes a state and sees a new `Screen` with a new revision.
+6. The guard covers every app component, inside layouts and slots. Check: a producer test with a component of another catalog version inside a slot inside a `Box` gets `ScreenUnavailable`.
+7. What the reader sees is pinned. Check: `SemanticsVisibilityTest` in `producer` composes each foundation layout and modifier of section 2 and asserts which nodes appear, so a Compose upgrade that changes it fails.
+8. A screen is never shown pending, nor with an app component that has no reported size. Check: a consumer test where a pending first document draws nothing and the settled one draws; a consumer test where a pending update keeps the last shown document on screen; a producer test with app components nested three slots deep that stays pending until all are measured, then sends `pending = false`.
+9. Each marked `core` type warns when used without an opt-in, and no public signature of `consumer`, `producer` or `core-testing` names one. Check: `InternalSsrComposeApiTest` counts the warnings; and `PublicSignatureMarkerTest` reads the Kotlin metadata of every compiled class of those three modules with `kotlin-metadata-jvm` and walks each public class, constructor, function, property, supertype and type parameter bound, and every type argument inside them, failing on a marked `core` type. It reads metadata, not source lines, so a signature that spans several lines is covered, and it sees `List<ScreenDocument>`, which the Kotlin Gradle plugin's JVM ABI dump does not: probe P12 showed that dump erases type arguments (`generic (Ljava/util/List;)V`), so the ABI dump is not used for this check. The metadata also tells an `internal` declaration from a public one, so an internal use is not flagged.
+10. A font the producer measures with is the font the device draws with. Check: tooling tests that a declared font's bytes reach the saved bundle and the server resources unchanged and that `ssrFontCheck` fails on a changed font with the same version; a producer test that a broken font file stops `Producer { }` at start; a producer test that an unknown font version is refused, at the introduction and in a `FontVersionChanged`; a producer test that a `FontVersionChanged` for a held version keeps remembered state and sends a revision naming the new version; a consumer test that a document is drawn with the fonts of the version it names; a producer test that default text is measured with the bundled Roboto; and a consumer test that an unknown family is a mismatch.
+11. The contract version stays 1. Check: `JsonMessageCodec.contractVersion` and messages.md agree.
+
+### 6. Risks and edge cases
+
+- A Compose upgrade changes what the semantics tree holds, or the inspector names. Invariant 7 fails the build; the reader is changed in the same upgrade.
+- Custom drawing is invisible to the reader and lost. Documented for server developers; images and brushes are refused, not lost.
+- Text measured on the server can still wrap differently on a device, from another text engine version or locale data. It clips in its box. A follow-up can report overflow back, like a component size.
+- A component whose size depends on its slot content, and slot content whose size depends on the component, can loop. Once every component has a reported size, `measuringRounds` bounds it at 4 more rounds for one change, and the latest reported sizes are sent.
+- A late `ComponentMeasured` after the screen changed. It names an older revision and is ignored; the newer screen asks again.
+- Many sessions: memory at 10,000 open screens is not measured yet. Slice 9 measures it before the feature is called done.
+- Skiko's native runtime is per OS. A server without it fails at the first screen; `Producer { }` checks for it at start and fails with a message that names the missing jar.
+- `isDebugInspectorInfoEnabled` is a process-wide switch. Any other Compose code in the same server process also builds inspector info, a small cost.
+- The consumer's device test environment: every Compose device test fails on the owner's Android 17 phone with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso (probe P10). Device work for this design runs only on the emulator `emulator-5554`, with `ANDROID_SERIAL=emulator-5554`, never on a physical phone. The text gate and slices 4 and 5 run there.
+- An older development build of either side fails at its first `Screen` with `AnswerUnreadable` ([ADR 0019](../../docs/adr/0019-contract-version-1-carries-the-document.md)).
+- Text measured by Skia on the server and drawn by Android's text engine on the device, with the same font file, is not compared yet. It is the design's largest risk, so a gate after slice 3 measures it on a device before the consumer slices start.
+- Every probe ran on macOS arm64. A headless Linux server with `skiko-awt-runtime-linux-x64` is not checked; slice 3 runs the producer tests on Linux in CI.
+- Not settled here: how an app component keeps its state when it moves inside documents and slots (#183). The consumer keys each node by its id, which is stable while the producer's node lives.
+
+### 7. Rejected alternatives
+
+- The library's own layout composables with the consumer measuring, a draw-op document, or reading the internal `LayoutNode` tree: see [ADR 0015](../../docs/adr/0015-producer-renders-with-compose-ui-foundation.md).
+- A fixed box for app components, or sizes declared in the catalog: see [ADR 0016](../../docs/adr/0016-app-components-measured-on-the-device.md).
+- Fonts inside the catalog, configured by hand on the server, or sent by the consumer: see [ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md). The system font as the default on the device, or no default: see [ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md).
+- No local interaction now, or a general local state model: see [ADR 0018](../../docs/adr/0018-local-switcher-for-interactions-without-a-round-trip.md).
+- Contract version 2: see [ADR 0019](../../docs/adr/0019-contract-version-1-carries-the-document.md).
+- A tagged `ScreenContent` with a `Components` case, the design of the turned-down branch `feat/194/content-seam`. It keeps a screen that is only a list of app components arranged by the consumer, which is server-driven rendering.
+- A scene that does not paint (`CanvasLayersComposeScene`). It is internal or experimental API; `ImageComposeScene` paints pixels nobody reads, at 5.5 ms per frame.
+
+### Impact on T048, spec 001's tasks and the feature order
+
+R18's `PlacedNode`, `ScreenApplier` and `PlacedNodeContent` parts describe code this design replaces; R18 stays as the record of T048.
+
+T048's remaining pull requests (value, choice and list kinds in the compiler plugin) do not change: bridges call `ConsumerComponent` with the same parameters. Only its body changes, in slice 5 here, inside `producer`. Slice 1 moves the marker, which changes `ProducerNames` in `compiler-plugin`; it lands after the open T048 pull request merges, or the later of the two rebases.
+
+Changes to `tasks.md` for the engineering-manager:
+
+- New tasks for slices 1 to 9 and the text gate below, placed after T050 and before T054 is called done, since the MVP must show a server-rendered screen. Slice 6 is the exception: it needs the action IDs of T067, so it sits in User Story 2 after T067, and nothing in User Story 1 waits for it.
+- T049: the applier and `PlacedNode` are replaced by the scene of slice 3. Mark it superseded by the slice 3 task.
+- T054 and T042: drop `ProvisionalScreenContent` and FR-034's top-to-bottom wording; `SsrScreen` draws the document.
+- T040 and T038: the session tests gain the viewport, the revision and `ComponentMeasured`.
+- T051: `ProducerLimits` gains `measuringRounds`, `measurementsPerSecond` and `documentBytes`; the observer gains `onScreenNotSendable` and `onLayoutNotSettled`; `Producer { }` loads the font bundles and checks the Skiko runtime at start, and refuses an unknown font version.
+- T061 and T067: remote clicks on server nodes use the same action IDs and `Trigger` path as callbacks.
+- T072 to T074: a slot holds a `SlotContent` laid out by the producer, not a list of app components.
+- T076: lift the block on required slots that accept only producer content (FR-011, FR-036).
+- T077 and T078: become slice 5's `ConsumerComponent` body and `PlacedComponentScope.slot`.
+- T047, T035 and T101: the font bundle steps (`ssrFontBundle`, `ssrFontCheck`, `ssrFontDump`, `ssrFontSync`, `ssrFontVerify`, `ssrFontResources`) and `ssr/fonts.lock`, for both build tools.
+- T055: the build also creates `ConsumerFonts` from the declared font version and families.
+- T051 and T054: the introduction carries the font version, and "font version not supported" joins `RefusalKind` and `ScreenProblem.Refused`.
+- Quickstart and samples (T056, T069, T079): sample screens are written with foundation; a sample with no app component.
+
+### 8. Slices
+
+Each slice is tests first, one mechanism, and buildable on every commit. Each named test is written first and seen failing, and each has its own break.
+
+1. One marker in `core` ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)). Test: `InternalSsrComposeApiTest` names each marked `core` type and counts one warning each; it fails because none is marked. Break: unmark one type and the count drops.
+2. The document and messages in `core`. Tests: the codec decodes examples 1 to 3 and `ComponentMeasured` exactly and round trips them; one failing decode per rule of invariant 3; `DeviceContext` checks `fontScale` and `layoutDirection`; `Introduce` carries `fontVersion`; `FontVersionChanged` and the `fontVersion` of a `Screen` decode; the font bundle reader in `core` accepts the example of contracts/font-bundle.md and rejects a bad file name, a repeated entry and a file over its cap. The new types are added beside the old ones, unused. Break per test: remove one check, or change one serial name.
+3. The producer scene and reader. Add Compose UI, foundation and the Skiko test runtime to `producer`. Tests: `SemanticsVisibilityTest` (invariant 7); the reader turns a `Box` with background and border, a text and a `verticalScroll` into example 1's nodes without its click, and a `clickable` node is sent with no `click` until slice 6 (T126); a state change sends a new revision; an image, a brush, a lazy list and an unknown shape each give `onScreenNotSendable`; the scene runs on the session dispatcher. Break per test: drop one case from the reader.
+Text gate, after slice 3 and before slice 4. On the emulator `emulator-5554` only, with `ANDROID_SERIAL=emulator-5554`, never on a physical phone, draw a fixed set of strings (short, long and wrapping, Latin and one other script) at 12, 16 and 24 sp and font scales 1 and 1.3 with one font from a font bundle and with the default Roboto, and compare each one's line count and height with what the producer measured for the same font, density and width. The gate passes when every line count matches and every height is within 1 dp. If it fails, stop and report to the owner, since measuring on the producer would then need text overflow reports from the device.
+
+4. The consumer drawing and the switch-over. Tests: example 1 draws at its boxes with `ComponentBindings {}` (invariant 4); invariant 1's grep. Then `ProducerMessage.Screen` carries `ScreenDocument`, `ScreenContent`, `ProvisionalScreenContent` and the list loop are deleted, in one commit, since the type change breaks every caller at once. Break: place one node at 0, 0 and the bounds test fails.
+5. App components as holes. Tests: `ConsumerComponent` reads as a `Component` node with its values; a pending document is not shown (invariant 8); the consumer reports a measured size; the producer lays out again and sends `pending = false`; a slot reports its space and its server content comes back laid out in it (example 3); the guard inside a slot (invariant 6); nested components stay pending until all are measured (invariant 8); `measuringRounds` stops a loop only after every component is measured; a first report with 10,000 components is accepted and one with 10,001 is refused; measurements over 30 per second are merged, not dropped. Break per test.
+6. Remote clicks. Tests: a click on a `Box` gets an action ID, and a `Trigger` runs it and sends a new revision. It needs the action IDs of T067, so it is T126 in User Story 2; until then the reader leaves `click` out, and slice 9's contract test runs example 1 without it.
+7. The switcher. Tests: every variant is composed and laid out, and `largestWidth` and `largestHeight` are the largest variant's size; a local click shows the variant at once in the largest box, moves no other node on the device, and sends `Switched`; the producer then sends a revision where the switcher's box and the content below match the new variant; the device keeps its choice when a revision still names the old variant; a `Switched` for an unknown switcher is ignored and for an unknown variant refused; `Switched` counts against the trigger limit; a bad switcher reference or a largest size smaller than a variant fails decoding. Break per test.
+8. Fonts. Tests in `tooling` and `gradle-plugin` for `ssrFontBundle`, `ssrFontCheck`, `ssrFontDump`, `ssrFontSync`, `ssrFontVerify` and `ssrFontResources`; producer tests that measure with a loaded font, fail at start on a broken one, refuse an unknown font version at the introduction and in `FontVersionChanged`, switch fonts on a held version with remembered state kept, and measure default text with Roboto; consumer tests that resolve a family, draw default text with Roboto and report an unknown family; a producer test that a text at weight 600, or italic at weight 700, in Roboto gives `onScreenNotSendable`. Break per test.
+9. Load and device checks. A load test at 10,000 open screens of 50 rows that reports heap, native memory and the time to first screen; a contract test that runs examples 1 to 3 through the real producer and consumer; a look at each on an emulator or a device whose test libraries work.
+
+### 9. Validation checklist
+
+1. `ScreenDocument.root` is a `Box` node, and `DocumentNode` has exactly the cases `Box`, `Text`, `Scroll`, `Switcher` and `Component`.
+2. No type, function or doc names a list of app components as a screen or slot. `ScreenContent` and `ProvisionalScreenContent` do not exist.
+3. The codec tests decode examples 1 to 3 and `ComponentMeasured` exactly, and fail each rule of invariant 3 with `MessageDecodingException` only.
+4. `DeviceContext` has `fontScale` and `layoutDirection`, `Introduce` has `fontVersion`, `FontVersionChanged` exists, `Screen` names its `fontVersion`, `RefusalKind` has "font version not supported", `OpenScreen` has `viewport`, `ViewportChanged` exists, and `Screen` has `revision` and `pending`.
+5. The producer hosts each screen in an `ImageComposeScene` with the viewport, density, font scale and direction, wrapped in a root `Box`.
+6. The reader uses only public API, with no opt-in, and `SemanticsVisibilityTest` pins what it sees.
+7. Unsupported content gives `ScreenUnavailable` and `onScreenNotSendable`.
+8. `ConsumerComponent` keeps its signature; its node carries its catalog version; the guard walks every `Component`, in slots too.
+9. The consumer places every node with one positioned layout and imports no `Column` or `Row`; a screen with no app component renders with empty bindings.
+10. A pending screen is never shown, and a pending update keeps the last shown one; `ComponentMeasured` holds every changed component, is sent at most 20 times per second and merges changes in between; stale revisions are ignored; `measuringRounds` counts only rounds after every component is measured.
+11. A remote click uses the `Trigger` path; a local click shows the variant at once in the largest box, moves nothing else on the device, and sends `Switched`, after which the producer lays out again.
+12. Fonts go from the app's declaration to the font bundle, the saved and pinned copy on the server, the server resources and the producer, with fingerprints checked at each step; the catalog holds no font; a broken font stops the producer at start; default text uses the bundled Roboto on both sides.
+13. The marker exists once, in `core`, on the types ADR 0014 lists, and invariant 9's `PublicSignatureMarkerTest` finds no marked type in a public signature, and catches its own fixtures.
+14. The load test ran at 10,000 open screens and its numbers are in this section.
+15. Principle I gate, again: the producer owns arrangement (points 1, 5 and 9); a screen with no app component renders in an app with an empty catalog (point 9); nothing makes the catalog the only content or gives the consumer a layout decision (points 2 and 9); composable logic runs on the producer only (point 5 and invariant 5).
+16. The text gate passed on `emulator-5554`, with its numbers recorded here.
+17. The producer refuses out-of-range measurements and viewports without laying out, ignores unknown ids, and merges, without dropping, `ComponentMeasured` and `ViewportChanged` over their own limit, apart from the trigger limit, each with a test.
+18. An app component inside a switcher variant gives `onScreenNotSendable`.
+19. `./gradlew build detekt --configuration-cache` and `./gradlew check --configuration-cache` pass.
+
+### Owner decisions of the second round
+
+Asked through the engineering-manager and answered by the owner on 2026-11-20:
+
+1. The default font: Roboto, bundled in the producer and the consumer; default text is measured and drawn with it, never with the system font ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)).
+2. Font files at run time: a separate pinned font bundle with its own version, not an exception to FR-069, which stays as it was ([ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md)).
+3. `layoutDirection` in the device context, the viewport in `OpenScreen` and `ViewportChanged` are accepted in contract version 1.
+4. The switcher is accepted as designed ([ADR 0018](../../docs/adr/0018-local-switcher-for-interactions-without-a-round-trip.md)).
+5. After the review: switcher sizing is a fixed box sized to the largest variant at once, then `Switched` to the producer, which lays out again and sends a revision where the content around has moved; the device keeps its choice by switcher id; `Switched` is rate limited like triggers (ADR 0018).
+6. After the CodeRabbit review: a font version change during a session is sent with `FontVersionChanged`; the producer switches to that bundle and lays out again with state kept, or refuses the session when it does not hold it.
+
+### Probes
+
+Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `core/src/jvmTest` (`./gradlew :core:jvmTest --tests dev.tonholo.ssrcompose.core.probe.ProbeTest --configuration-cache`, exit 0), and a producer probe (`./gradlew :producer:test --tests dev.tonholo.ssrcompose.producer.probe.ProbeTest --configuration-cache`, exit 0). P4 to P9 and P11 in a throwaway Gradle project outside the repository: Kotlin 2.4.21, Compose Multiplatform 1.12.2 desktop (`ui-desktop`, `foundation-desktop`), `skiko-awt-runtime-macos-arm64` 0.150.2, JVM 17 with `-Djava.awt.headless=true`, on macOS arm64, run by `./gradlew -p <probe> test` (exit 0). Both were removed afterwards.
+
+- P1: a sealed node tree with a nested slot encodes to `{"content":{"type":"Column","modifier":[...],"children":[{"type":"Text","text":"Hello"},{"type":"Component","name":"Card","slots":{"content":[...]}}]}}` and decodes back equal.
+- P2: with `exceedsNestingDepth`, a tree of n nested layout nodes needs 2n + 2 levels and n nested slots 3n + 2.
+- P3: 1,000 rows of a layout node holding a text and a component is 183,932 bytes of JSON; encoding and decoding it took 2.56 ms on average over 100 runs, and comparing two equal decoded copies 0.21 ms.
+- P4: real `Column`, `Row`, `Box`, `BasicText`, `padding`, `size`, `fillMaxWidth`, `background` and `weight` laid out in `ImageComposeScene(1440, 3120, Density(3.5f, 1f))`: padding 16 dp gave 56 px, a 40 dp box 140 px, and a long text wrapped. A state change from 1 to 3 rows laid them out at 0, 33 and 66 px. The first scene took 434 ms to create and 117 ms to render in a cold JVM; 50 later frames took 5.5 ms each.
+- P5: with `isDebugInspectorInfoEnabled = true`, the unmerged semantics tree held a `Box` with `size`, `background[color, shape]` and `border[width, color, shape]`, and two texts, one with `clickable[enabled, onClick, onClickLabel, role]`, each with its size and `boundsInRoot`. `Column` and `Row` did not appear.
+- P6: a `Column` with a background appeared; a `Box` with only padding, a `Spacer`, an empty sized `Box` and a `Column` with only padding did not; their texts did. A `verticalScroll` column composed all 20 rows and appeared as a `scroll` node; a `LazyColumn` of 1,000 items composed 7.
+- P7: 100 scenes of 50 text rows at 1080 by 2400 px took 22.7 ms each and 297 KB of heap each, once warm. Native memory was not measured.
+- P8: `Font(identity, data, weight)` loaded TTF files from bytes; one text in a 200 dp box measured 147, 148 and 144 px high with the default font, Arial and Georgia. Ten bytes that are not a font loaded and rendered with the default font, with no error.
+- P9: compiling the probes reported no warning, so `ImageComposeScene`, `semanticsOwners`, `SemanticsNode.layoutInfo`, `ModifierInfo` and `InspectableValue` need no opt-in. `ImageComposeScene` takes a `LayoutDirection` and a `CoroutineContext`. `LayoutInfo` has no public list of children; the full layout tree is only in the internal `LayoutNode`.
+- P11: in the same project, a text inside a `Box` with a background and padding is a child of that box in the semantics tree; custom `SemanticsPropertyKey`s set on a `Layout` and on a slot `Layout` inside it are readable, with the slot under the hole and its text under the slot; running `SemanticsActions.OnClick` from the semantics ran the `clickable` lambda; `TextLayoutResult.layoutInput.style` gave `fontSize` 18 sp and a `FontFamily` whose loaded font has the identity `arial`, while a text with no size gave `Unspecified`; `FontMgr.default.makeFromData` gave a typeface for Arial and null for 10 bytes that are not a font. The background box's `boundsInRoot` started 8 px down, inside its 4 dp padding at density 2.
+- P12: on 2026-11-20, in a throwaway Gradle project outside the repository (Kotlin 2.4.21 JVM, `kotlin { abiValidation { } }`, `./gradlew updateKotlinAbi`, exit 0, removed afterwards), the reference dump was written to `api/<module>.api`. A public function with a parameter of a public class `ScreenDocument`, its signature over several source lines, appeared as `direct (ILprobe/ScreenDocument;)V`, but `generic(documents: List<ScreenDocument>)` appeared as `generic (Ljava/util/List;)V`, a return type `List<ScreenDocument>` as `()Ljava/util/List;`, and a property `Map<String, ScreenDocument>` as `()Ljava/util/Map;`: the JVM dump erases type arguments. In the same project, `kotlin-metadata-jvm` 2.4.21 (`KotlinClassMetadata.readStrict`) gave `[kotlin/collections/List, probe/ScreenDocument]` for the parameter and the return, `[kotlin/collections/Map, kotlin/String, probe/ScreenDocument]` for the property, and visibility `INTERNAL` for an internal function, so a metadata walk catches every case.
+- P10: a consumer device test that draws a node tree with foundation, and the existing `ScreenProblemMessageTest`, both failed on a physical Pixel 7 Pro with Android 17, where they should never have been run (device work belongs on `emulator-5554` only), with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso. Consumer drawing was not checked on a device.
+
+### Guardrails proposed for the rules
+
+Rule 14 of [the architecture rules](../../.ai/rules/architecture.md) and its checks still allow the top-to-bottom fallback and name `ScreenContent`. Proposed wording, for the engineering-manager to bring to the owner:
+
+- Rule 14: "The core is server-side rendering, never server-driven rendering (principle I). The producer measures and arranges every screen and sends a positioned document. The consumer places each node where the producer put it and never arranges content on its own, in its public API or inside. No wire type, slot or screen holds only consumer catalog components."
+- Rule 15: unchanged, with "renders server screens" meaning server-rendered documents.
+- Checks: "`git grep -n -E 'foundation.layout.(Column|Row)' -- consumer/src/commonMain` finds nothing. `ScreenDocument.root` is a `DocumentNode.Box`. `SemanticsVisibilityTest` exists in `producer`. The consumer draws every node through one exhaustive `when` over `DocumentNode`."
