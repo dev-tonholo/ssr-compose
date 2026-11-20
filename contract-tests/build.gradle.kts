@@ -10,5 +10,9 @@ kotlin {
         implementation(projects.core)
         implementation(projects.consumer)
         implementation(projects.producer)
+        implementation(projects.coreTesting)
+    }
+    sourceSets.getByName("androidHostTest").dependencies {
+        implementation(libs.kotlin.metadata.jvm)
     }
 }
