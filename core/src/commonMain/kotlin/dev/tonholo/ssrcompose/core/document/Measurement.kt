@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.document.internal.requireMeasure
 import dev.tonholo.ssrcompose.core.document.internal.requireSlotSpaces
 import kotlinx.serialization.Serializable
@@ -10,6 +11,7 @@ import kotlinx.serialization.Serializable
  * @throws IllegalArgumentException when a size is not finite, negative or above 100,000 dp, or [slots] holds more
  * than 118 slots or a slot name longer than 64 characters.
  */
+@InternalSsrComposeApi
 @Serializable
 public data class Measurement(
     val id: Int,

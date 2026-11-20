@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.document.internal.RootBoxSerializer
 import dev.tonholo.ssrcompose.core.document.internal.requireValidTree
 import kotlinx.serialization.Serializable
@@ -11,6 +12,7 @@ import kotlinx.serialization.Serializable
  * @throws IllegalArgumentException when an id is repeated, or a local click names a switcher or a variant the
  * document does not have.
  */
+@InternalSsrComposeApi
 @Serializable
 public data class ScreenDocument(
     @Serializable(with = RootBoxSerializer::class)
