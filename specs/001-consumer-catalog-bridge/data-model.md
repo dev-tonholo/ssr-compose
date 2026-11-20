@@ -273,7 +273,7 @@ Used by app and server developers:
 
 - `@ConsumerComposable`, `@ProducerComposable`
 - `CatalogVersion`, `ContractVersion`, `FontBundleVersion`
-- `AppIdentity`, `DeviceContext` (with `Orientation` and `Theme`), `Introduction`, `RefusalKind`
+- `AppIdentity`, `DeviceContext` (with `Orientation`, `Theme` and `LayoutDirection`), `Introduction`, `RefusalKind`
 - `ValueKind`, `DataValue`, `ActionId`
 - `Connection`
 
@@ -284,10 +284,13 @@ Public only because `consumer`, `producer` or `catalog-model` use it across the 
 - `Answer` (with `Accepted` and `Refused`)
 - `ConsumerMessage` and `ProducerMessage`, with their cases
 - `MessageFrame`, `MessageCodec`, `MessageDecodingException`
-- `ScreenDocument`, `DocumentNode` with its cases, `SlotContent`, and the document values above (`DocumentColor`, `Decoration`, `Click`, `NodeSemantics`, `TextStyleSpec`, `Viewport`, `Measurement`)
-- `FontBundleManifest`, `FontEntry` and their reader, used by `tooling` and `producer`
+- `ScreenDocument`, `DocumentNode` with its cases, `SlotContent`, and the document values above (`DocumentColor`, `Decoration`, `Click`, `NodeSemantics` with `NodeRole`, `TextStyleSpec`, `Viewport`, `Measurement` with `SlotSpace`)
 
 The second group carries the opt-in marker `InternalSsrComposeApi` ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)).
+
+`FontBundleManifest`, `FontEntry`, `FontBundleReader` and `FontBundleException` are public too, with no marker: `tooling` and `producer` read the font bundle with them, and ADR 0014 does not list them.
+
+`isKotlinIdentifier`, `isKotlinPackageName` and `MAX_IDENTIFIER_LENGTH` are public too, with no marker: they are the one identifier rule, which `catalog-model` and `compiler-plugin` call and the font bundle reader uses for family names, and those two modules do not opt in.
 
 ## Session (`producer`)
 
