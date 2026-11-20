@@ -41,7 +41,9 @@ SsrScreen(
 ```
 
 - `SsrScreen` introduces the app, waits for the answer, opens the screen and shows it.
-- The library collects density, orientation, screen size, theme and language, and tells the producer when one changes.
+- The library collects density, orientation, screen size, theme, language, font scale and layout direction, and the space the app gives `SsrScreen`, and tells the producer when one changes.
+- The screen is drawn as the producer measured and arranged it ([research.md R20](../research.md#r20-server-rendered-content-194)). The library places each part where the producer put it and arranges nothing itself. It does not show a screen until every app composable on it has been measured and placed by the producer; while a new layout is pending, it keeps showing the last one ([messages.md](messages.md#rules), rule 3b). It reports measurements at most 20 times per second, merging changes in between.
+- `fonts` gives the app's font version and the font families it declared, by name ([font-bundle.md](font-bundle.md)). The version is sent in the introduction; when `fonts` changes to another version during a session, the library sends `FontVersionChanged` and keeps drawing each document with the fonts of the version it was laid out with ([messages.md](messages.md#rules), rule 3e). A server text in a family it does not have makes the screen `ScreenProblem.Mismatch`. Text with no family is drawn with the library's own Roboto. Its default holds no version and no family; the build creates it from the declared fonts (T055).
 - The catalog version comes from the build. The developer supplies only `app`.
 - The renderers for the marked composables are found by the library. Nothing has to be registered by hand.
 - `connection` gives a new `Connection` for this screen alone. The library never names a transport. Two screens must not share one, because the producer refuses a second introduction.
@@ -49,7 +51,7 @@ SsrScreen(
 
 ## Doing it by hand
 
-Everything the build creates on this side can be written by hand. A binding receives a `PlacedComponentScope`, the consumer's own type: it wraps core's `PlacedComponent` with the session, so `callback` can send a trigger and `slot` can render content.
+Everything the build creates on this side can be written by hand. A binding receives a `PlacedComponentScope`, the consumer's own type: it wraps core's `DocumentNode.Component` with the session, so `callback` can send a trigger and `slot` can draw the server-rendered content the producer laid out for that slot. An app with no marked composable passes `ComponentBindings {}`.
 
 ```kotlin
 import dev.tonholo.ssrcompose.consumer.choiceOrNull
@@ -112,7 +114,7 @@ Approved by the owner on 2026-11-19 (#196, [research.md R19](../research.md#r19-
 - `Refused` and `Unavailable` carry the producer's `reason`. The library shows it as given and does not translate it. Its language is set by [messages.md](messages.md) rule 7. An app that wants its own words for a refusal maps `kind`. `Unavailable` has no kind, so an app can only replace its reason with one text of its own.
 - `ConnectionEnded` means the connection failed or ended.
 - `AnswerUnreadable` covers a message the app cannot read, a `Screen` or `ScreenUnavailable` that arrives before `Accepted`, and an `Accepted` with another contract version.
-- `Mismatch` means the app received something it cannot draw: a value a binding cannot read, or a component with no binding. It should not happen. The library does not crash the app and shows no developer placeholder (FR-037). `component` is for the app's own reporting and never reaches the default message (FR-059).
+- `Mismatch` means the app received something it cannot draw: a value a binding cannot read, a component with no binding, or a text in a font family the app did not give `SsrScreen`. It should not happen. `component` names what could not be drawn: the component's name, or, for a font, the family's name. The library does not crash the app and shows no developer placeholder (FR-037). `component` is for the app's own reporting and never reaches the default message (FR-059).
 - `retry` introduces the app again after `Refused`, `ConnectionEnded` and `AnswerUnreadable`, and asks for the same screen again after `Unavailable` and `Mismatch`.
 
 An app that writes its own `unavailable` handles all five cases. For the two cases with no producer reason it can show its own text, or the library's:

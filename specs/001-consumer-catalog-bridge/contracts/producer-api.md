@@ -34,7 +34,7 @@ suspend fun onNewConnection(connection: Connection) = producer.serve(connection)
 
 ## Writing a screen
 
-Each held catalog has its own bridge, created by the compiler in the package the build setup names for it. A screen for one catalog version calls the bridge functions of that version, like any composable:
+A screen is plain Compose UI foundation code, run and laid out on the producer ([research.md R20](../research.md#r20-server-rendered-content-194)). Each held catalog has its own bridge, created by the compiler in the package the build setup names for it, and a screen places the app's components by calling the bridge functions of its catalog version, like any composable:
 
 ```kotlin
 import com.example.app.bridge.v3.Greeting
@@ -44,25 +44,45 @@ import com.example.app.bridge.v3.server.Style
 @Composable
 fun CheckoutScreen() {
     var paid by remember { mutableStateOf(false) }
-    val consumer = LocalConsumer.current
+    val brand = LocalConsumer.current.fonts.family(name = "brand")
 
-    PaymentSection(
-        title = if (paid) "Thank you" else "Pay now",
-        onPayClick = { paid = true },
-    ) {
-        Greeting(title = "Order 42", style = Style.titleLarge)
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        BasicText(text = "Your order", style = TextStyle(fontFamily = brand, fontSize = 24.sp))
+        PaymentSection(
+            title = if (paid) "Thank you" else "Pay now",
+            onPayClick = { paid = true },
+        ) {
+            Row(modifier = Modifier.background(Color(0xFFEEEEEE), RoundedCornerShape(8.dp)).padding(8.dp)) {
+                BasicText(text = "Order 42")
+                Greeting(title = "Ships today", style = Style.titleLarge)
+            }
+        }
+        LocalSwitcher(variants = 2) { variant ->
+            BasicText(text = if (variant == 0) "Show details" else "Hide details", modifier = Modifier.switchTo(1 - variant))
+        }
     }
 }
 ```
 
+Server content:
+
+- The producer wraps every screen in its own `Box` and measures it with the device's density, font scale, layout direction and the space the app gives the screen.
+- Supported: `Box`, `Column`, `Row`, `Spacer`, `BasicText` with one style, `verticalScroll` and `horizontalScroll`, size, padding, weight and alignment modifiers, `background` and `border` with a color and a rectangle or rounded corner shape, `clickable`, and semantics (`contentDescription`, `heading`, `role`).
+- Refused with `ScreenUnavailable` and `onScreenNotSendable`: images, brushes, other shapes, lazy lists, text with several styles, a font family the session's font bundle does not have, a weight or italic its font family has no file for, more than 10,000 app components, and an app component inside a switcher variant. Custom drawing (`Canvas`, `drawBehind`) is not seen by the producer and is not sent.
+- `LocalSwitcher(variants, initial = 0, modifier) { variant -> }` composes and lays out every variant; `Modifier.switchTo(variant)` inside it shows that variant on the device at once, in a box of the largest variant's size, with no round trip. The device then sends `Switched`, the switcher's selected variant becomes that one, and the producer lays the screen out again so the content around it moves into place ([messages.md](messages.md#screen-content)). 2 to 16 variants.
+- `LocalConsumer.current` gives the session's `device`, `app`, `catalogVersion` and `fonts`. `device` is state: when the app reports a change, the screen recomposes and what it holds stays.
+- `LocalConsumer.current.fonts.family(name)` gives a font family of the session's font bundle ([font-bundle.md](font-bundle.md)). It fails with a clear message for a name that bundle does not have. A text with no font family is measured with the library's own Roboto, which the device draws it with too.
+- The font bundles the producer holds come from the build (`ssrFontResources`), or by hand: `fonts(version = "1") { family(name = "brand") { font(bytes = interRegular, weight = 400) } }` in `Producer { }`. A session gets the bundle its app named in the introduction, and an app whose font version the producer does not hold is refused. A missing or unreadable font file makes `Producer { }` fail at start, as does a missing Skiko runtime for the server's OS.
+- `ProducerLimits` also has `measuringRounds` (4 by default), `measurementsPerSecond` (30 `ComponentMeasured` and `ViewportChanged` messages per second by default, apart from the trigger limit) and `documentBytes` (8 MiB by default).
+
+App components through the bridge:
+
 - Choice enums live in a subpackage of the bridge package named after the server module, `<bridgePackage>.<moduleSegment>.<ChoiceName>` (above, `server`), and are `internal` to that module ([ADR 0010](../../../docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md), [research.md R18](../research.md#r18-server-bridge-kinds-choice-enums-and-consumercomponent-t048-design)). A screen's `main` and `test` compilations share the same import and enum types.
 - Because the catalog collapses `Int` and `Long` into `whole`, and `Float` and `Double` into `decimal`, bridge parameters use `Long` for whole numbers and `Double` for decimal numbers. List parameters use `List<String>`, `List<Long>`, `List<Double>`, `List<Boolean>` or `List<<ChoiceEnum>>`.
-
 - State held with `remember` lives on the server, in that app's session, and is gone when the session ends.
 - A lambda that throws changes nothing: what it wrote is thrown away, the screen stays as it was, and `onActionFailed` is called.
 - `onPayClick = { ... }` is a `RemoteAction0`. It runs on the server when the user taps. A callback that carries a scan result is a `RemoteAction1<ByteArray>`. The pattern follows Kotlin's function types: `RemoteAction0`, `RemoteAction1<A>`, up to `RemoteAction4<A, B, C, D>`, one per number of arguments the app's callback has. There is no result type, because the app's callback returns at once and cannot wait for the server. Each is a function interface, so a lambda is enough.
-- The trailing block fills the `content` slot with other bridge composables of the same version.
-- `LocalConsumer.current` gives the session's `device`, `app` and `catalogVersion`. `device` is state: when the app reports a change, the screen recomposes and what it holds stays.
+- The trailing block fills the `content` slot with server content written with foundation, which can hold other bridge composables of the same version. The producer lays it out in the space the app's component gives the slot.
 - A slot that passes arguments cannot be filled in this feature:
   - When the slot is optional, the bridge function has no parameter for it and the app uses its own default.
   - When the slot is required, the component cannot be placed. Its bridge function exists, and calling it or referencing it is a compile error that names the component and the slot, and says that slots with arguments are not supported yet. The function carries `@UnplaceableBridge`, an annotation of the producer library that belongs to the compiler plugin: do not write it in code. The compiler plugin reads it from the created bridge. A created bridge function is internal to the module that creates it ([research.md R9](../research.md#r9-one-bridge-per-held-catalog)). A call that still gets past the compiler throws the same message when the function is composed. `CameraScanner` and a `PaymentSection` whose title is a slot with arguments are in this group until remote composables exist.
@@ -184,6 +204,8 @@ interface ProducerObserver {
     fun onTriggerDropped(action: ActionId, screen: String)
     fun onActionFailed(action: ActionId, screen: String, cause: Throwable)
     fun onScreenStopped(screen: String, cause: Throwable)
+    fun onScreenNotSendable(screen: String, reason: String)
+    fun onLayoutNotSettled(screen: String)
 }
 ```
 
@@ -193,7 +215,7 @@ The default does nothing. The library depends on no logging library.
 
 In `producer`:
 
-- Server developer API: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type, and the opt-in annotation `InternalSsrComposeApi`.
+- Server developer API: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type with `ConsumerFonts`, and `LocalSwitcher` with `LocalSwitcherScope`. The opt-in annotation `InternalSsrComposeApi` moves to `core` ([ADR 0014](../../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)).
 - Bridge entry points marked `@InternalSsrComposeApi` (`@RequiresOptIn(level = RequiresOptIn.Level.WARNING)`): `ConsumerComponent`, `textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue`, `choiceListValue`, `Callback` and its value readers (added in T065), and `UnplaceableBridge`. The compiler plugin opts generated bridge functions in automatically, so server screens never need an opt-in; hand-written bridges opt in with `@OptIn(InternalSsrComposeApi::class)`. The compiler plugin owns `UnplaceableBridge` and puts it on a bridge that cannot be placed; it has to be public so the plugin can read it from compiled code, and developers must not write it.
 
 Everything else in `producer` is internal.
