@@ -24,3 +24,9 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0012](0012-problem-message-style-parameters.md) | Style the default problem message with Material's shape of style parameters | Accepted |
 | [0013](0013-preview-annotation-as-compile-only.md) | Set up Compose previews as the Kotlin Multiplatform guide shows, off what apps receive | Accepted |
 | [0014](0014-one-opt-in-marker-for-internal-api.md) | One opt-in marker for the library's internal API, in core | Accepted |
+| [0015](0015-producer-renders-with-compose-ui-foundation.md) | The producer renders with Compose UI foundation and sends a positioned document | Accepted |
+| [0016](0016-app-components-measured-on-the-device.md) | App components are measured on the device and reported to the producer | Accepted |
+| [0017](0017-app-fonts-travel-in-a-pinned-font-bundle.md) | The app's fonts travel in a pinned font bundle | Accepted |
+| [0018](0018-local-switcher-for-interactions-without-a-round-trip.md) | A local switcher is the minimal interaction with no round trip | Accepted |
+| [0019](0019-contract-version-1-carries-the-document.md) | Contract version 1 carries the server-rendered document | Accepted |
+| [0020](0020-bundle-roboto-as-the-default-font.md) | Bundle Roboto as the default font | Accepted |
