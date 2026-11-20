@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.message
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
 
 /**
@@ -7,6 +8,7 @@ import dev.tonholo.ssrcompose.core.handshake.ContractVersion
  * It starts with the contract version as a big-endian number of [CONTRACT_VERSION_BYTES] bytes, then the codec's
  * payload. Every codec can read the version without decoding the payload. Later frames are the payload alone.
  */
+@InternalSsrComposeApi
 public object MessageFrame {
     public const val CONTRACT_VERSION_BYTES: Int = Int.SIZE_BYTES
 

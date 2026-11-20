@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.producer
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.data.DataValue
 
 /** Turns a list of texts into a [DataValue.ListValue] of [DataValue.Text], keeping their order. */

@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.message
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
 import dev.tonholo.ssrcompose.core.message.internal.JsonMessageCodec
 
@@ -9,6 +10,7 @@ import dev.tonholo.ssrcompose.core.message.internal.JsonMessageCodec
  * contract version, see [MessageFrame]. Every other frame is the payload alone.
  * Decoding throws [MessageDecodingException] and nothing else.
  */
+@InternalSsrComposeApi
 public interface MessageCodec {
     public val contractVersion: ContractVersion
 

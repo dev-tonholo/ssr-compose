@@ -27,7 +27,7 @@ internal class InternalApiOptIn(private val session: FirSession) {
         session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(ProducerNames.internalSsrComposeApi)
     }
 
-    /** Returns the annotation, or null when the producer library is not on the classpath. */
+    /** Returns the annotation, or null when the marker's library is not on the classpath. */
     fun annotationOrNull(): FirAnnotation? {
         val marker = marker ?: return null
         return buildAnnotation {

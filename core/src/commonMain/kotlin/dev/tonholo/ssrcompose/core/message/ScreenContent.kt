@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.message
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.data.DataValue
 import kotlin.jvm.JvmInline
 import kotlinx.serialization.Serializable
@@ -16,6 +17,7 @@ public value class ActionId(public val value: String)
  * A component of the session's catalog with the parameters the screen gave it.
  * A parameter the screen did not give is absent from all three maps.
  */
+@InternalSsrComposeApi
 @Serializable
 public data class PlacedComponent(
     val name: String,
@@ -27,6 +29,7 @@ public data class PlacedComponent(
 /**
  * Placed components shown top to bottom. This top-level arrangement is provisional.
  */
+@InternalSsrComposeApi
 @Serializable
 @JvmInline
 public value class ScreenContent(public val components: List<PlacedComponent>)

@@ -5,6 +5,10 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi")
+    }
+
     jvm()
 
     sourceSets.commonMain.dependencies {

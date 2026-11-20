@@ -9,7 +9,7 @@ import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
 import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
-import dev.tonholo.ssrcompose.producer.InternalSsrComposeApi
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.jetbrains.kotlin.name.ClassId
@@ -25,6 +25,26 @@ class InternalSsrComposeApiTest {
         val result = CompileTestSupport(registrars = listOf(ComposePluginRegistrar())).compileSource(
             fileName = HAND_BRIDGE_FILE,
             source = HAND_BRIDGE_SOURCE,
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(
+            expected = expectedWarnings,
+            actual = optInWarnings(messages = result.messages).size,
+            message = result.messages,
+        )
+    }
+
+    @Test
+    fun `given hand uses of every marked core wire type without opt-in, when compiled, then each one warns`() {
+        // Arrange
+        val expectedWarnings = CORE_WIRE_TYPES
+
+        // Act
+        val result = CompileTestSupport(registrars = emptyList()).compileSource(
+            fileName = WIRE_USER_FILE,
+            source = WIRE_USER_SOURCE,
         )
 
         // Assert
@@ -82,9 +102,11 @@ class InternalSsrComposeApiTest {
 
     private companion object {
         const val BRIDGE_ENTRY_POINTS = 7
+        const val CORE_WIRE_TYPES = 8
         const val WARNING_PREFIX = "w:"
         const val OPT_IN_MARKER = "InternalSsrComposeApi"
         const val HAND_BRIDGE_FILE = "HandBridge.kt"
+        const val WIRE_USER_FILE = "WireUser.kt"
         const val SCREEN_FILE = "Screen.kt"
         const val COMPONENT = "Alpha"
         const val BRIDGE_PACKAGE = "app.bridge"
@@ -128,6 +150,31 @@ class InternalSsrComposeApiTest {
             @UnplaceableBridge(message = "not placeable")
             @Composable
             fun Scanner() = Unit
+        """.trimIndent()
+
+        // language=kotlin
+        val WIRE_USER_SOURCE = """
+            package app.wire
+
+            import dev.tonholo.ssrcompose.core.handshake.Answer
+            import dev.tonholo.ssrcompose.core.message.ConsumerMessage
+            import dev.tonholo.ssrcompose.core.message.MessageCodec
+            import dev.tonholo.ssrcompose.core.message.MessageDecodingException
+            import dev.tonholo.ssrcompose.core.message.MessageFrame
+            import dev.tonholo.ssrcompose.core.message.PlacedComponent
+            import dev.tonholo.ssrcompose.core.message.ProducerMessage
+            import dev.tonholo.ssrcompose.core.message.ScreenContent
+
+            class WireUser(
+                val content: ScreenContent,
+                val placed: PlacedComponent,
+                val consumerMessage: ConsumerMessage,
+                val producerMessage: ProducerMessage,
+                val answer: Answer,
+                val frame: MessageFrame,
+                val codec: MessageCodec,
+                val failure: MessageDecodingException,
+            )
         """.trimIndent()
 
         // language=kotlin
