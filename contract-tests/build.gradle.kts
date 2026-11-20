@@ -4,6 +4,13 @@ plugins {
     alias(libs.plugins.ssrcompose.conventions.serialization)
 }
 
+private val FONT_JAR_METADATA = listOf(
+    "META-INF/buildinfo.xml",
+    "META-INF/services/com.helger.font.api.IFontResourceProviderSPI",
+    "LICENSE",
+    "NOTICE",
+)
+
 private val textGateSources = layout.projectDirectory.dir("src/textGate/kotlin")
 
 kotlin {
@@ -13,6 +20,7 @@ kotlin {
     android {
         withDeviceTest {
             instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+            packaging.resources.excludes.addAll(FONT_JAR_METADATA)
         }
     }
 
