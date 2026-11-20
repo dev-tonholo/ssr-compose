@@ -104,7 +104,7 @@ build-logic/                         # convention plugins as Plugin classes, reg
 
 core/                                # Kotlin Multiplatform: jvm, android
 └── src/commonMain/kotlin/dev/tonholo/ssrcompose/core/
-    ├── annotation/                  # @ConsumerComposable, @ProducerComposable
+    ├── annotation/                  # @ConsumerComposable, @ProducerComposable, @InternalSsrComposeApi (research.md R20)
     ├── catalog/                     # CatalogVersion only: a label
     ├── handshake/                   # Introduction, DeviceContext, AppIdentity, Answer
     ├── data/                        # DataValue, ValueKind (the one definition of value kinds)
@@ -141,7 +141,7 @@ producer/                            # Kotlin JVM
     │   ├── Producer.kt, ProducerBuilder.kt, ConsumerComponent.kt
     │   ├── RemoteAction1.kt, Callback.kt, Consumer.kt, LocalConsumer.kt   # T065 folds RemoteAction1 into RemoteAction.kt with the other four
     │   ├── ProducerLimits.kt, ProducerObserver.kt, UnplaceableBridge.kt   # UnplaceableBridge is read by the compiler plugin
-    │   ├── ListValues.kt, InternalSsrComposeApi.kt   # list helpers and the opt-in for bridge entry points (research.md R18)
+    │   ├── ListValues.kt            # list helpers for bridge entry points (research.md R18)
     │   └── internal/                # PlacedNode (stand-in from T025), ScreenApplier, live screen, snapshot notifier, session, screen registry, actions, guard, validation
     ├── test/
     └── loadTest/

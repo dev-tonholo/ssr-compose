@@ -193,7 +193,7 @@ The default does nothing. The library depends on no logging library.
 
 In `producer`:
 
-- Server developer API: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type, and the opt-in annotation `InternalSsrComposeApi`.
+- Server developer API: `Producer` and its builder, `ProducerLimits`, `ProducerObserver`, `RemoteAction0` to `RemoteAction4`, `LocalConsumer` and its `Consumer` type. The opt-in annotation `InternalSsrComposeApi` is declared in `core` (`dev.tonholo.ssrcompose.core.annotation`).
 - Bridge entry points marked `@InternalSsrComposeApi` (`@RequiresOptIn(level = RequiresOptIn.Level.WARNING)`): `ConsumerComponent`, `textListValue`, `wholeListValue`, `decimalListValue`, `flagListValue`, `choiceListValue`, `Callback` and its value readers (added in T065), and `UnplaceableBridge`. The compiler plugin opts generated bridge functions in automatically, so server screens never need an opt-in; hand-written bridges opt in with `@OptIn(InternalSsrComposeApi::class)`. The compiler plugin owns `UnplaceableBridge` and puts it on a bridge that cannot be placed; it has to be public so the plugin can read it from compiled code, and developers must not write it.
 
 Everything else in `producer` is internal.
