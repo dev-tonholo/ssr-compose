@@ -19,8 +19,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.tonholo.ssrcompose.producer.testing.SceneSession
+import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
 import dev.tonholo.ssrcompose.producer.testing.SceneSpec
+import dev.tonholo.ssrcompose.producer.testing.openTestScene
 import dev.tonholo.ssrcompose.producer.testing.rootChildNodes
 import dev.tonholo.ssrcompose.producer.testing.withRenderedScene
 import kotlin.test.Test
@@ -97,9 +98,10 @@ class SceneEnvironmentTest {
     }
 
     @Test
-    fun `given each layout direction, when two boxes sit in a row, then the second is at x 10 only in left to right`() {
+    fun `given each direction, when two boxes sit in a row in the root box, then the second follows the first`() {
         // Arrange
-        val expected = mapOf(LayoutDirection.Ltr to SIBLING_SIZE_DP.toFloat(), LayoutDirection.Rtl to 0f)
+        val rtlRowStart = DEFAULT_SCENE_WIDTH_PX - 2f * SIBLING_SIZE_DP
+        val expected = mapOf(LayoutDirection.Ltr to SIBLING_SIZE_DP.toFloat(), LayoutDirection.Rtl to rtlRowStart)
 
         // Act
         val actual = LayoutDirection.entries.associateWith { direction -> secondBoxX(direction) }
@@ -130,7 +132,7 @@ class SceneEnvironmentTest {
         // Act
         try {
             runOnSession(executor) {
-                SceneSession(spec = SceneSpec(dispatcher = dispatcher), content = content).use { session ->
+                openTestScene(spec = SceneSpec(dispatcher = dispatcher), content = content).use { session ->
                     session.render()
                     runBlocking { effectDone.await() }
                     state.value += 1
