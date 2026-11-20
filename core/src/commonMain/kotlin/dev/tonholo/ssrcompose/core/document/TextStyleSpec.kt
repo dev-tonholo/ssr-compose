@@ -1,9 +1,9 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.font.FONT_WEIGHTS
 import kotlinx.serialization.Serializable
 
 private const val MAX_SIZE = 1_000f
-private val WEIGHTS = 1..1_000
 
 /**
  * How a text is drawn. A null [family] is the library's own Roboto. [size] and [lineHeight] are in sp.
@@ -24,7 +24,7 @@ public data class TextStyleSpec(
     init {
         requireTextSize(value = size, what = "font size")
         lineHeight?.let { requireTextSize(value = it, what = "line height") }
-        require(weight in WEIGHTS) { "A weight must be in $WEIGHTS, was $weight" }
+        require(weight in FONT_WEIGHTS) { "A weight must be in $FONT_WEIGHTS, was $weight" }
     }
 
     @Serializable
