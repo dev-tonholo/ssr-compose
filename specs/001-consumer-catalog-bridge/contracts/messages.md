@@ -40,7 +40,13 @@ The consumer's first frame, the one that carries `Introduce`, is a 4-byte big-en
 
 ## Screen content
 
-`content` is an ordered list of placed components, shown top to bottom. It is provisional for Feature 1, and so is `slots` below. Feature 2 extends or replaces `ScreenContent` with server-rendered documents that can embed placed components and live inside app slots (#194). Do not treat this list as the final screen format.
+`content` is a tagged object: its `type` says which case it holds. Contract version 1 has one case, `Components`, an ordered list of placed components in `components`. The layout that receives the list arranges it: at the screen root the consumer shows it top to bottom, a fallback that is provisional for Feature 1. Feature 2 adds a case for server-rendered documents, which can embed placed components and live inside app slots (#194, [research.md R20](../research.md#r20-the-content-model-seam-194)). That case comes with a new contract version, and a producer sends a version 1 consumer only `Components`. Do not treat the top-to-bottom list as the final screen format.
+
+A content object of a case the consumer does not know, or with no `type`, makes the whole message unreadable (rule 10).
+
+```json
+{"type":"Screen","screen":"home","content":{"type":"Components","components":[{"name":"Greeting","values":{"title":{"type":"Text","value":"Hi"}}}]}}
+```
 
 A placed component has:
 
@@ -49,7 +55,15 @@ A placed component has:
 | `name` | the component's name in the session's catalog version |
 | `values` | the value parameters, by name |
 | `callbacks` | callback parameter name to action ID |
-| `slots` | slot parameter name to an ordered list of placed components (provisional, like `content`) |
+| `slots` | slot parameter name to a content object, the same type as `content` |
+
+A slot that was given and placed nothing holds an empty `Components`. A slot that was not given is absent, and so are empty maps:
+
+```json
+{"name":"Card","callbacks":{"onClick":"a1"},"slots":{"content":{"type":"Components","components":[{"name":"Label","values":{"text":{"type":"Text","value":"Inside"}}}]}}}
+{"name":"Card","slots":{"content":{"type":"Components","components":[]}}}
+{"name":"Card"}
+```
 
 A placed component on the wire carries no catalog version. The producer keeps the version of the bridge that placed each component on its own node, for the guard, and never sends it.
 

@@ -182,7 +182,7 @@ A parameter the screen did not give is absent from all three maps, and the app's
 | `name` | the component's name |
 | `values` | value parameter name to `DataValue` |
 | `callbacks` | callback parameter name to `ActionId` |
-| `slots` | slot parameter name to an ordered list of `PlacedComponent` (provisional for Feature 1, see `ScreenContent`) |
+| `slots` | slot parameter name to `ScreenContent`. A given slot that placed nothing is an empty `Components`; a slot not given is absent. |
 
 The wire form has no catalog version: the session's version is known to both sides from the introduction. The consumer reads a placed component through `PlacedComponentScope`, its own type in `consumer`, which wraps this one with the session. There is no second `PlacedComponent` type.
 
@@ -216,9 +216,13 @@ A short text the producer assigns to one callback of one placed component. Uniqu
 
 ### ScreenContent (`core`)
 
-An ordered list of `PlacedComponent`.
+A sealed type, the content of a screen and of a slot. On the wire it is a tagged object ([contracts/messages.md](contracts/messages.md#screen-content)). Contract version 1 has one case:
 
-This model is provisional for Feature 1, and so is `PlacedComponent.slots`. Feature 2 extends or replaces `ScreenContent` with server-rendered documents that can embed placed components and live inside app slots (#194).
+| Case | Fields | Meaning |
+|---|---|---|
+| `Components` | `components`: an ordered list of `PlacedComponent` | placed components that the receiving layout arranges. At the screen root the consumer's internal fallback shows them top to bottom. |
+
+`Components` is provisional for Feature 1. Feature 2 adds a case for server-rendered documents that can embed placed components and live inside app slots (#194), under a new contract version. Producer and consumer read the case with an exhaustive `when`, so a new case is a compile error wherever it must be handled. See [research.md R20](research.md#r20-the-content-model-seam-194).
 
 ## What is public in `core`
 
@@ -241,7 +245,7 @@ Public only because `consumer`, `producer` or `catalog-model` use it across the 
 - `MessageFrame`, `MessageCodec`, `MessageDecodingException`
 - `PlacedComponent`, `ScreenContent`
 
-Whether the second group carries an opt-in marker is the owner's call (principle VIII, small public API). The list stays the same either way.
+The second group carries the opt-in marker `@InternalSsrComposeApi`, public in `core` (`dev.tonholo.ssrcompose.core.annotation`), at the warning level. The same marker is on the `producer` declarations that only bridges call. `core`, `consumer`, `producer` and `contract-tests` opt in once in their build files. Decided in [ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md) and designed in [research.md R20](research.md#the-opt-in-marker).
 
 ## Session (`producer`)
 
