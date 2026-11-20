@@ -379,7 +379,7 @@ class CatalogIndexTest {
     )
 
     private companion object {
-        const val VERSION = "2.5 beta"
+        const val VERSION = "2.5-beta"
         const val EVERY_KIND_NAME = "EveryKind"
         const val EMPTY_COMPONENT_NAME = "Divider"
         const val NOT_VALID = "The catalog index is not valid"

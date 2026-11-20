@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "version": "v \"1\" \\ ü",
+  "version": "release-1.0_beta",
   "parts": [
     {
       "name": "every-kind",
