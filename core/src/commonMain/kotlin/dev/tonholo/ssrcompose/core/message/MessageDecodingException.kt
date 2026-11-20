@@ -1,6 +1,9 @@
 package dev.tonholo.ssrcompose.core.message
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
+
 /**
  * A frame could not be read as a message. It is the only error a codec throws when decoding.
  */
+@InternalSsrComposeApi
 public class MessageDecodingException(message: String, cause: Throwable? = null) : Exception(message, cause)

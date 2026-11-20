@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.message
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
 import dev.tonholo.ssrcompose.core.handshake.Introduction
@@ -10,6 +11,7 @@ import kotlinx.serialization.Serializable
  * Messages from the consumer to the producer.
  */
 @Serializable
+@InternalSsrComposeApi
 public sealed interface ConsumerMessage {
     /** The first message, once per session. */
     @Serializable

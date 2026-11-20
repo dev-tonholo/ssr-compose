@@ -77,11 +77,46 @@ class InternalSsrComposeApiTest {
         assertEquals(expected = expected, actual = calledBridgeOptIns.markersPerCall)
     }
 
+    @Test
+    fun `given one use of each marked core type without opt-in, when compiled, then each use warns once`() {
+        // Arrange
+        val expectedWarningLines = MARKED_CORE_TYPE_USES.indices.map { index -> index + FIRST_USE_LINE }
+
+        // Act
+        val result = CompileTestSupport(registrars = listOf(ComposePluginRegistrar())).compileSource(
+            fileName = WIRE_USES_FILE,
+            source = WIRE_USES_SOURCE,
+        )
+
+        // Assert
+        assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
+        assertEquals(
+            expected = expectedWarningLines,
+            actual = warningLines(messages = result.messages, fileName = WIRE_USES_FILE),
+            message = result.messages,
+        )
+    }
+
+    private fun warningLines(messages: String, fileName: String): List<Int> =
+        optInWarnings(messages = messages).mapNotNull { line ->
+            Regex("""$fileName:(\d+):""").find(line)?.groupValues?.get(index = 1)?.toInt()
+        }
+
     private fun optInWarnings(messages: String): List<String> =
         messages.lines().filter { line -> line.startsWith(WARNING_PREFIX) && OPT_IN_MARKER in line }
 
     private companion object {
         const val BRIDGE_ENTRY_POINTS = 7
+        const val WIRE_USES_FILE = "WireUses.kt"
+        const val FIRST_USE_LINE = 10
+        val MARKED_CORE_TYPE_USES = listOf(
+            "val answer: Answer? = null",
+            "val consumerMessage: ConsumerMessage? = null",
+            "val producerMessage: ProducerMessage? = null",
+            "val frame = MessageFrame",
+            "val codec: MessageCodec? = null",
+            "val failure: MessageDecodingException? = null",
+        )
         const val WARNING_PREFIX = "w:"
         const val OPT_IN_MARKER = "InternalSsrComposeApi"
         const val HAND_BRIDGE_FILE = "HandBridge.kt"
@@ -128,6 +163,20 @@ class InternalSsrComposeApiTest {
             @UnplaceableBridge(message = "not placeable")
             @Composable
             fun Scanner() = Unit
+        """.trimIndent()
+
+        // language=kotlin
+        val WIRE_USES_SOURCE = """
+            package app.wire
+
+            import dev.tonholo.ssrcompose.core.handshake.Answer
+            import dev.tonholo.ssrcompose.core.message.ConsumerMessage
+            import dev.tonholo.ssrcompose.core.message.MessageCodec
+            import dev.tonholo.ssrcompose.core.message.MessageDecodingException
+            import dev.tonholo.ssrcompose.core.message.MessageFrame
+            import dev.tonholo.ssrcompose.core.message.ProducerMessage
+
+            ${MARKED_CORE_TYPE_USES.joinToString(separator = "\n")}
         """.trimIndent()
 
         // language=kotlin
