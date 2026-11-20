@@ -2,6 +2,7 @@ package dev.tonholo.ssrcompose.core.message
 
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.data.DataValue
+import dev.tonholo.ssrcompose.core.document.Viewport
 import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
@@ -19,6 +20,7 @@ import kotlin.test.assertTrue
 class JsonMessageCodecTest {
     private val codec = JsonMessageCodec()
     private val version = ContractVersion(value = 1)
+    private val openViewport = Viewport(width = 360f, height = 640f)
     private val device = TestDevices.portrait.copy(theme = Theme.Dark, language = "pt-BR")
     private val introduce = ConsumerMessage.Introduce(
         introduction = Introduction(
@@ -95,7 +97,7 @@ class JsonMessageCodecTest {
     @Test
     fun `given an OpenScreen, when it is encoded then decoded, then it is equal`() {
         // Arrange
-        val message = ConsumerMessage.OpenScreen(screen = "home")
+        val message = ConsumerMessage.OpenScreen(screen = "home", viewport = openViewport)
 
         // Act
         val actual = consumerRoundTrip(message = message)
@@ -327,26 +329,25 @@ class JsonMessageCodecTest {
     @Test
     fun `given a later frame, when it is encoded, then it is the JSON payload alone`() {
         // Arrange
-        val message = ConsumerMessage.OpenScreen(screen = "home")
+        val message = ConsumerMessage.OpenScreen(screen = "home", viewport = openViewport)
 
         // Act
         val actual = codec.encode(message = message).decodeToString()
 
         // Assert
-        assertEquals(expected = /* language=json */ """{"type":"OpenScreen","screen":"home"}""", actual = actual)
+        assertEquals(expected = OPEN_SCREEN_JSON, actual = actual)
     }
 
     @Test
     fun `given a later frame that starts with whitespace, when it is decoded, then it is read as a message`() {
         // Arrange
-        // language=json
-        val frame = """  {"type":"OpenScreen","screen":"home"}""".encodeToByteArray()
+        val frame = "  $OPEN_SCREEN_JSON".encodeToByteArray()
 
         // Act
         val actual = codec.decodeConsumerMessage(frame = frame)
 
         // Assert
-        assertEquals(expected = ConsumerMessage.OpenScreen(screen = "home"), actual = actual)
+        assertEquals(expected = ConsumerMessage.OpenScreen(screen = "home", viewport = openViewport), actual = actual)
     }
 
     @Test
@@ -388,7 +389,7 @@ class JsonMessageCodecTest {
     @Test
     fun `given a prefixed first frame that is not an Introduce, when decoded, then only a decoding error is thrown`() {
         // Arrange
-        val payload = codec.encode(message = ConsumerMessage.OpenScreen(screen = "home"))
+        val payload = codec.encode(message = ConsumerMessage.OpenScreen(screen = "home", viewport = openViewport))
         val frame = MessageFrame.withContractVersion(version = version, payload = payload)
 
         // Act
@@ -593,7 +594,7 @@ class JsonMessageCodecTest {
     @Test
     fun `given a consumer frame, when it is decoded as a producer message, then only a decoding error is thrown`() {
         // Arrange
-        val frame = codec.encode(message = ConsumerMessage.OpenScreen(screen = "home"))
+        val frame = codec.encode(message = ConsumerMessage.OpenScreen(screen = "home", viewport = openViewport))
 
         // Act
         val actual = failureClassOf { codec.decodeProducerMessage(frame = frame) }
@@ -679,6 +680,9 @@ class JsonMessageCodecTest {
     }
 
     private companion object {
+        // language=json
+        const val OPEN_SCREEN_JSON = """{"type":"OpenScreen","screen":"home","viewport":{"width":360.0,"height":640.0}}"""
+
         const val TRIGGER_LEVELS = 2
         const val LEVELS_PER_LIST = 2
         const val SCREEN_LEVELS = 3
