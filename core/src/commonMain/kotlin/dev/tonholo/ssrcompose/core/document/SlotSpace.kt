@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.document.internal.requireMeasure
 import kotlinx.serialization.Serializable
 
@@ -8,6 +9,7 @@ import kotlinx.serialization.Serializable
  *
  * @throws IllegalArgumentException when a side is not finite, negative or above 100,000 dp.
  */
+@InternalSsrComposeApi
 @Serializable
 public data class SlotSpace(val maxWidth: Float?, val maxHeight: Float?) {
     init {

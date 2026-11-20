@@ -108,7 +108,7 @@ class InternalSsrComposeApiTest {
     private companion object {
         const val BRIDGE_ENTRY_POINTS = 7
         const val WIRE_USES_FILE = "WireUses.kt"
-        const val FIRST_USE_LINE = 10
+        const val FIRST_USE_LINE = 22
         val MARKED_CORE_TYPE_USES = listOf(
             "val answer: Answer? = null",
             "val consumerMessage: ConsumerMessage? = null",
@@ -116,6 +116,18 @@ class InternalSsrComposeApiTest {
             "val frame = MessageFrame",
             "val codec: MessageCodec? = null",
             "val failure: MessageDecodingException? = null",
+            "val screenDocument: ScreenDocument? = null",
+            "val documentNode: DocumentNode? = null",
+            "val slotContent: SlotContent? = null",
+            "val documentColor: DocumentColor? = null",
+            "val decoration: Decoration? = null",
+            "val click: Click? = null",
+            "val nodeSemantics: NodeSemantics? = null",
+            "val nodeRole: NodeRole? = null",
+            "val textStyleSpec: TextStyleSpec? = null",
+            "val viewport: Viewport? = null",
+            "val measurement: Measurement? = null",
+            "val slotSpace: SlotSpace? = null",
         )
         const val WARNING_PREFIX = "w:"
         const val OPT_IN_MARKER = "InternalSsrComposeApi"
@@ -169,6 +181,18 @@ class InternalSsrComposeApiTest {
         val WIRE_USES_SOURCE = """
             package app.wire
 
+            import dev.tonholo.ssrcompose.core.document.Click
+            import dev.tonholo.ssrcompose.core.document.Decoration
+            import dev.tonholo.ssrcompose.core.document.DocumentColor
+            import dev.tonholo.ssrcompose.core.document.DocumentNode
+            import dev.tonholo.ssrcompose.core.document.Measurement
+            import dev.tonholo.ssrcompose.core.document.NodeRole
+            import dev.tonholo.ssrcompose.core.document.NodeSemantics
+            import dev.tonholo.ssrcompose.core.document.ScreenDocument
+            import dev.tonholo.ssrcompose.core.document.SlotContent
+            import dev.tonholo.ssrcompose.core.document.SlotSpace
+            import dev.tonholo.ssrcompose.core.document.TextStyleSpec
+            import dev.tonholo.ssrcompose.core.document.Viewport
             import dev.tonholo.ssrcompose.core.handshake.Answer
             import dev.tonholo.ssrcompose.core.message.ConsumerMessage
             import dev.tonholo.ssrcompose.core.message.MessageCodec

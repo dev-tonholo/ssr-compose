@@ -1,11 +1,12 @@
 package dev.tonholo.ssrcompose.core.document
 
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.data.DataValue
-import dev.tonholo.ssrcompose.core.message.ActionId
 import dev.tonholo.ssrcompose.core.document.internal.requirePlacement
 import dev.tonholo.ssrcompose.core.document.internal.requireSize
 import dev.tonholo.ssrcompose.core.document.internal.requireSwitcherSizes
 import dev.tonholo.ssrcompose.core.document.internal.requireVariants
+import dev.tonholo.ssrcompose.core.message.ActionId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -15,6 +16,7 @@ import kotlinx.serialization.Serializable
  * Every case throws [IllegalArgumentException] when a position is not finite or beyond 100,000 dp either way, or a
  * size is not finite or negative.
  */
+@InternalSsrComposeApi
 @Serializable
 public sealed interface DocumentNode {
     public val id: Int
