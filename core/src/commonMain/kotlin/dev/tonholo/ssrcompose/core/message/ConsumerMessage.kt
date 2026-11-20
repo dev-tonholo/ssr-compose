@@ -4,6 +4,7 @@ import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.document.Measurement
 import dev.tonholo.ssrcompose.core.document.Viewport
+import dev.tonholo.ssrcompose.core.font.FontBundleVersion
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
 import dev.tonholo.ssrcompose.core.handshake.Introduction
 import dev.tonholo.ssrcompose.core.message.internal.requireMeasurements
@@ -52,6 +53,11 @@ public sealed interface ConsumerMessage {
             requireMeasurements(components = components)
         }
     }
+
+    /** The app's fonts changed to [fontVersion] during the session; null when the app now declares no font. */
+    @Serializable
+    @SerialName("FontVersionChanged")
+    public data class FontVersionChanged(val fontVersion: FontBundleVersion? = null) : ConsumerMessage
 
     /** A local click already shows [variant] of the switcher whose node id is [switcher]. */
     @Serializable

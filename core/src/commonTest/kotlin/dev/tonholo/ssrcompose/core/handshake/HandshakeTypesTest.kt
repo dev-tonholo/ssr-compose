@@ -41,7 +41,7 @@ class HandshakeTypesTest {
 
         // Assert
         assertEquals(
-            expected = listOf("contractVersion", "catalogVersion", "app", "device"),
+            expected = listOf("contractVersion", "catalogVersion", "fontVersion", "app", "device"),
             actual = actual,
         )
     }
