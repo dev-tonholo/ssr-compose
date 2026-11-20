@@ -8,7 +8,7 @@ Messages are described by meaning, not by bytes, except for the first frame's pr
 
 | Message | Fields | When |
 |---|---|---|
-| `Introduce` | `contractVersion`, `catalogVersion`, `fontVersion` (absent when the app declares no font), `app`, `device` (with `fontScale` and `layoutDirection`) | first, once per session, in the first frame |
+| `Introduce` | `contractVersion`, `catalogVersion`, `fontVersion` (absent when the app declares no font), `app`, `device` (with `fontScale`, `fontScaleCurve`, the device's own sp to dp curve, and `layoutDirection`, checked as [data-model.md](../data-model.md#devicecontext) says) | first, once per session, in the first frame |
 | `OpenScreen` | `screen` (a name), `viewport` (the width and height in dp the app gives the screen; an unbounded side is sent as the window's size) | after `Accepted`. Asking again, or for another name, replaces the open screen. |
 | `DeviceChanged` | `device` | when a device value changes, after `Accepted` |
 | `FontVersionChanged` | `fontVersion` (absent when the app now declares no font) | when the font version of `SsrScreen`'s fonts changes during a session (rule 3e) |
