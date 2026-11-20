@@ -19,6 +19,30 @@ public value class FontScaleCurve(public val points: List<FontScalePoint>) {
         requireCurvePoints(points = points)
     }
 
+    /**
+     * The dp a text size of [sp] takes on the device. Between two points it interpolates linearly; below the first
+     * point it uses the first point's dp per sp, and above the last point the last point's.
+     */
+    public fun spToDp(sp: Float): Float {
+        val first = points.first()
+        val last = points.last()
+        return when {
+            sp <= first.sp -> sp * first.ratio
+            sp >= last.sp -> sp * last.ratio
+            else -> interpolate(sp = sp)
+        }
+    }
+
+    private fun interpolate(sp: Float): Float {
+        val upperIndex = points.indexOfFirst { point -> point.sp >= sp }
+        val lower = points[upperIndex - 1]
+        val upper = points[upperIndex]
+        val fraction = (sp - lower.sp) / (upper.sp - lower.sp)
+        return lower.dp + fraction * (upper.dp - lower.dp)
+    }
+
+    private val FontScalePoint.ratio: Float get() = dp / sp
+
     public companion object {
         /** The text sizes in sp a device samples its curve at: the points of Android's own font scale tables. */
         public val SAMPLED_SIZES: List<Float> = listOf(8f, 10f, 12f, 14f, 18f, 20f, 24f, 30f, 100f)
