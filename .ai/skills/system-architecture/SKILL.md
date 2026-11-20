@@ -40,6 +40,7 @@ Rules 14 and 15 hold the principle I invariants.
 - A bridge has at most 118 parameters, a class at most 150 functions, a choice enum at most 2,000 entries and a bridge package at most 255 bytes (`compiler-plugin/src/main/kotlin/dev/tonholo/ssrcompose/compiler/producer/BridgeLimits.kt`, `specs/001-consumer-catalog-bridge/research.md` R18).
 - Per-module choice enums live as top-level `internal enum class` declarations in `<bridgePackage>.<moduleSegment>` (`docs/adr/0010-per-module-choice-enums-in-bridge-subpackage.md`).
 - The file formats and messages are defined in `specs/001-consumer-catalog-bridge/contracts/`.
+- The content of a screen and of a slot is `ScreenContent`, a sealed type that is a tagged object on the wire. Its one case, `Components`, is provisional until Feature 2 adds server-rendered documents (`specs/001-consumer-catalog-bridge/research.md`, R20).
 
 ### Platform limits
 
@@ -72,4 +73,4 @@ Rules 14 and 15 hold the principle I invariants.
 
 - The module map in `.ai/guidelines.md` does not list `catalog-model` and says `compiler-plugin` may depend on `:core`, while the build file depends on `catalog-model`. Which one is the intended boundary?
 - Which guardrails should become automated checks for module boundaries?
-- `ScreenContent` is provisional until Feature 2 adds server-rendered documents (#194). How does a placed consumer component keep a stable identity across updates inside server-rendered documents and consumer slots (#183)?
+- How does a placed consumer component keep a stable identity across updates inside server-rendered documents and consumer slots (#183)? R20 leaves the consumer keying by position and name.
