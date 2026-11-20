@@ -109,6 +109,32 @@ What the compiler plugin reads to create one bridge, produced from one saved cat
 
 One folder per held catalog version inside the server project, `ssr/catalogs/<version>/`, with `manifest.json` and one `<name>.part.json` file per part. One lock file lists, for each held version: the version, the location of its manifest, and the manifest's `fingerprint`. See [contracts/build-tooling.md](contracts/build-tooling.md).
 
+## Font bundle (`core`)
+
+The app's font files for the producer, separate from the catalog ([contracts/font-bundle.md](contracts/font-bundle.md), [ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md)). Its format lives in `core`, in `dev.tonholo.ssrcompose.core.font`, because the build tooling and the running producer both read it.
+
+### FontBundleVersion
+
+A label the app developer sets: 1 to 64 characters of lowercase ASCII letters, digits, dots, hyphens and underscores, neither starting nor ending with a dot, and never a Windows device name alone or before a dot, since it names a folder on file systems that may ignore case or drop a trailing dot ([contracts/font-bundle.md](contracts/font-bundle.md#fields)). Only equal or not equal matters. The introduction carries it.
+
+### FontBundleManifest and FontEntry
+
+`fonts.json`: `format`, `version` (a `FontBundleVersion`) and `fonts`, a list of `FontEntry`, sorted by family, weight and italic.
+
+| Field | Rule |
+|---|---|
+| `family` | a plain identifier of at most 64 characters, never `default` |
+| `weight` | 1 to 1,000 |
+| `italic` | true or false |
+| `file` | always `<family>/<weight>-<normal or italic>.<ttf or otf>` |
+| `fingerprint` | lowercase hexadecimal SHA-256 of the file's bytes |
+
+`fonts.json` is capped at 1 MiB and each font file at 16 MiB by default. A reader refuses a larger file before reading it.
+
+### Font registration (`producer`)
+
+The font versions the producer holds, each with its families, loaded at start from the resources `ssrFontResources` wrote, or given by hand. Every file is checked against its fingerprint and read by Skia as a font, or `Producer { }` fails at start and names the version, the family and the file. The bundled Roboto is always held as the default font ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)).
+
 ## Registration (`producer`)
 
 What the producer is given at start: for each served catalog version, its screens by name, and the contract versions it supports.
@@ -138,6 +164,8 @@ Can change during a session.
 | `screenWidthPx`, `screenHeightPx` | 1 to 100,000 |
 | `theme` | light or dark |
 | `language` | a language tag, at most 35 characters |
+| `fontScale` | the user's font scale, above 0, at most 4 ([research.md R20](research.md#r20-server-rendered-content-194)) |
+| `layoutDirection` | `Ltr` or `Rtl` |
 
 ### AppIdentity
 
@@ -145,13 +173,13 @@ Fixed for a session. Self-declared and not proven. `version`, `variant`, `flavor
 
 ### Introduction
 
-`contractVersion`, `catalogVersion`, `app`, `device`. It never carries a catalog.
+`contractVersion`, `catalogVersion`, `fontVersion` (a `FontBundleVersion`, absent when the app declares no font), `app`, `device`. It never carries a catalog or a font file.
 
 ### Answer
 
 A sealed type with two cases: `Accepted` with the contract version, or `Refused` with a `RefusalKind` and a reason for the user.
 
-`RefusalKind`: contract version too old, contract version too new, catalog version not known or no longer supported, introduction not valid.
+`RefusalKind`: contract version too old, contract version too new, catalog version not known or no longer supported, font version not supported, introduction not valid.
 
 ## Messages and frames (`core`)
 
@@ -173,31 +201,54 @@ Turns messages into frames and back for one contract version, with its own pair 
 
 The neutral model for values on the wire: text, whole number, decimal number, flag, choice entry (by name), list, bytes, nothing.
 
-### PlacedComponent (`core`, on the wire)
+### ScreenDocument (`core`, on the wire)
 
-A parameter the screen did not give is absent from all three maps, and the app's composable uses its own default for it.
+What a `Screen` message carries: `root`, a `DocumentNode.Box` with the size of the viewport, which the producer wraps around every screen. Its nodes were composed, measured and placed by the producer. The consumer places each node at its box and decides nothing about order, size or position. See [research.md R20](research.md#r20-server-rendered-content-194) and [contracts/messages.md](contracts/messages.md#screen-content).
 
-| Field | Meaning |
+### DocumentNode (`core`, on the wire)
+
+A sealed type. Every case has `id` (an `Int`, unique in the document, the producer's semantics id), and `x`, `y`, `width`, `height` in dp from the top-left corner of its parent. `x` and `y` can be negative; `width` and `height` cannot.
+
+| Case | Fields |
 |---|---|
-| `name` | the component's name |
-| `values` | value parameter name to `DataValue` |
-| `callbacks` | callback parameter name to `ActionId` |
-| `slots` | slot parameter name to an ordered list of `PlacedComponent` (provisional for Feature 1, see `ScreenContent`) |
+| `Box` | `decoration` (`Decoration`, optional), `click` (`Click`, optional), `semantics` (`NodeSemantics`, optional), `children` |
+| `Text` | `text`, `style` (`TextStyleSpec`), `maxLines` (at least 1, optional), `overflow` (`Clip` or `Ellipsis`), `click`, `semantics` |
+| `Scroll` | `orientation` (`Vertical` or `Horizontal`), `contentWidth`, `contentHeight`, `children` |
+| `Switcher` | `selected` (the variant the producer laid the screen out with; the box is its size), `largestWidth`, `largestHeight` (the size of the largest variant), `variants`: 2 to 16 lists of `DocumentNode` |
+| `Component` | `name`, `values` (`Map<String, DataValue>`), `callbacks` (`Map<String, ActionId>`), `slots` (`Map<String, SlotContent>`), `maxWidth`, `maxHeight` (null when unbounded). `width` and `height` are the size the device last reported, or 0. |
 
-The wire form has no catalog version: the session's version is known to both sides from the introduction. The consumer reads a placed component through `PlacedComponentScope`, its own type in `consumer`, which wraps this one with the session. There is no second `PlacedComponent` type.
+A parameter the screen did not give is absent from `values`, `callbacks` and `slots`, and the app's composable uses its own default. The consumer reads a `Component` through `PlacedComponentScope`, its own type in `consumer`. There is no separate `PlacedComponent` wire type any more.
 
-### Placed node (`producer`, internal)
+### SlotContent (`core`, on the wire)
 
-The producer's own node for a placed component (`PlacedNode.Component`). It holds:
+`width`, `height` and `nodes` (a list of `DocumentNode`, any case, positioned from the slot's top-left corner). The producer lays it out in the space the device reported for the slot.
+
+### Document values (`core`, on the wire)
+
+- `DocumentColor`: 32-bit ARGB, written `"#AARRGGBB"`.
+- `Decoration`: `background` (a color, optional), `border` (`width` in dp and `color`, optional), `shape` (`Rectangle`, or `Rounded` with `topStart`, `topEnd`, `bottomEnd`, `bottomStart` in dp).
+- `Click`: `Remote` (`action`, `label` optional, `role` optional) or `Local` (`switcher`, a node id, and `variant`). A local click shows the variant on the device at once, in a box of the largest variant's size, and sends `Switched`; the producer lays out again ([contracts/messages.md](contracts/messages.md#screen-content)).
+- `NodeSemantics`: `description`, `heading`, `role`, each optional.
+- `TextStyleSpec`: `family` (a family name from the session's font bundle, absent for the default font, Roboto), `size` in sp (above 0, at most 1,000), `weight` (1 to 1,000), `italic` (the producer only sends a weight and italic its family has a file for, [ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)), `color`, `lineHeight` in sp (optional), `align` (`Start`, `Center`, `End`, `Justify`).
+- `Viewport`: `width` and `height` in dp, each above 0 and at most 100,000.
+- `Measurement`: `id`, `width`, `height`, `slots` (slot name to `SlotSpace`: `maxWidth`, `maxHeight`, null when unbounded). A `ComponentMeasured` holds at most one per app component and at most 10,000 ([contracts/messages.md](contracts/messages.md#rules), rule 5a).
+
+Rules checked while decoding, so a document that breaks one is unreadable: sizes finite and not negative, positions finite and within 100,000 dp either way (a position can be negative, where Compose placed a node past its parent's top or left edge), ids unique, a `Local` click names a switcher and a variant the document has, a switcher's `selected` variant exists, and its largest size is at least each variant's box. See [contracts/messages.md](contracts/messages.md#rules), rule 3a.
+
+### Hole and reader (`producer`, internal)
+
+The producer no longer builds its own node tree. Each open screen lives in an `ImageComposeScene`, and an internal reader turns its semantics tree into a `ScreenDocument` ([research.md R20](research.md#4-constraints-and-non-functional-requirements-2)). `ConsumerComponent` is a Compose UI `Layout` with a semantics property that holds:
 
 | Field | Meaning |
 |---|---|
 | `name` | the component's name |
 | `catalogVersion` | the `CatalogVersion` constant the bridge passed to `ConsumerComponent`, read by the guard |
-| `values` | `Map<String, DataValue>` in parameter order; `null` entries given to `ConsumerComponent` are dropped (omitted optional parameters), while `DataValue.None` entries are kept (required nullable parameters explicitly given `null`) |
-| `callbacks` | `Map<String, Callback>` for the non-null callbacks given to `ConsumerComponent` (until T065/T067 introduces `Callback`, held as `actions: Map<String, RemoteAction1<String>>`, also dropping `null` entries) |
+| `values` | `Map<String, DataValue>` in parameter order; `null` entries given to `ConsumerComponent` are dropped (omitted optional parameters), while `DataValue.None` entries are kept |
+| `callbacks` | the non-null callbacks given to `ConsumerComponent` (until T065/T067 introduces `Callback`, held as `actions: Map<String, RemoteAction1<String>>`) |
+| `size` | the size the device reported, as snapshot state, so a report lays the scene out again |
+| `slotSpaces` | the space the device reported for each slot, as snapshot state |
 
-Slots are held as `PlacedNode.Slot` children for each non-null slot given to `ConsumerComponent`. See [contracts/producer-api.md](contracts/producer-api.md#what-a-bridge-function-is) and [research.md R18](research.md#r18-server-bridge-kinds-choice-enums-and-consumercomponent-t048-design).
+Each non-null slot given to `ConsumerComponent` is a child `Layout` with a slot semantics property, measured in its reported space. See [contracts/producer-api.md](contracts/producer-api.md#what-a-bridge-function-is).
 
 ### Callback (`producer`)
 
@@ -214,12 +265,6 @@ The producer holds no catalog, so for each trigger it first checks the number an
 
 A short text the producer assigns to one callback of one placed component. Unique inside a session.
 
-### ScreenContent (`core`)
-
-An ordered list of `PlacedComponent`.
-
-This model is provisional for Feature 1, and so is `PlacedComponent.slots`. Feature 2 extends or replaces `ScreenContent` with server-rendered documents that can embed placed components and live inside app slots (#194).
-
 ## What is public in `core`
 
 This is the one list of public `core` types. The API contracts point here and do not keep their own copy. Everything else in `core` is internal, and T108 checks `core` against this list.
@@ -227,7 +272,7 @@ This is the one list of public `core` types. The API contracts point here and do
 Used by app and server developers:
 
 - `@ConsumerComposable`, `@ProducerComposable`
-- `CatalogVersion`, `ContractVersion`
+- `CatalogVersion`, `ContractVersion`, `FontBundleVersion`
 - `AppIdentity`, `DeviceContext` (with `Orientation` and `Theme`), `Introduction`, `RefusalKind`
 - `ValueKind`, `DataValue`, `ActionId`
 - `Connection`
@@ -239,9 +284,10 @@ Public only because `consumer`, `producer` or `catalog-model` use it across the 
 - `Answer` (with `Accepted` and `Refused`)
 - `ConsumerMessage` and `ProducerMessage`, with their cases
 - `MessageFrame`, `MessageCodec`, `MessageDecodingException`
-- `PlacedComponent`, `ScreenContent`
+- `ScreenDocument`, `DocumentNode` with its cases, `SlotContent`, and the document values above (`DocumentColor`, `Decoration`, `Click`, `NodeSemantics`, `TextStyleSpec`, `Viewport`, `Measurement`)
+- `FontBundleManifest`, `FontEntry` and their reader, used by `tooling` and `producer`
 
-Whether the second group carries an opt-in marker is the owner's call (principle VIII, small public API). The list stays the same either way.
+The second group carries the opt-in marker `InternalSsrComposeApi` ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)).
 
 ## Session (`producer`)
 
@@ -255,10 +301,18 @@ Connected -> Accepted -> Open(screen) -> Closed
 | From | Event | To | What happens |
 |---|---|---|---|
 | Connected | a valid introduction for a served catalog version and a contract version in `supportedContractVersions` | Accepted | `Accepted` is sent |
-| Connected | an invalid introduction, an unserved catalog version, a contract version not in `supportedContractVersions` (too old when below its highest version, gaps included; too new when above it), or any other message | Refused | `Refused` is sent and the session closes |
+| Connected | an invalid introduction, an unserved catalog version, a font version the producer does not hold, a contract version not in `supportedContractVersions` (too old when below its highest version, gaps included; too new when above it), or any other message | Refused | `Refused` is sent and the session closes |
 | Accepted or Open | the app opens a name registered for its catalog version | Open | the open screen, if any, is disposed; the new one is composed and sent |
 | Accepted or Open | the app opens a name with no screen for its catalog version | Accepted | `ScreenUnavailable` is sent and reported |
-| Open | a device change | Open | the context changes, the screen recomposes, state is kept |
+| Open | `FontVersionChanged` with a font version the producer holds | Open | the session's fonts switch to that bundle, the screen is laid out again with its state kept, and sent naming the new `fontVersion` |
+| Open or Accepted | `FontVersionChanged` with a font version the producer does not hold | Refused | `Refused` with the kind "font version not supported" is sent and the session closes |
+| Open | a device change or a viewport change | Open | the scene's size, density, font scale or direction changes, the screen is laid out again and sent, state is kept |
+| Open | `ComponentMeasured` for the latest revision | Open | the reported sizes and slot spaces are written into the holes, the screen is laid out again and sent; it stays pending until every app component has a reported size and every slot a reported space; once all are measured, sizes that keep changing stop after the measuring round limit for one change, the latest reported sizes are sent, not pending, and `onLayoutNotSettled` is called |
+| Open | `ComponentMeasured` for an older revision | Open | ignored |
+| Open | `Switched` for a switcher of the open screen | Open | the switcher's selected variant becomes the one sent, the screen is laid out again and sent with the content around the switcher placed for it; counts against the trigger limit, and over it the latest variant of each switcher is kept and applied when the next second starts, never dropped |
+| Open | `Switched` for a switcher the screen no longer has, or a variant it does not have | Open | ignored or refused, and reported |
+| Open | `ComponentMeasured` or `ViewportChanged` over their own limit (30 per second by default) | Open | nothing is dropped: the latest size of each component and the latest viewport are kept and applied when the next second starts |
+| Open | the screen holds content a document cannot express, or its document is over the limit | Accepted | the screen is not sent, `ScreenUnavailable` is sent and `onScreenNotSendable` is called |
 | Open | a trigger for an action the screen has | Open | the arguments are checked against the `Callback`'s kinds and converted; the returned call runs; if state changed, the screen recomposes and is sent |
 | Open | a trigger for an action the screen does not have | Open | ignored and reported |
 | Open | a trigger whose arguments go over the size limit, do not match the `Callback`'s number or kinds, or cannot be converted | Open | refused and reported through `onTriggerRefused`; nothing runs |
@@ -267,11 +321,11 @@ Connected -> Accepted -> Open(screen) -> Closed
 | Open | the screen places a component from another catalog version's bridge, or the screen's code fails | Accepted | the screen is not sent, `ScreenUnavailable` is sent and reported |
 | any | the connection ends | Closed | the composition is disposed |
 
-A session holds: its catalog version, the screens registered for it, its contract version, the app identity, the current device context, the live composition of the open screen, and that screen's actions. Nothing in it is shared with another session.
+A session holds: its catalog version, the screens registered for it, its contract version, the app identity, the current device context, the scene of the open screen with its last revision and the reported sizes of its app components, and that screen's actions. Nothing in it is shared with another session.
 
 ## The guard
 
-Each time a screen is about to be sent, the producer compares the catalog version on every placed node, including those inside slots, with the session's catalog version.
+Each time a screen is about to be sent, the producer compares the catalog version of every app component in the document, at any depth, inside other nodes and inside slots, with the session's catalog version.
 
 1. All equal: the screen is sent.
 2. Any different: the screen is not sent, the app gets `ScreenUnavailable`, the session stays accepted, and the observer is told the component, the screen, the session's version and the version of the bridge that placed it.
