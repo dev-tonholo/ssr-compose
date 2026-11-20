@@ -165,6 +165,7 @@ Can change during a session.
 | `theme` | light or dark |
 | `language` | a language tag, at most 35 characters |
 | `fontScale` | the user's font scale, above 0, at most 4 ([research.md R20](research.md#r20-server-rendered-content-194)) |
+| `fontScaleCurve` | the device's own sp to dp curve, sampled at `FontScaleCurve.SAMPLED_SIZES`, since Android 14 and later scale text non-linearly ([research.md R20](research.md#r20-server-rendered-content-194)). 1 to 32 points; each sp above 0 and at most 1,000, strictly increasing; each dp above 0, never smaller than the one before, and at most 10 times its sp. A curve that breaks a rule makes the message unreadable. |
 | `layoutDirection` | `Ltr` or `Rtl` |
 
 ### AppIdentity
@@ -273,7 +274,7 @@ Used by app and server developers:
 
 - `@ConsumerComposable`, `@ProducerComposable`
 - `CatalogVersion`, `ContractVersion`, `FontBundleVersion`
-- `AppIdentity`, `DeviceContext` (with `Orientation`, `Theme` and `LayoutDirection`), `Introduction`, `RefusalKind`
+- `AppIdentity`, `DeviceContext` (with `Orientation`, `Theme`, `LayoutDirection`, `FontScaleCurve` and `FontScalePoint`), `Introduction`, `RefusalKind`
 - `ValueKind`, `DataValue`, `ActionId`
 - `Connection`
 
