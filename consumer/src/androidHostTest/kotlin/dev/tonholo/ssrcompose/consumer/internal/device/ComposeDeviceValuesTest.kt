@@ -5,13 +5,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection as ComposeLayoutDirection
 import dev.tonholo.ssrcompose.consumer.testing.composeAndRecompose
 import dev.tonholo.ssrcompose.consumer.testing.composeOnce
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
+import dev.tonholo.ssrcompose.core.handshake.LayoutDirection
 import dev.tonholo.ssrcompose.core.handshake.Theme
 import java.util.Locale
 import kotlin.test.Test
@@ -19,6 +22,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
 private const val DENSITY = 2.5f
+private const val FONT_SCALE = 1f
+private const val LARGE_FONT_SCALE = 1.3f
 private const val WIDTH_PX = 1080
 private const val HEIGHT_PX = 2400
 private const val BRAZILIAN_PORTUGUESE = "pt-BR"
@@ -35,14 +40,17 @@ private fun deviceContext(
     nightMode: Int = Configuration.UI_MODE_NIGHT_NO,
     windowSize: IntSize = IntSize(width = WIDTH_PX, height = HEIGHT_PX),
     density: Float = DENSITY,
+    fontScale: Float = FONT_SCALE,
+    direction: ComposeLayoutDirection = ComposeLayoutDirection.Ltr,
 ): DeviceContext {
     var context: DeviceContext? = null
     val configuration = Configuration().apply { uiMode = nightMode }
     composeOnce {
         CompositionLocalProvider(
-            LocalDensity provides Density(density = density),
+            LocalDensity provides Density(density = density, fontScale = fontScale),
             LocalWindowInfo provides FakeWindowInfo(containerSize = windowSize),
             LocalConfiguration provides configuration,
+            LocalLayoutDirection provides direction,
         ) {
             context = rememberDeviceValues().current
         }
@@ -63,6 +71,31 @@ class ComposeDeviceValuesTest {
         assertEquals(expected = DENSITY, actual = actual.density)
         assertEquals(expected = WIDTH_PX, actual = actual.screenWidthPx)
         assertEquals(expected = HEIGHT_PX, actual = actual.screenHeightPx)
+    }
+
+    @Test
+    fun `given a font scale and a right-to-left layout, when the values are read, then the context carries them`() {
+        // Arrange
+        val direction = ComposeLayoutDirection.Rtl
+
+        // Act
+        val actual = deviceContext(fontScale = LARGE_FONT_SCALE, direction = direction)
+
+        // Assert
+        assertEquals(expected = LARGE_FONT_SCALE, actual = actual.fontScale)
+        assertEquals(expected = LayoutDirection.Rtl, actual = actual.layoutDirection)
+    }
+
+    @Test
+    fun `given a left-to-right layout, when the device values are read, then the context says left to right`() {
+        // Arrange
+        val direction = ComposeLayoutDirection.Ltr
+
+        // Act
+        val actual = deviceContext(direction = direction)
+
+        // Assert
+        assertEquals(expected = LayoutDirection.Ltr, actual = actual.layoutDirection)
     }
 
     @Test
@@ -115,6 +148,7 @@ class ComposeDeviceValuesTest {
                     LocalDensity provides Density(density = density.value),
                     LocalWindowInfo provides FakeWindowInfo(containerSize = windowSize.value),
                     LocalConfiguration provides configuration,
+                    LocalLayoutDirection provides ComposeLayoutDirection.Ltr,
                 ) {
                     values = rememberDeviceValues()
                 }
@@ -146,6 +180,7 @@ class ComposeDeviceValuesTest {
                     LocalDensity provides Density(density = DENSITY),
                     LocalWindowInfo provides FakeWindowInfo(containerSize = windowSize),
                     LocalConfiguration provides configuration.value,
+                    LocalLayoutDirection provides ComposeLayoutDirection.Ltr,
                 ) {
                     values = rememberDeviceValues()
                 }

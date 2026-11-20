@@ -12,6 +12,7 @@ import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
+import dev.tonholo.ssrcompose.core.handshake.LayoutDirection
 import dev.tonholo.ssrcompose.core.handshake.Theme
 import dev.tonholo.ssrcompose.core.message.PlacedComponent
 import dev.tonholo.ssrcompose.core.message.ScreenContent
@@ -488,6 +489,8 @@ class ConsumerComponentTest {
             screenHeightPx = INITIAL_HEIGHT_PX,
             theme = Theme.Light,
             language = INITIAL_LANGUAGE,
+            fontScale = INITIAL_FONT_SCALE,
+            layoutDirection = LayoutDirection.Ltr,
         )
 
     private fun updatedDevice(): DeviceContext =
@@ -497,9 +500,12 @@ class ConsumerComponentTest {
             screenHeightPx = INITIAL_WIDTH_PX,
             theme = Theme.Dark,
             language = INITIAL_LANGUAGE,
+            fontScale = INITIAL_FONT_SCALE,
+            layoutDirection = LayoutDirection.Ltr,
         )
 
     private companion object {
+        const val INITIAL_FONT_SCALE = 1f
         const val FIRST_COMPONENT = "Header"
         const val SECOND_COMPONENT = "Footer"
         const val TITLE_PARAMETER = "title"
