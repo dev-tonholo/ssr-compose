@@ -3,6 +3,7 @@ package dev.tonholo.ssrcompose.producer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.key
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.producer.internal.PlacedNode

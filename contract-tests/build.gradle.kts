@@ -3,6 +3,9 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi")
+    }
     sourceSets.commonTest.dependencies {
         implementation(projects.core)
         implementation(projects.consumer)

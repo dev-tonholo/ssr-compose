@@ -8,6 +8,7 @@ import org.jetbrains.kotlin.name.Name
 internal object ProducerNames {
     private val producerPackage = FqName("dev.tonholo.ssrcompose.producer")
     private val composeInternalPackage = FqName("androidx.compose.runtime.internal")
+    private val coreAnnotationPackage = FqName("dev.tonholo.ssrcompose.core.annotation")
     private val coreCatalogPackage = FqName("dev.tonholo.ssrcompose.core.catalog")
     private val coreDataPackage = FqName("dev.tonholo.ssrcompose.core.data")
     private val kotlinPackage = FqName("kotlin")
@@ -17,7 +18,7 @@ internal object ProducerNames {
     val composableFunction1 = ClassId(composeInternalPackage, Name.identifier("ComposableFunction1"))
     val remoteAction1 = ClassId(producerPackage, Name.identifier("RemoteAction1"))
     val unplaceableBridge = ClassId(producerPackage, Name.identifier("UnplaceableBridge"))
-    val internalSsrComposeApi = ClassId(producerPackage, Name.identifier("InternalSsrComposeApi"))
+    val internalSsrComposeApi = ClassId(coreAnnotationPackage, Name.identifier("InternalSsrComposeApi"))
     val optIn = ClassId(kotlinPackage, Name.identifier("OptIn"))
     val markerClass: Name = Name.identifier("markerClass")
     val message: Name = Name.identifier("message")

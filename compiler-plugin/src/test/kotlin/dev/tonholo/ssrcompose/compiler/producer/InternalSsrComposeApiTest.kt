@@ -9,7 +9,7 @@ import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
 import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
-import dev.tonholo.ssrcompose.producer.InternalSsrComposeApi
+import dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.jetbrains.kotlin.name.ClassId
