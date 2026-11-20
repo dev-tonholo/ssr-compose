@@ -3,8 +3,8 @@ package dev.tonholo.ssrcompose.compiler.consumer
 import dev.tonholo.ssrcompose.catalog.fragment.CatalogFragment
 import dev.tonholo.ssrcompose.catalog.model.ChoiceList
 import dev.tonholo.ssrcompose.catalog.model.ComponentDescriptor
-import dev.tonholo.ssrcompose.catalog.validation.isKotlinIdentifier
 import dev.tonholo.ssrcompose.compiler.consumer.slot.SlotParameterMapper
+import dev.tonholo.ssrcompose.core.identifier.isKotlinIdentifier
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirFile
