@@ -3,6 +3,7 @@ kotlin = "2.4.21"
 agp = "9.5.1"
 compose-multiplatform = "1.12.2"
 skiko = "0.150.2"
+ph-fonts-roboto = "5.0.4"
 kotlinx-serialization = "1.13.0"
 kotlinx-coroutines = "1.11.0"
 kctfork = "0.14.0"
@@ -38,6 +39,7 @@ compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", v
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 skiko-runtime-macos-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-macos-arm64", version.ref = "skiko" }
 skiko-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64", version.ref = "skiko" }
+roboto-fonts = { module = "com.helger.font:ph-fonts-roboto", version.ref = "ph-fonts-roboto" }
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
 compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "compose-multiplatform" }
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-test" }
