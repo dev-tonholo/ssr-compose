@@ -1,5 +1,3 @@
-@file:OptIn(InternalSsrComposeApi::class)
-
 package dev.tonholo.ssrcompose.producer.testing
 
 import androidx.compose.runtime.Composable
@@ -8,7 +6,6 @@ import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.message.PlacedComponent
 import dev.tonholo.ssrcompose.core.message.ScreenContent
 import dev.tonholo.ssrcompose.producer.ConsumerComponent
-import dev.tonholo.ssrcompose.producer.InternalSsrComposeApi
 
 internal const val LABEL_COMPONENT = "Label"
 internal const val LABEL_TEXT_PARAMETER = "text"

@@ -5,6 +5,9 @@ plugins {
 }
 
 kotlin {
+    compilerOptions {
+        optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi")
+    }
     android {
         withDeviceTest {
             instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
