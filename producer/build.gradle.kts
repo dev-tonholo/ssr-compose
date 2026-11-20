@@ -13,4 +13,9 @@ kotlin {
 dependencies {
     api(projects.core)
     api(libs.compose.runtime)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+
+    testRuntimeOnly(libs.skiko.runtime.macos.arm64)
+    testRuntimeOnly(libs.skiko.runtime.linux.x64)
 }
