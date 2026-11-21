@@ -32,3 +32,4 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0020](0020-bundle-roboto-as-the-default-font.md) | Bundle Roboto as the default font | Accepted |
 | [0021](0021-producer-runs-every-scene-on-one-scene-thread.md) | The producer runs every scene on one scene thread | Proposed |
 | [0022](0022-android-variant-api-for-generated-resources.md) | Add generated resources to Android variants through the Android Gradle plugin's variant API | Proposed |
+| [0023](0023-producer-converts-text-sizes-with-the-font-scale-curve.md) | The producer converts text sizes with the font scale curve | Proposed |
