@@ -25,11 +25,13 @@ import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.ScreenDocument
 import dev.tonholo.ssrcompose.producer.internal.reader.NotSendableReason
 import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
+import dev.tonholo.ssrcompose.producer.internal.text.ScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_HEIGHT_PX
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
 import dev.tonholo.ssrcompose.producer.testing.ShownFrame
 import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.liveSetup
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
 import dev.tonholo.ssrcompose.producer.testing.shown
@@ -212,6 +214,7 @@ class LiveScreenTest {
             val notifierDispatcher = ManualDispatcher()
             val notifier = SnapshotNotifier(dispatcher = notifierDispatcher)
             val blockedScreen = LiveScreen(
+                scaledTextScene = liveScaledTextScene(),
                 content = { ShownText(text = FIRST_TEXT) },
                 setup = liveSetup(),
                 dispatcher = blockedDispatcher,
@@ -219,6 +222,7 @@ class LiveScreenTest {
                 framePause = { yield() },
             )
             val watchedScreen = LiveScreen(
+                scaledTextScene = liveScaledTextScene(),
                 content = { ShownText(text = text) },
                 setup = liveSetup(),
                 dispatcher = watchedDispatcher,
@@ -253,12 +257,14 @@ class LiveScreenTest {
             val notifier = testNotifier()
             turbineScope {
                 val disposedScreen = LiveScreen(
+                    scaledTextScene = liveScaledTextScene(),
                     content = { ShownText(text = FIRST_TEXT) },
                     setup = liveSetup(),
                     dispatcher = dispatcher,
                     notifier = notifier,
                 ).frames().testIn(backgroundScope)
                 val keptScreen = LiveScreen(
+                    scaledTextScene = liveScaledTextScene(),
                     content = { ShownText(text = text) },
                     setup = liveSetup(),
                     dispatcher = dispatcher,
@@ -290,6 +296,7 @@ class LiveScreenTest {
             val sceneDispatcher = ManualDispatcher()
             val notifierDispatcher = ManualDispatcher()
             val screen = LiveScreen(
+                scaledTextScene = liveScaledTextScene(),
                 content = { error(COMPOSITION_ERROR) },
                 setup = liveSetup(),
                 dispatcher = sceneDispatcher,
@@ -336,6 +343,7 @@ class LiveScreenTest {
             // Arrange
             var text by mutableStateOf(FIRST_TEXT)
             val screen = LiveScreen(
+                scaledTextScene = liveScaledTextScene(),
                 content = { ShownText(text = text) },
                 setup = liveSetup(),
                 dispatcher = Dispatchers.Unconfined,
@@ -359,6 +367,7 @@ class LiveScreenTest {
         revisions: Revisions = Revisions(),
         content: @Composable () -> Unit,
     ) = LiveScreen(
+        scaledTextScene = liveScaledTextScene(),
         content = content,
         setup = setup,
         dispatcher = testDispatcher(),

@@ -14,6 +14,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.liveSetup
 import dev.tonholo.ssrcompose.producer.testing.shown
 import java.util.concurrent.ConcurrentHashMap
@@ -73,6 +74,7 @@ class SceneThreadTest {
             val texts = List(SCREEN_PAIR) { mutableStateOf(FIRST_TEXT) }
             val screens = List(SCREEN_PAIR) { index ->
                 LiveScreen(
+                    scaledTextScene = liveScaledTextScene(),
                     content = {
                         RecordingScreen(text = texts[index].value, threads = threads, done = effectsDone[index])
                     },
@@ -115,6 +117,7 @@ class SceneThreadTest {
             val watchedShown = MutableStateFlow<List<String>?>(null)
             val blocking = launch {
                 LiveScreen(
+                    scaledTextScene = liveScaledTextScene(),
                     content = {
                         ShownText(text = FIRST_TEXT)
                         LaunchedEffect(Unit) {
@@ -244,6 +247,7 @@ class SceneThreadTest {
         release: CountDownLatch,
     ) =
         LiveScreen(
+            scaledTextScene = liveScaledTextScene(),
             content = {
                 ShownText(text = state.value)
                 if (state.value == SECOND_TEXT) {
@@ -256,7 +260,11 @@ class SceneThreadTest {
 
     private fun CoroutineScope.collectShown(state: MutableState<String>, into: MutableStateFlow<List<String>?>): Job =
         launch {
-            LiveScreen(content = { ShownText(text = state.value) }, setup = liveSetup())
+            LiveScreen(
+                content = { ShownText(text = state.value) },
+                setup = liveSetup(),
+                scaledTextScene = liveScaledTextScene(),
+            )
                 .frames()
                 .collect { into.value = it.shown().texts }
         }

@@ -26,6 +26,7 @@ import dev.tonholo.ssrcompose.producer.internal.SnapshotNotifier
 import dev.tonholo.ssrcompose.producer.internal.content.toScreenContent
 import dev.tonholo.ssrcompose.producer.internal.frame.ImmediateFrameClock
 import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.liveSetup
 import dev.tonholo.ssrcompose.producer.testing.shown
 import kotlin.coroutines.EmptyCoroutineContext
@@ -267,6 +268,7 @@ class ConsumerComponentTest {
             var deviceReaderCompositions = 0
             val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
             val screen = LiveScreen(
+                scaledTextScene = liveScaledTextScene(),
                 content = {
                     CompositionLocalProvider(LocalConsumer provides consumer) {
                         val held = remember { Any() }
