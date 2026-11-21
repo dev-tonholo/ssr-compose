@@ -14,6 +14,7 @@ dependencies {
     implementation(projects.catalogModel)
     implementation(libs.gradle.idea.ext)
     compileOnly(libs.kotlin.gradle.plugin.api)
+    compileOnly(libs.android.gradle.api)
     testImplementation(gradleApi())
 
     "functionalTestImplementation"(gradleTestKit())
