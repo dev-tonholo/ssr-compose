@@ -1,6 +1,6 @@
 package dev.tonholo.ssrcompose.producer.internal
 
-import dev.tonholo.ssrcompose.producer.testing.FakeWriteObserverRegistry
+import dev.tonholo.ssrcompose.producer.testing.FakeObserverRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,7 +17,7 @@ class SnapshotNotifierTest {
     @Test
     fun `given several screens waiting, when they all join, then one write observer is registered`() = runTest {
         // Arrange
-        val registry = FakeWriteObserverRegistry()
+        val registry = FakeObserverRegistry<(Any) -> Unit>()
         val notifier = notifierWith(registry)
 
         // Act
@@ -32,7 +32,7 @@ class SnapshotNotifierTest {
     fun `given several screens waiting, when they leave one by one, then the observer goes with the last`() =
         runTest {
             // Arrange
-            val registry = FakeWriteObserverRegistry()
+            val registry = FakeObserverRegistry<(Any) -> Unit>()
             val notifier = notifierWith(registry)
             val screens = List(SCREEN_COUNT) { waitingScreen(notifier) }
 
@@ -52,7 +52,7 @@ class SnapshotNotifierTest {
     fun `given every screen has left, when a screen joins again, then a write observer is registered again`() =
         runTest {
             // Arrange
-            val registry = FakeWriteObserverRegistry()
+            val registry = FakeObserverRegistry<(Any) -> Unit>()
             val notifier = notifierWith(registry)
             waitingScreen(notifier).cancelAndJoin()
 
@@ -65,7 +65,7 @@ class SnapshotNotifierTest {
             returning.cancelAndJoin()
         }
 
-    private fun TestScope.notifierWith(registry: FakeWriteObserverRegistry) =
+    private fun TestScope.notifierWith(registry: FakeObserverRegistry<(Any) -> Unit>) =
         SnapshotNotifier(
             dispatcher = StandardTestDispatcher(scheduler = testScheduler),
             registerWriteObserver = registry.register,

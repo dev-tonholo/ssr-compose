@@ -1,62 +1,84 @@
 package dev.tonholo.ssrcompose.producer.internal
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Composition
-import androidx.compose.runtime.Recomposer
-import dev.tonholo.ssrcompose.core.message.ScreenContent
-import dev.tonholo.ssrcompose.producer.internal.content.toScreenContent
-import dev.tonholo.ssrcompose.producer.internal.frame.ImmediateFrameClock
+import androidx.compose.runtime.snapshots.ObserverHandle
+import androidx.compose.runtime.snapshots.Snapshot
+import dev.tonholo.ssrcompose.producer.internal.reader.ScreenRead
+import dev.tonholo.ssrcompose.producer.internal.reader.readScreen
+import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
+import dev.tonholo.ssrcompose.producer.internal.scene.ScreenScene
+import dev.tonholo.ssrcompose.producer.internal.scene.sceneDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
 /**
- * One screen of one session, kept alive while something collects [contents].
+ * One screen of one session, hosted in a scene while something collects [frames].
  *
  * @param content the screen, as the server developer wrote it.
- * @param dispatcher runs the composition. It must run one thing at a time, as a composition is not thread safe.
+ * @param setup the size, density and direction the scene lays the screen out with.
+ * @param dispatcher creates, drives and closes the scene, and runs its effects. By default the producer's one scene
+ * thread; a test may pass its own, which must run one thing at a time.
  * @param notifier tells the screen about state writes.
+ * @param revisions numbers the documents sent.
+ * @param registerApplyObserver starts watching applied state changes and returns the handle that stops it.
  */
 internal class LiveScreen(
     private val content: @Composable () -> Unit,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(parallelism = 1),
+    private val setup: SceneSetup,
+    private val dispatcher: CoroutineDispatcher = sceneDispatcher,
     private val notifier: SnapshotNotifier = SnapshotNotifier.shared,
+    private val revisions: Revisions = Revisions(),
+    private val registerApplyObserver: ((Set<Any>, Snapshot) -> Unit) -> ObserverHandle = { observer ->
+        Snapshot.registerApplyObserver(observer = observer)
+    },
 ) {
     /**
-     * Composes the screen for each collector and emits its content, then again whenever a state it reads changes
-     * and the content differs from the last one sent. A collector that falls behind gets the latest content only.
-     * The composition is disposed when the collector cancels.
+     * Lays the screen out for each collector and emits what it shows, then again whenever a state it reads changes
+     * and what it shows differs from the last frame. A collector that falls behind gets the latest frame only.
+     * The flow fails with the error of a composition or an effect that throws. The scene is closed when the flow
+     * ends, however it ends.
      */
-    fun contents(): Flow<ScreenContent> =
-        channelFlow { compose() }
+    fun frames(): Flow<ScreenFrame> =
+        channelFlow { host() }
             .buffer(Channel.CONFLATED)
             .flowOn(dispatcher)
-            .distinctUntilChanged()
 
-    private suspend fun ProducerScope<ScreenContent>.compose() {
-        val root = PlacedNode.Root()
-        val recomposer = Recomposer(coroutineContext)
-        val composition = Composition(
-            applier = ScreenApplier(root = root, onChangesApplied = { trySend(root.toScreenContent()) }),
-            parent = recomposer,
-        )
+    private suspend fun ProducerScope<ScreenFrame>.host() {
+        val changes = Channel<Unit>(capacity = Channel.CONFLATED)
         launch(start = CoroutineStart.UNDISPATCHED) { notifier.applyWritesWhileWaiting() }
-        launch(context = ImmediateFrameClock, start = CoroutineStart.UNDISPATCHED) {
-            recomposer.runRecomposeAndApplyChanges()
+        val failEffects = CoroutineExceptionHandler { _, error -> changes.close(cause = error) }
+        ScreenScene(setup = setup, coroutineContext = dispatcher + failEffects).use { scene ->
+            val applyObserver = registerApplyObserver { _, _ -> changes.trySend(Unit) }
+            try {
+                scene.setContent(content = content)
+                sendChanges(scene = scene, changes = changes)
+            } finally {
+                applyObserver.dispose()
+            }
         }
-        composition.setContent(content)
-        awaitClose {
-            composition.dispose()
-            recomposer.cancel()
+    }
+
+    private suspend fun ProducerScope<ScreenFrame>.sendChanges(scene: ScreenScene, changes: Channel<Unit>): Nothing {
+        var lastRead: ScreenRead? = null
+        while (true) {
+            scene.render()
+            val read = scene.read { roots -> readScreen(roots = roots, density = scene.density) }
+            if (read != lastRead) send(read.toFrame())
+            lastRead = read
+            do changes.receive() while (!scene.hasInvalidations())
         }
+    }
+
+    private fun ScreenRead.toFrame(): ScreenFrame = when (this) {
+        is ScreenRead.Document -> ScreenFrame.Sent(revision = revisions.next(), document = document)
+        is ScreenRead.NotSendable -> ScreenFrame.NotSendable(reason = reason)
     }
 }

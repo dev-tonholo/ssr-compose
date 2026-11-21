@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.consumer.testing
 
+import dev.tonholo.ssrcompose.core.document.Viewport
 import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
@@ -22,6 +23,7 @@ import org.junit.Test
 
 private val UNREADABLE_FRAME = byteArrayOf(1, 2, 3)
 private val OTHER_CONTRACT_VERSION = ContractVersion(value = 99)
+private val VIEWPORT = Viewport(width = 360f, height = 640f)
 private val DEVICE = DeviceContext(
     density = 2.5f,
     screenWidthPx = 1080,
@@ -57,7 +59,8 @@ class FakeConnectionTest {
             // Act
             assertFailsWith<MessageDecodingException> { connection.send(frame = UNREADABLE_FRAME) }
             connection.send(frame = introduceFrame())
-            connection.send(frame = codec.encode(message = ConsumerMessage.OpenScreen(screen = SCREEN)))
+            val openScreen = ConsumerMessage.OpenScreen(screen = SCREEN, viewport = VIEWPORT)
+            connection.send(frame = codec.encode(message = openScreen))
 
             // Assert
             val answers = connection.incoming.take(count = 2).toList().map { codec.decodeProducerMessage(frame = it) }

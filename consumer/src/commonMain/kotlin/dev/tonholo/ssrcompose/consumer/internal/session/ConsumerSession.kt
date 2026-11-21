@@ -3,6 +3,7 @@ package dev.tonholo.ssrcompose.consumer.internal.session
 import androidx.compose.runtime.snapshotFlow
 import dev.tonholo.ssrcompose.consumer.ScreenProblem
 import dev.tonholo.ssrcompose.consumer.internal.device.DeviceValues
+import dev.tonholo.ssrcompose.consumer.internal.device.windowViewport
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.connection.Connection
 import dev.tonholo.ssrcompose.core.handshake.Answer
@@ -127,6 +128,7 @@ internal class ConsumerSession(
         private val scope: CoroutineScope,
     ) {
         private var accepted = false
+        private var sentDevice = device
 
         /** Returns the problem that ended the conversation, or null when the connection ended by itself. */
         suspend fun talk(): ScreenProblem? {
@@ -180,7 +182,8 @@ internal class ConsumerSession(
         }
 
         private suspend fun openScreen() {
-            connection.send(frame = codec.encode(message = ConsumerMessage.OpenScreen(screen = screen)))
+            val openScreen = ConsumerMessage.OpenScreen(screen = screen, viewport = sentDevice.windowViewport())
+            connection.send(frame = codec.encode(message = openScreen))
         }
 
         private suspend fun followDevice() {
@@ -188,6 +191,7 @@ internal class ConsumerSession(
                 .distinctUntilChanged()
                 .dropWhile { current -> current == device }
                 .collect { current ->
+                    sentDevice = current
                     connection.send(frame = codec.encode(message = ConsumerMessage.DeviceChanged(device = current)))
                 }
         }

@@ -4,21 +4,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.LayoutInfo
-import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.InspectableValue
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.tonholo.ssrcompose.producer.testing.SceneSession
+import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
 import dev.tonholo.ssrcompose.producer.testing.SceneSpec
+import dev.tonholo.ssrcompose.producer.testing.openTestScene
 import dev.tonholo.ssrcompose.producer.testing.rootChildNodes
 import dev.tonholo.ssrcompose.producer.testing.withRenderedScene
 import kotlin.test.Test
@@ -39,13 +42,15 @@ private const val BOX_WIDTH_DP = 100
 private const val BOX_HEIGHT_DP = 50
 private const val SP_AS_DP_SOURCE = 10
 private const val SIBLING_SIZE_DP = 10
+private const val INNER_PADDING_DP = 4
+private const val BACKGROUND_MODIFIER = "background"
 private const val FLOAT_TOLERANCE = 0.01f
 private const val SESSION_THREAD_NAME = "ssr-session"
 private const val EXPECTED_THREAD_RECORDS = 4
 
 class SceneEnvironmentTest {
     @Test
-    fun `given a density, when a box is placed, then layoutInfo coordinates divide back to its dp values`() {
+    fun `given a density, when a box has padding after its background, then the background's box divides to dp`() {
         // Arrange
         val spec = SceneSpec(density = Density(density = DENSITY, fontScale = FONT_SCALE))
 
@@ -57,10 +62,11 @@ class SceneEnvironmentTest {
                     Modifier
                         .offset(x = OFFSET_X_DP.dp, y = OFFSET_Y_DP.dp)
                         .size(width = BOX_WIDTH_DP.dp, height = BOX_HEIGHT_DP.dp)
-                        .background(Color.Red),
+                        .background(Color.Red)
+                        .padding(INNER_PADDING_DP.dp),
                 )
             },
-            read = { scene -> scene.rootChildNodes().single().layoutInfo.toBoxInDp(density = DENSITY) },
+            read = { scene -> scene.rootChildNodes().single().backgroundBoxInDp(density = DENSITY) },
         )
 
         // Assert
@@ -92,9 +98,10 @@ class SceneEnvironmentTest {
     }
 
     @Test
-    fun `given each layout direction, when two boxes sit in a row, then the second is at x 10 only in left to right`() {
+    fun `given each direction, when two boxes sit in a row in the root box, then the second follows the first`() {
         // Arrange
-        val expected = mapOf(LayoutDirection.Ltr to SIBLING_SIZE_DP.toFloat(), LayoutDirection.Rtl to 0f)
+        val rtlRowStart = DEFAULT_SCENE_WIDTH_PX - 2f * SIBLING_SIZE_DP
+        val expected = mapOf(LayoutDirection.Ltr to SIBLING_SIZE_DP.toFloat(), LayoutDirection.Rtl to rtlRowStart)
 
         // Act
         val actual = LayoutDirection.entries.associateWith { direction -> secondBoxX(direction) }
@@ -125,7 +132,7 @@ class SceneEnvironmentTest {
         // Act
         try {
             runOnSession(executor) {
-                SceneSession(spec = SceneSpec(dispatcher = dispatcher), content = content).use { session ->
+                openTestScene(spec = SceneSpec(dispatcher = dispatcher), content = content).use { session ->
                     session.render()
                     runBlocking { effectDone.await() }
                     state.value += 1
@@ -155,16 +162,20 @@ class SceneEnvironmentTest {
                 Box(Modifier.size(SIBLING_SIZE_DP.dp).background(Color.Blue))
             }
         },
-        read = { scene -> scene.rootChildNodes().last().layoutInfo.toBoxInDp(density = 1f).x },
+        read = { scene -> scene.rootChildNodes().last().backgroundBoxInDp(density = 1f).x },
     )
 
-    private fun LayoutInfo.toBoxInDp(density: Float): BoxInDp {
-        val position = coordinates.positionInParent()
+    private fun SemanticsNode.backgroundBoxInDp(density: Float): BoxInDp {
+        val background = layoutInfo.getModifierInfo().first { info ->
+            (info.modifier as? InspectableValue)?.nameFallback == BACKGROUND_MODIFIER
+        }
+        val position = background.coordinates.positionInRoot()
+        val size = background.coordinates.size
         return BoxInDp(
             x = position.x / density,
             y = position.y / density,
-            width = width / density,
-            height = height / density,
+            width = size.width / density,
+            height = size.height / density,
         )
     }
 

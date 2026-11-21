@@ -308,6 +308,18 @@ class MeasurementMessagesTest {
     }
 
     @Test
+    fun `given an OpenScreen frame with no viewport, when it is decoded, then it is refused`() {
+        // Arrange
+        val texts = listOf(/* language=json */ """{"type":"OpenScreen","screen":"home"}""")
+
+        // Act
+        val actual = failuresOfTexts(texts = texts)
+
+        // Assert
+        assertEquals(expected = listOf(MessageDecodingException::class), actual = actual)
+    }
+
+    @Test
     fun `given a viewport of 100,000 dp, when decoded, then it is read`() {
         // Arrange
         val texts = listOf(viewportChanged(width = MAX, height = MAX))
