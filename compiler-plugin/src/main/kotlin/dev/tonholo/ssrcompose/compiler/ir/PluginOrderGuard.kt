@@ -8,6 +8,7 @@ import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
@@ -36,24 +37,29 @@ internal object PluginOrderGuard {
         keyClass: KClass<out GeneratedDeclarationKey>,
     ): Boolean {
         val violated = isViolatedBy(module = module, keyClass = keyClass)
-        if (violated) {
-            context.diagnosticReporter.report(
-                factory = PluginOrderDiagnostics.PLUGIN_ORDER,
-                message = message,
-                location = null,
-            )
-        }
+        if (violated) report(context = context)
         return violated
     }
+
+    /** Reports the plugin-order diagnostic. */
+    fun report(context: IrPluginContext) {
+        context.diagnosticReporter.report(
+            factory = PluginOrderDiagnostics.PLUGIN_ORDER,
+            message = message,
+            location = null,
+        )
+    }
+
+    /** True when the Compose compiler already lowered [function], which then has its extra `$composer` parameter. */
+    fun isLoweredByCompose(function: IrFunction): Boolean =
+        function.parameters.any { parameter -> parameter.name.asString() == COMPOSER_PARAMETER }
 
     fun isViolatedBy(module: IrModuleFragment, keyClass: KClass<out GeneratedDeclarationKey>): Boolean =
         module.files
             .flatMap { file -> file.declarations }
             .filterIsInstance<IrSimpleFunction>()
             .filter { function -> function.isCreatedBy(keyClass = keyClass) }
-            .any { function ->
-                function.parameters.any { parameter -> parameter.name.asString() == COMPOSER_PARAMETER }
-            }
+            .any { function -> isLoweredByCompose(function = function) }
 
     private fun IrDeclaration.isCreatedBy(keyClass: KClass<out GeneratedDeclarationKey>): Boolean {
         val key = (origin as? IrDeclarationOrigin.GeneratedByPlugin)?.pluginKey
