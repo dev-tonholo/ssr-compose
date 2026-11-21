@@ -7,6 +7,7 @@ import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshots.Snapshot
 import app.cash.turbine.test
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
 import dev.tonholo.ssrcompose.core.data.DataValue
@@ -23,6 +24,10 @@ import dev.tonholo.ssrcompose.producer.internal.PlacedNode
 import dev.tonholo.ssrcompose.producer.internal.ScreenApplier
 import dev.tonholo.ssrcompose.producer.internal.SnapshotNotifier
 import dev.tonholo.ssrcompose.producer.internal.content.toScreenContent
+import dev.tonholo.ssrcompose.producer.internal.frame.ImmediateFrameClock
+import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.liveSetup
+import dev.tonholo.ssrcompose.producer.testing.shown
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,8 +35,11 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 
 class ConsumerComponentTest {
     @Test
@@ -263,24 +271,25 @@ class ConsumerComponentTest {
                     CompositionLocalProvider(LocalConsumer provides consumer) {
                         val held = remember { Any() }
                         SideEffect { latestTicket = held }
-                        AppIdentityBanner(onComposed = { appReaderCompositions++ })
-                        DeviceThemeBanner(onComposed = { deviceReaderCompositions++ })
+                        AppVersionText(onComposed = { appReaderCompositions++ })
+                        DeviceThemeText(onComposed = { deviceReaderCompositions++ })
                     }
                 },
+                setup = liveSetup(),
                 dispatcher = dispatcher,
                 notifier = SnapshotNotifier(dispatcher = dispatcher),
             )
 
-            screen.contents().test {
+            screen.frames().test {
                 // Act
-                val first = awaitItem()
+                val first = awaitItem().shown().texts
                 val ticketOnFirstComposition = latestTicket
                 consumer.device = updatedDevice()
-                val second = awaitItem()
+                val second = awaitItem().shown().texts
 
                 // Assert
-                assertEquals(expected = expectedBannerScreen(theme = Theme.Light), actual = first)
-                assertEquals(expected = expectedBannerScreen(theme = Theme.Dark), actual = second)
+                assertEquals(expected = listOf(APP_VERSION, Theme.Light.name), actual = first)
+                assertEquals(expected = listOf(APP_VERSION, Theme.Dark.name), actual = second)
                 assertNotNull(ticketOnFirstComposition)
                 assertSame(expected = ticketOnFirstComposition, actual = latestTicket)
                 assertEquals(expected = ONE_COMPOSITION, actual = appReaderCompositions)
@@ -289,73 +298,53 @@ class ConsumerComponentTest {
         }
 
     @Test
-    fun `given an optional slot that becomes given, when recomposed, then each slot keeps its own name and content`() =
-        runTest {
-            // Arrange
-            val expected = ScreenContent(
-                components = listOf(
-                    PlacedComponent(
-                        name = FIRST_COMPONENT,
-                        slots = mapOf(
-                            HEADER_SLOT to listOf(UNTITLED_HEADER),
-                            FOOTER_SLOT to listOf(DONE_FOOTER),
-                        ),
+    fun `given an optional slot that becomes given, when recomposed, then each slot keeps its own name and content`() {
+        // Arrange
+        val expected = ScreenContent(
+            components = listOf(
+                PlacedComponent(
+                    name = FIRST_COMPONENT,
+                    slots = mapOf(
+                        HEADER_SLOT to listOf(UNTITLED_HEADER),
+                        FOOTER_SLOT to listOf(DONE_FOOTER),
                     ),
                 ),
-            )
-            val headerGiven = mutableStateOf(false)
-            val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
-            val screen = LiveScreen(
-                content = { SlotsWithOptionalHeader(headerGiven = headerGiven.value) },
-                dispatcher = dispatcher,
-                notifier = SnapshotNotifier(dispatcher = dispatcher),
-            )
+            ),
+        )
+        val headerGiven = mutableStateOf(false)
 
-            screen.contents().test {
-                awaitItem()
+        // Act
+        val actual = recomposedAfter(
+            content = { SlotsWithOptionalHeader(headerGiven = headerGiven.value) },
+            change = { headerGiven.value = true },
+        )
 
-                // Act
-                headerGiven.value = true
-                val actual = awaitItem()
-
-                // Assert
-                assertEquals(expected = expected, actual = actual)
-            }
-        }
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
 
     @Test
-    fun `given a given slot that becomes omitted, when recomposed, then the other slot keeps its name and content`() =
-        runTest {
-            // Arrange
-            val expected = ScreenContent(
-                components = listOf(
-                    PlacedComponent(
-                        name = FIRST_COMPONENT,
-                        slots = mapOf(
-                            FOOTER_SLOT to listOf(DONE_FOOTER),
-                        ),
-                    ),
+    fun `given a given slot that becomes omitted, when recomposed, then the other slot keeps its name and content`() {
+        // Arrange
+        val expected = ScreenContent(
+            components = listOf(
+                PlacedComponent(
+                    name = FIRST_COMPONENT,
+                    slots = mapOf(FOOTER_SLOT to listOf(DONE_FOOTER)),
                 ),
-            )
-            val headerGiven = mutableStateOf(true)
-            val dispatcher = StandardTestDispatcher(scheduler = testScheduler)
-            val screen = LiveScreen(
-                content = { SlotsWithOptionalHeader(headerGiven = headerGiven.value) },
-                dispatcher = dispatcher,
-                notifier = SnapshotNotifier(dispatcher = dispatcher),
-            )
+            ),
+        )
+        val headerGiven = mutableStateOf(true)
 
-            screen.contents().test {
-                awaitItem()
+        // Act
+        val actual = recomposedAfter(
+            content = { SlotsWithOptionalHeader(headerGiven = headerGiven.value) },
+            change = { headerGiven.value = false },
+        )
 
-                // Act
-                headerGiven.value = false
-                val actual = awaitItem()
-
-                // Assert
-                assertEquals(expected = expected, actual = actual)
-            }
-        }
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
 
     @Composable
     private fun SlotsWithOptionalHeader(headerGiven: Boolean) {
@@ -383,21 +372,35 @@ class ConsumerComponentTest {
     }
 
     @Composable
-    private fun AppIdentityBanner(onComposed: () -> Unit) {
+    private fun AppVersionText(onComposed: () -> Unit) {
         SideEffect { onComposed() }
-        TestComponent(
-            name = FIRST_COMPONENT,
-            values = mapOf(TITLE_PARAMETER to DataValue.Text(value = LocalConsumer.current.app.version)),
-        )
+        ShownText(text = LocalConsumer.current.app.version)
     }
 
     @Composable
-    private fun DeviceThemeBanner(onComposed: () -> Unit) {
+    private fun DeviceThemeText(onComposed: () -> Unit) {
         SideEffect { onComposed() }
-        TestComponent(
-            name = SECOND_COMPONENT,
-            values = mapOf(TITLE_PARAMETER to DataValue.Text(value = LocalConsumer.current.device.theme.name)),
-        )
+        ShownText(text = LocalConsumer.current.device.theme.name)
+    }
+
+    /** Composes [content] on the applier `ConsumerComponent` still uses until T125, then recomposes after [change]. */
+    private fun recomposedAfter(content: @Composable () -> Unit, change: () -> Unit): ScreenContent = runBlocking {
+        val root = PlacedNode.Root()
+        val recomposer = Recomposer(effectCoroutineContext = coroutineContext)
+        val recomposing = launch(context = ImmediateFrameClock) { recomposer.runRecomposeAndApplyChanges() }
+        val composition = Composition(applier = ScreenApplier(root = root), parent = recomposer)
+        try {
+            composition.setContent(content = content)
+            change()
+            Snapshot.sendApplyNotifications()
+            yield()
+            recomposer.awaitIdle()
+            root.toScreenContent()
+        } finally {
+            composition.dispose()
+            recomposer.cancel()
+            recomposing.cancel()
+        }
     }
 
     @Composable
@@ -466,20 +469,6 @@ class ConsumerComponentTest {
                             ),
                         ),
                     ),
-                ),
-            ),
-        )
-
-    private fun expectedBannerScreen(theme: Theme): ScreenContent =
-        ScreenContent(
-            components = listOf(
-                PlacedComponent(
-                    name = FIRST_COMPONENT,
-                    values = mapOf(TITLE_PARAMETER to DataValue.Text(value = APP_VERSION)),
-                ),
-                PlacedComponent(
-                    name = SECOND_COMPONENT,
-                    values = mapOf(TITLE_PARAMETER to DataValue.Text(value = theme.name)),
                 ),
             ),
         )

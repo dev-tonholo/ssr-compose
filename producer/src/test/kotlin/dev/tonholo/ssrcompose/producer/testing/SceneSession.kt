@@ -27,8 +27,7 @@ internal fun openTestScene(spec: SceneSpec, content: @Composable () -> Unit): Sc
         layoutDirection = spec.layoutDirection,
     ),
     coroutineContext = spec.dispatcher,
-    content = content,
-)
+).apply { setContent(content = content) }
 
 internal fun <T> withRenderedScene(
     spec: SceneSpec = SceneSpec(),

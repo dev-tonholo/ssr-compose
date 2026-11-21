@@ -1,115 +1,171 @@
 package dev.tonholo.ssrcompose.producer.internal
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import app.cash.turbine.test
 import app.cash.turbine.turbineScope
-import dev.tonholo.ssrcompose.core.message.ScreenContent
-import dev.tonholo.ssrcompose.producer.testing.Label
+import dev.tonholo.ssrcompose.core.document.DocumentNode
+import dev.tonholo.ssrcompose.core.document.ScreenDocument
+import dev.tonholo.ssrcompose.producer.internal.reader.NotSendableReason
+import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
+import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_HEIGHT_PX
+import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
+import dev.tonholo.ssrcompose.producer.testing.FakeObserverRegistry
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
-import dev.tonholo.ssrcompose.producer.testing.expectedLabel
-import dev.tonholo.ssrcompose.producer.testing.expectedScreen
+import dev.tonholo.ssrcompose.producer.testing.ShownFrame
+import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.liveSetup
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
-import java.util.concurrent.CountDownLatch
+import dev.tonholo.ssrcompose.producer.testing.shown
+import dev.tonholo.ssrcompose.producer.testing.withoutIds
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LiveScreenTest {
     @Test
-    fun `given content reading state, when the state changes, then a new screen content is emitted`() = runTest {
+    fun `given content reading state, when the state changes, then a new revision shows the change`() = runTest {
         // Arrange
         var text by mutableStateOf(FIRST_TEXT)
-        val screen = LiveScreen(
-            content = { Label(text = text) },
-            dispatcher = testDispatcher(),
-            notifier = testNotifier(),
-        )
+        val screen = testScreen { ShownText(text = text) }
 
-        screen.contents().test {
+        screen.frames().test {
             // Act
-            val first = awaitItem()
+            val first = awaitItem().shown()
             text = SECOND_TEXT
-            val second = awaitItem()
+            val second = awaitItem().shown()
 
             // Assert
-            assertEquals(expected = expectedScreen(expectedLabel(text = FIRST_TEXT)), actual = first)
-            assertEquals(expected = expectedScreen(expectedLabel(text = SECOND_TEXT)), actual = second)
+            assertEquals(expected = ShownFrame(revision = 1, texts = listOf(FIRST_TEXT)), actual = first)
+            assertEquals(expected = ShownFrame(revision = 2, texts = listOf(SECOND_TEXT)), actual = second)
         }
     }
 
     @Test
-    fun `given content with a component inside another, when collected, then the inner one is in the slot`() =
+    fun `given content that shows nothing, when collected, then the root box has the scene's size`() = runTest {
+        // Arrange
+        val expected = ScreenFrame.Sent(
+            revision = 1,
+            document = ScreenDocument(
+                root = DocumentNode.Box(
+                    id = 0,
+                    x = 0f,
+                    y = 0f,
+                    width = DEFAULT_SCENE_WIDTH_PX.toFloat(),
+                    height = DEFAULT_SCENE_HEIGHT_PX.toFloat(),
+                ),
+            ),
+        )
+        val screen = testScreen {}
+
+        screen.frames().test {
+            // Act
+            val frame = assertIs<ScreenFrame.Sent>(value = awaitItem())
+
+            // Assert
+            assertEquals(expected = expected.document.root, actual = frame.document.root.withoutIds())
+            assertEquals(expected = expected.revision, actual = frame.revision)
+        }
+    }
+
+    @Test
+    fun `given content with an image that goes away, when collected, then it is not sendable and then sent`() =
         runTest {
             // Arrange
-            val screen = LiveScreen(
-                content = { Label(text = FIRST_TEXT) { Label(text = SECOND_TEXT) } },
-                dispatcher = testDispatcher(),
-                notifier = testNotifier(),
-            )
+            var showImage by mutableStateOf(true)
+            val screen = testScreen {
+                if (showImage) {
+                    Image(painter = ColorPainter(Color.Red), contentDescription = null, modifier = Modifier.size(1.dp))
+                } else {
+                    ShownText(text = FIRST_TEXT)
+                }
+            }
 
-            screen.contents().test {
+            screen.frames().test {
                 // Act
-                val content = awaitItem()
+                val notSendable = awaitItem()
+                showImage = false
+                val sent = awaitItem().shown()
 
                 // Assert
-                val expected = expectedScreen(
-                    expectedLabel(text = FIRST_TEXT, children = listOf(expectedLabel(text = SECOND_TEXT))),
-                )
-                assertEquals(expected = expected, actual = content)
+                assertEquals(expected = ScreenFrame.NotSendable(reason = NotSendableReason.Image), actual = notSendable)
+                assertEquals(expected = ShownFrame(revision = 1, texts = listOf(FIRST_TEXT)), actual = sent)
             }
         }
 
     @Test
-    fun `given content that places nothing, when collected, then an empty screen is emitted`() = runTest {
+    fun `given two screens sharing revisions, when each sends, then the revisions rise across both`() = runTest {
         // Arrange
-        val screen = LiveScreen(content = {}, dispatcher = testDispatcher(), notifier = testNotifier())
+        val revisions = Revisions()
+        val first = testScreen(revisions = revisions) { ShownText(text = FIRST_TEXT) }
+        val second = testScreen(revisions = revisions) { ShownText(text = SECOND_TEXT) }
 
-        screen.contents().test {
-            // Act
-            val content = awaitItem()
+        // Act
+        val firstRevision = first.frames().first().shown().revision
+        val secondRevision = second.frames().first().shown().revision
 
-            // Assert
-            assertEquals(expected = expectedScreen(), actual = content)
+        // Assert
+        assertEquals(expected = listOf(1L, 2L), actual = listOf(firstRevision, secondRevision))
+    }
+
+    @Test
+    fun `given a right to left setup, when two boxes sit in a row, then the first is at the right edge`() = runTest {
+        // Arrange
+        val expectedFirstX = DEFAULT_SCENE_WIDTH_PX - BOX_SIZE_DP.toFloat()
+        val screen = testScreen(setup = liveSetup(layoutDirection = LayoutDirection.Rtl)) {
+            Row {
+                Box(Modifier.size(BOX_SIZE_DP.dp).background(Color.Red))
+                Box(Modifier.size(BOX_SIZE_DP.dp).background(Color.Blue))
+            }
         }
+
+        // Act
+        val frame = screen.frames().first() as ScreenFrame.Sent
+
+        // Assert
+        assertEquals(expected = expectedFirstX, actual = frame.document.root.children.first().x)
     }
 
     @Test
     fun `given a collector, when it cancels, then the composition is disposed`() = runTest {
         // Arrange
         var disposed = false
-        val screen = LiveScreen(
-            content = {
-                DisposableEffect(Unit) { onDispose { disposed = true } }
-                Label(text = FIRST_TEXT)
-            },
-            dispatcher = testDispatcher(),
-            notifier = testNotifier(),
-        )
+        val screen = testScreen {
+            DisposableEffect(Unit) { onDispose { disposed = true } }
+            ShownText(text = FIRST_TEXT)
+        }
 
-        screen.contents().test {
+        screen.frames().test {
             awaitItem()
             assertFalse(actual = disposed)
 
@@ -123,21 +179,17 @@ class LiveScreenTest {
     }
 
     @Test
-    fun `given recomposition that rebuilds the same content, when it is applied, then it is not sent again`() =
+    fun `given a recomposition that shows the same content, when it is applied, then it is not sent again`() =
         runTest {
             // Arrange
             var generation by mutableIntStateOf(0)
             var compositions = 0
-            val screen = LiveScreen(
-                content = {
-                    SideEffect { compositions++ }
-                    key(generation) { Label(text = FIRST_TEXT) }
-                },
-                dispatcher = testDispatcher(),
-                notifier = testNotifier(),
-            )
+            val screen = testScreen {
+                SideEffect { compositions++ }
+                ShownText(text = if (generation >= 0) FIRST_TEXT else SECOND_TEXT)
+            }
 
-            screen.contents().test {
+            screen.frames().test {
                 awaitItem()
 
                 // Act
@@ -145,99 +197,9 @@ class LiveScreenTest {
                 advanceUntilIdle()
 
                 // Assert
-                assertEquals(expected = COMPOSITIONS_AFTER_REBUILD, actual = compositions)
+                assertEquals(expected = COMPOSITIONS_AFTER_RECOMPOSING, actual = compositions)
                 expectNoEvents()
             }
-        }
-
-    @Test
-    fun `given many idle screens on their own threads, when every state changes at once, then each shows its change`() =
-        runTest {
-            // Arrange
-            val states = List(SCREEN_COUNT) { mutableStateOf(FIRST_TEXT) }
-            val shown = List(SCREEN_COUNT) { MutableStateFlow<ScreenContent?>(null) }
-            val expected = List(SCREEN_COUNT) { index -> expectedScreen(expectedLabel(text = changedText(index))) }
-
-            val actual = withContext(Dispatchers.Default) {
-                withTimeout(CONCURRENT_TIMEOUT) {
-                    val collectors = states.mapIndexed { index, state ->
-                        launch {
-                            LiveScreen(
-                                content = { Label(text = state.value) },
-                                dispatcher = serialDefaultDispatcher(),
-                            ).contents().collect { shown[index].value = it }
-                        }
-                    }
-                    shown.forEach { screen -> screen.first { it != null } }
-
-                    // Act
-                    states.mapIndexed { index, state -> launch { state.value = changedText(index) } }.joinAll()
-                    val changed = shown.mapIndexed { index, screen -> screen.first { it == expected[index] } }
-                    collectors.forEach { it.cancelAndJoin() }
-                    changed
-                }
-            }
-
-            // Assert
-            assertEquals(expected = expected, actual = actual)
-        }
-
-    @Test
-    fun `given a screen whose composition blocks, when another screen changes twice, then it shows both changes`() =
-        runTest {
-            // Arrange
-            val release = CountDownLatch(1)
-            val compositionBlocked = CompletableDeferred<Unit>()
-            var blockingText by mutableStateOf(FIRST_TEXT)
-            var watchedText by mutableStateOf(FIRST_TEXT)
-            val blockingScreen = LiveScreen(
-                content = {
-                    Label(text = blockingText)
-                    if (blockingText == SECOND_TEXT) {
-                        compositionBlocked.complete(Unit)
-                        release.await()
-                    }
-                },
-                dispatcher = serialDefaultDispatcher(),
-            )
-            val watchedScreen = LiveScreen(
-                content = { Label(text = watchedText) },
-                dispatcher = serialDefaultDispatcher(),
-            )
-            val blockingShown = MutableStateFlow<ScreenContent?>(null)
-            val watchedShown = MutableStateFlow<ScreenContent?>(null)
-
-            val shown = withContext(Dispatchers.Default) {
-                withTimeout(CONCURRENT_TIMEOUT) {
-                    val collectors = listOf(
-                        launch { blockingScreen.contents().collect { blockingShown.value = it } },
-                        launch { watchedScreen.contents().collect { watchedShown.value = it } },
-                    )
-                    try {
-                        blockingShown.first { it != null }
-                        watchedShown.first { it != null }
-
-                        // Act
-                        blockingText = SECOND_TEXT
-                        compositionBlocked.await()
-                        watchedText = SECOND_TEXT
-                        val afterFirstChange = watchedShown.first { it == expectedScreen(expectedLabel(SECOND_TEXT)) }
-                        watchedText = THIRD_TEXT
-                        val afterSecondChange = watchedShown.first { it == expectedScreen(expectedLabel(THIRD_TEXT)) }
-                        listOf(afterFirstChange, afterSecondChange)
-                    } finally {
-                        release.countDown()
-                        collectors.forEach { it.cancelAndJoin() }
-                    }
-                }
-            }
-
-            // Assert
-            val expected = listOf(
-                expectedScreen(expectedLabel(text = SECOND_TEXT)),
-                expectedScreen(expectedLabel(text = THIRD_TEXT)),
-            )
-            assertEquals(expected = expected, actual = shown)
         }
 
     @Test
@@ -245,26 +207,28 @@ class LiveScreenTest {
         runTest {
             // Arrange
             var text by mutableStateOf(FIRST_TEXT)
-            var shown: ScreenContent? = null
+            var shown: List<String>? = null
             val blockedDispatcher = ManualDispatcher()
             val watchedDispatcher = ManualDispatcher()
             val notifierDispatcher = ManualDispatcher()
             val notifier = SnapshotNotifier(dispatcher = notifierDispatcher)
             val blockedScreen = LiveScreen(
-                content = { Label(text = FIRST_TEXT) },
+                content = { ShownText(text = FIRST_TEXT) },
+                setup = liveSetup(),
                 dispatcher = blockedDispatcher,
                 notifier = notifier,
             )
             val watchedScreen = LiveScreen(
-                content = { Label(text = text) },
+                content = { ShownText(text = text) },
+                setup = liveSetup(),
                 dispatcher = watchedDispatcher,
                 notifier = notifier,
             )
             val blockedCollector = backgroundScope.launch(Dispatchers.Unconfined) {
-                blockedScreen.contents().collect {}
+                blockedScreen.frames().collect {}
             }
             val watchedCollector = backgroundScope.launch(Dispatchers.Unconfined) {
-                watchedScreen.contents().collect { shown = it }
+                watchedScreen.frames().collect { shown = it.shown().texts }
             }
             runUntilIdle(blockedDispatcher, watchedDispatcher, notifierDispatcher)
 
@@ -274,7 +238,7 @@ class LiveScreenTest {
             runUntilIdle(watchedDispatcher, notifierDispatcher)
 
             // Assert
-            assertEquals(expected = expectedScreen(expectedLabel(text = SECOND_TEXT)), actual = shown)
+            assertEquals(expected = listOf(SECOND_TEXT), actual = shown)
             watchedCollector.cancel()
             runUntilIdle(blockedDispatcher, watchedDispatcher, notifierDispatcher)
         }
@@ -288,15 +252,17 @@ class LiveScreenTest {
             val notifier = testNotifier()
             turbineScope {
                 val disposedScreen = LiveScreen(
-                    content = { Label(text = FIRST_TEXT) },
+                    content = { ShownText(text = FIRST_TEXT) },
+                    setup = liveSetup(),
                     dispatcher = dispatcher,
                     notifier = notifier,
-                ).contents().testIn(backgroundScope)
+                ).frames().testIn(backgroundScope)
                 val keptScreen = LiveScreen(
-                    content = { Label(text = text) },
+                    content = { ShownText(text = text) },
+                    setup = liveSetup(),
                     dispatcher = dispatcher,
                     notifier = notifier,
-                ).contents().testIn(backgroundScope)
+                ).frames().testIn(backgroundScope)
                 disposedScreen.awaitItem()
                 keptScreen.awaitItem()
 
@@ -304,20 +270,122 @@ class LiveScreenTest {
                 text = SECOND_TEXT
                 disposedScreen.cancel()
 
-                val updated = keptScreen.awaitItem()
+                val updated = keptScreen.awaitItem().shown().texts
                 text = THIRD_TEXT
-                val updatedAgain = keptScreen.awaitItem()
+                val updatedAgain = keptScreen.awaitItem().shown().texts
 
                 // Assert
-                assertEquals(expected = expectedScreen(expectedLabel(text = SECOND_TEXT)), actual = updated)
-                assertEquals(expected = expectedScreen(expectedLabel(text = THIRD_TEXT)), actual = updatedAgain)
+                assertEquals(expected = listOf(SECOND_TEXT), actual = updated)
+                assertEquals(expected = listOf(THIRD_TEXT), actual = updatedAgain)
                 keptScreen.cancel()
             }
         }
 
-    private fun serialDefaultDispatcher() = Dispatchers.Default.limitedParallelism(parallelism = 1)
+    @Test
+    fun `given a first composition that throws, when collected, then the flow fails and the apply observer is gone`() =
+        runTest {
+            // Arrange
+            val registry = FakeObserverRegistry<(Set<Any>, Snapshot) -> Unit>()
+            val screen = LiveScreen(
+                content = { error(COMPOSITION_ERROR) },
+                setup = liveSetup(),
+                dispatcher = testDispatcher(),
+                notifier = testNotifier(),
+                registerApplyObserver = registry.register,
+            )
 
-    private fun changedText(index: Int) = "$SECOND_TEXT $index"
+            // Act
+            val failure = runCatching { screen.frames().collect {} }.exceptionOrNull()
+
+            // Assert
+            assertEquals(expected = COMPOSITION_ERROR, actual = failure?.message)
+            assertEquals(expected = ONE_OBSERVER, actual = registry.registered)
+            assertEquals(expected = ONE_OBSERVER, actual = registry.disposed)
+        }
+
+    @Test
+    fun `given a first composition that throws, when a state is written after, then its thread gets no work`() =
+        runTest {
+            // Arrange
+            val written = mutableIntStateOf(0)
+            val sceneDispatcher = ManualDispatcher()
+            val notifierDispatcher = ManualDispatcher()
+            val screen = LiveScreen(
+                content = { error(COMPOSITION_ERROR) },
+                setup = liveSetup(),
+                dispatcher = sceneDispatcher,
+                notifier = SnapshotNotifier(dispatcher = notifierDispatcher),
+            )
+            val collector = backgroundScope.async(Dispatchers.Unconfined) {
+                runCatching { screen.frames().collect {} }.exceptionOrNull()
+            }
+            runUntilIdle(sceneDispatcher, notifierDispatcher)
+
+            // Act
+            written.intValue++
+            Snapshot.sendApplyNotifications()
+
+            // Assert
+            assertEquals(expected = COMPOSITION_ERROR, actual = collector.await()?.message)
+            assertFalse(actual = sceneDispatcher.hasTasks)
+        }
+
+    @Test
+    fun `given an effect that throws, when collected, then the flow fails with its error`() = runTest {
+        // Arrange
+        val screen = testScreen {
+            ShownText(text = FIRST_TEXT)
+            LaunchedEffect(Unit) {
+                yield()
+                error(EFFECT_ERROR)
+            }
+        }
+
+        screen.frames().test {
+            // Act
+            awaitItem()
+            val failure = awaitError()
+
+            // Assert
+            assertEquals(expected = EFFECT_ERROR, actual = failure.message)
+        }
+    }
+
+    @Test
+    fun `given a screen resumed inside the apply notification, when a state changes, then it shows the change`() =
+        runTest {
+            // Arrange
+            var text by mutableStateOf(FIRST_TEXT)
+            val screen = LiveScreen(
+                content = { ShownText(text = text) },
+                setup = liveSetup(),
+                dispatcher = Dispatchers.Unconfined,
+                notifier = testNotifier(),
+            )
+
+            screen.frames().test {
+                awaitItem()
+
+                // Act
+                text = SECOND_TEXT
+                val shown = awaitItem().shown().texts
+
+                // Assert
+                assertEquals(expected = listOf(SECOND_TEXT), actual = shown)
+            }
+        }
+
+    private fun TestScope.testScreen(
+        setup: SceneSetup = liveSetup(),
+        revisions: Revisions = Revisions(),
+        content: @Composable () -> Unit,
+    ) = LiveScreen(
+        content = content,
+        setup = setup,
+        dispatcher = testDispatcher(),
+        notifier = testNotifier(),
+        revisions = revisions,
+    )
 
     private fun TestScope.testDispatcher() = StandardTestDispatcher(scheduler = testScheduler)
 
@@ -326,9 +394,11 @@ class LiveScreenTest {
     private companion object {
         const val FIRST_TEXT = "Welcome"
         const val SECOND_TEXT = "Updated"
-        const val COMPOSITIONS_AFTER_REBUILD = 2
         const val THIRD_TEXT = "Updated again"
-        const val SCREEN_COUNT = 100
-        val CONCURRENT_TIMEOUT = 10.seconds
+        const val COMPOSITIONS_AFTER_RECOMPOSING = 2
+        const val BOX_SIZE_DP = 10
+        const val ONE_OBSERVER = 1
+        const val COMPOSITION_ERROR = "the first composition failed"
+        const val EFFECT_ERROR = "the effect failed"
     }
 }
