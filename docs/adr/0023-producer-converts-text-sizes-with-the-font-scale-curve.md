@@ -14,7 +14,7 @@ The owner then decided, on 2026-11-21, that the producer converts text sizes its
 
 ## Probes
 
-Run on 2026-11-21 on macOS arm64, in a throwaway copy of this branch outside the repository, with Kotlin 2.4.21, Compose Multiplatform 1.12.2 and the bundled Roboto Regular, at density 2.5 and font scale 1.3, with the emulator's curve (8 sp to 10.4 dp, 12 to 15.6, 16 to 20.2, 24 to 26.4, 30 to 32, 100 to 104). The expected heights come from Skia's own metrics of the Roboto file (descent minus ascent at the font size in pixels), not from a second layout. Only 16 and 24 sp tell the curve from a straight scale; at 12 sp both give 15.6 dp.
+Run on 2026-11-21 on macOS arm64, in a throwaway copy of this branch outside the repository, with Kotlin 2.4.21, Compose Multiplatform 1.12.2 and the bundled Roboto Regular, at density 2.5 and font scale 1.3, with a curve through 12 sp to 15.6 dp, 16 to 20.2 and 24 to 26.4, as the emulator drew them. These match Compose's own table for font scale 1.3 (`FontScaleConverterFactory.android.kt` line 70, where 16 sp falls between 14 to 18.8 and 18 to 21.6). The probe's points above 24 sp (30 to 32, 100 to 104) are not that table's (30 to 30, 100 to 100), and no probed size used them. The expected heights come from Skia's own metrics of the Roboto file (descent minus ascent at the font size in pixels), not from a second layout. Only 16 and 24 sp tell the curve from a straight scale; at 12 sp both give 15.6 dp.
 
 | Case | 12 sp | 16 sp | 24 sp |
 |---|---|---|---|
@@ -26,7 +26,7 @@ Run on 2026-11-21 on macOS arm64, in a throwaway copy of this branch outside the
 | D. Style size changed to `curve(s).sp`, scene `Density(2.5, 1)` | 46 | 59 | 77 |
 | E1. A Material-style `Text` that reads a `LocalTextStyle` the producer provides with `curve(s).sp`, no size of its own, scene font scale 1 | 46 | 59 | 77 |
 | E2. The same `Text` with its own `fontSize = s.sp` | 35 | 47 | 70 |
-| R. Server code calling `BasicText`, compiled with a probe IR step that swaps the call for a copy of `BasicText` doing C, run before the Compose compiler | | 59 | 77 |
+| R. Server code calling the `String` overload of `BasicText`, compiled with a probe IR step that swaps the call for a copy of `BasicText` doing C, run before the Compose compiler; the copy read the curve from a stand-in composition local with the curve as its default | | 59 | 77 |
 | R0. The same server code compiled with the Compose compiler only | | 61 | 91 |
 
 More cases, same setup:
@@ -44,7 +44,7 @@ What no public API offers on Compose UI 1.12.2 desktop: foundation has no `Local
 How the device converts, read in `androidx.compose.ui:ui-unit-android` and `ui-text-android` 1.12.1:
 
 - `FontScaling.toDp()` uses `FontScaleConverterFactory.forScale(fontScale)` when `fontScale >= 1.03` (`isNonLinearFontScalingActive`), and a straight scale below.
-- The factory's tables are keyed at 8, 10, 12, 14, 18, 20, 24, 30 and 100 sp (`CommonFontSizes`), the sizes `FontScaleConverterFactory` uses for every table and for the tables it interpolates between two font scales. Above its largest table it uses a straight scale.
+- The factory's five tables, for font scales 1.15, 1.3, 1.5, 1.8 and 2, are all keyed at 8, 10, 12, 14, 18, 20, 24, 30 and 100 sp (lines 57 to 94), the same sizes as `CommonFontSizes`, which it uses for the tables it interpolates between two font scales and between 1 and 1.15. Above its largest table it uses a straight scale (line 145).
 - `FontScaleConverterTable.lookupAndInterpolate` interpolates linearly between two keys, from 0 below the first key, and with the last key's ratio above the last, the same rules as `FontScaleCurve.spToDp`.
 - `resolveLineHeightInPx` (`SpannableExtensions.android.kt` lines 225 to 248) makes a line height in sp proportional to the converted font size when `fontScale > 1.05`, and converts it on its own (`lineHeight.toPx()`, through the curve) at 1.05 and below.
 
@@ -66,17 +66,17 @@ Option 4, chosen by the owner on 2026-11-21, with the factor given through `Loca
 
 `producer` gets `ScaledBasicText` in `dev.tonholo.ssrcompose.producer`, public and marked `@InternalSsrComposeApi` like `ConsumerComponent`, one overload per overload of `BasicText` that server code can call: the `String` one and the `AnnotatedString` one of foundation 1.12.2 (`BasicText.kt` lines 92 and 198; the six others are hidden). Each has exactly the parameters of its `BasicText` overload: the same names, types, order and default values. Each one:
 
-1. takes `size`, the style's font size when it is in sp, or 14 sp when it is unspecified, and `curve`, `LocalConsumer.current.device.fontScaleCurve`;
+1. takes `size`, the style's font size when it is in sp, or 14 sp when it is unspecified, and `curve`, from an internal composition local, `LocalScaledTextCurve: ProvidableCompositionLocal<FontScaleCurve?>`, null by default. The producer provides it once per screen, at the root of the scene's content, from the session's `Consumer.device.fontScaleCurve`, so a device change updates it. When it is null, outside a producer screen (a preview, the server developer's own Compose tests), the copy calls `BasicText` unchanged, with no provider and no mark;
 2. calls `BasicText` with every argument unchanged inside `CompositionLocalProvider(LocalDensity provides Density(density = LocalDensity.current.density, fontScale = curve.spToDp(size) / size))`, so the text is laid out at `curve.spToDp(size)` dp and the scene's own density stays as it is;
-3. when the style's line height is in sp and `device.fontScale` is from 1.03 to 1.05, passes the line height as `curve.spToDp(lineHeight) / factor` sp, so it is laid out at `curve.spToDp(lineHeight)` dp as the device lays it out in that range; elsewhere the factor alone gives the device's line height (G);
+3. turns a line height in em into sp first (the em value times `size`), since the document carries it in sp; then, when the line height is in sp and `device.fontScale` is from 1.03 to 1.05, passes the line height as `curve.spToDp(lineHeight) / factor` sp, so it is laid out at `curve.spToDp(lineHeight)` dp as the device lays it out in that range; elsewhere the factor alone gives the device's line height (G);
 4. adds an internal semantics property, `ScaledTextMark(size, lineHeight)`, with the font size and line height as written, to the modifier it passes on;
 5. calls `BasicText` with no provider and no mark when the size is in em, which the reader refuses as now.
 
-A device change recomposes it with the new curve. The scene keeps `Density(density = device.density, fontScale = device.fontScale)` (`sceneDensity` as it is), so `LocalDensity.current.fontScale` in server code is the user's font scale.
+This is the direct answer to the owner's question of 2026-11-21, "Can't we provide the font scale density using composition local?": the curve is provided once per screen through a composition local, and each text derives its own `LocalDensity` from it, since one density for the whole screen fits one size only (probe J). A device change recomposes each text with the new curve. The scene keeps `Density(density = device.density, fontScale = device.fontScale)` (`sceneDensity` as it is), so `LocalDensity.current.fontScale` in server code is the user's font scale.
 
 ### The rewrite
 
-In modes `producer` and `check`, and never in `consumer` mode, the compiler plugin's IR step replaces each call whose callee is `androidx.compose.foundation.text.BasicText` with a call to the `ScaledBasicText` overload whose parameter types match, keeping every argument at its index, the call's type and its offsets. It runs in a module with no bridge too. It rewrites calls only; a function reference to `BasicText` is left as it is and is refused at run time.
+In modes `producer` and `check`, and never in `consumer` mode, the compiler plugin's IR step, registered by `SsrCompilerPluginRegistrar` itself and not inside `registerBridgeExtensions`, which returns early when a module has no catalog (`BridgeExtensionRegistration.kt` line 17), replaces each call whose callee is `androidx.compose.foundation.text.BasicText` with a call to the `ScaledBasicText` overload whose parameter types match, keeping every argument at its index, the call's type and its offsets. It runs in a module with no bridge too. It rewrites calls only; a function reference to `BasicText` is left as it is and is refused at run time.
 
 - Order: the step must run before the Compose compiler, which the Gradle plugin sets with `-Xcompiler-plugin-order` (`gradle-plugin/.../PluginOrder.kt`). `PluginOrderGuard` today detects the wrong order only from functions the plugin created, and a module with screens and no bridge creates none. The rewrite adds its own check: a `BasicText` callee with a `$composer` parameter reports `PLUGIN_ORDER` and stops, instead of the crash of R2.
 - A `BasicText` overload with no matching `ScaledBasicText`, after a Compose upgrade, is a compile error at the call that names the overload and says the library does not support it yet. It is never left as it is.
@@ -90,7 +90,7 @@ For each text node, in this order:
 1. Several styles, as now, and also any inline content placeholder (`layoutInput.placeholders` not empty): `SeveralStyles`.
 2. A size in em: `RelativeFontSize`, as now.
 3. No `ScaledTextMark`: the new reason `NotSendableReason.UnscaledText` ("a text compiled without the ssr-compose compiler plugin, such as Material's Text or a text from a library module, so it cannot follow the device's font scale"). This holds at every font scale, so a screen that works at font scale 1 never fails only for users with large fonts.
-4. `layoutInput.density.fontScale` times the size differs from `curve.spToDp(size)` by more than 0.01 dp: `UnscaledText`. This catches a size changed after `ScaledBasicText` chose its factor, such as `autoSize` (I).
+4. `layoutInput.density.fontScale` times the size differs from `curve.spToDp(size)` by more than 0.01 dp: `UnscaledText`. The curve is the one the scene was laid out with: `readScreen` gains a `curve` parameter, and `LiveScreen` passes the same `Consumer.device.fontScaleCurve` it provides to `LocalScaledTextCurve`. This catches a size changed after `ScaledBasicText` chose its factor, such as `autoSize` (I).
 
 The document's `TextStyleSpec.size` and `lineHeight` are the mark's values, in sp as the server wrote them. The consumer draws them with its own `Density`, as R20 says.
 
@@ -115,5 +115,6 @@ A font scale change during a session: Android treats it as a configuration chang
 - Bad: exactness depends on the device's converter matching the sampled curve (conditions 1 to 3), and a font scale change while the activity stays clips text for one round trip.
 - Bad: what the reader cannot see is still lost without a report: text drawn with `drawText` and a `TextMeasurer`, or text under `clearAndSetSemantics`, like other custom drawing.
 - Unchanged: letter spacing, a size in em and text with several styles stay refused.
-- Unproven: Android drawing the same heights as the producer at 12, 16 and 24 sp and font scales 1 and 1.3. The text gate (T123) proves it.
+- Unproven: Android drawing the same heights as the producer at 12, 16 and 24 sp and font scales 1 and 1.3, and the line height rule in the band from 1.03 to 1.05. The text gate (T123) proves them, with a run at font scale 1.04 added for line heights.
+- Unproven: the rewrite of the `AnnotatedString` overload (probe R covered the `String` one), that a server module with `producer { }` and no catalog compiles in `producer` mode through the Gradle plugin (read in `SsrComposeExtension.resolveMode` and `BridgeExtensionRegistration.kt`, not run), and that an activity recreated after a font scale change starts the session again with a new `Introduce` (not run).
 - Follow-up: T122 builds `ScaledBasicText`, the mark and the reader's checks; a new compiler plugin task builds the rewrite and its order check; T123 runs the gate with server text written as `BasicText` and rewritten.
