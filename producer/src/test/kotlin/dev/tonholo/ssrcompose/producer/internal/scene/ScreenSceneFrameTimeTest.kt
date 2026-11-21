@@ -31,10 +31,10 @@ class ScreenSceneFrameTimeTest {
                 density = Density(density = 1f),
                 layoutDirection = LayoutDirection.Ltr,
             ),
-            coroutineContext = Dispatchers.Unconfined,
             frameTime = clock,
-            content = { LaunchedEffect(Unit) { repeat(FRAMES) { withFrameNanos { seen += it } } } },
+            coroutineContext = Dispatchers.Unconfined,
         )
+        scene.setContent { LaunchedEffect(Unit) { repeat(FRAMES) { withFrameNanos { seen += it } } } }
 
         // Act
         repeat(FRAMES + 1) { scene.render() }
