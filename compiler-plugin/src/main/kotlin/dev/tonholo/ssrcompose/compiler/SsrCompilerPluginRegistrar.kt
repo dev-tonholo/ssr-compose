@@ -9,6 +9,7 @@ import dev.tonholo.ssrcompose.compiler.producer.registerBridgeExtensions
 import dev.tonholo.ssrcompose.compiler.producer.registerUnplaceableBridgeCheck
 import dev.tonholo.ssrcompose.compiler.producer.scan.ExcludedSources
 import dev.tonholo.ssrcompose.compiler.producer.scan.ScanRoots
+import dev.tonholo.ssrcompose.compiler.producer.text.registerTextRewrite
 import java.io.File
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -34,6 +35,7 @@ internal class SsrCompilerPluginRegistrar : CompilerPluginRegistrar() {
             message = "SSR Compose compiler plugin received $options",
         )
         if (options.mode == CompilerPluginMode.Producer) {
+            registerTextRewrite()
             registerBridgeExtensions(
                 request = bridgeRequest(options = options, configuration = configuration),
                 messages = configuration.messageCollector,
