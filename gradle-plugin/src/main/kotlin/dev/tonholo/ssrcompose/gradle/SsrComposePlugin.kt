@@ -16,6 +16,7 @@ internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
 
     override fun apply(target: Project) {
         val extension = target.extensions.create(EXTENSION_NAME, SsrComposeExtension::class.java)
+        AndroidFontVersions(project = target, extension = extension).registerWhenAndroid()
         target.afterEvaluate {
             if (extension.isProducerConfigured()) {
                 val fontSync = ServerFontTasks.register(project = target, settings = extension.fontSettings)
