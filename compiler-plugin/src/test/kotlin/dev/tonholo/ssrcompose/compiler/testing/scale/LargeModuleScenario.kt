@@ -44,18 +44,25 @@ internal class LargeModuleScenario(
         return result
     }
 
+    /** How many of the module's plain files have a class in [result] that calls the producer's `ScaledBasicText`. */
+    fun filesCallingScaledText(result: JvmCompilationResult): Int =
+        plainFiles.count { file ->
+            val facade = result.outputDirectory.resolve(FACADE_FOLDER).resolve("${file.nameWithoutExtension}Kt.class")
+            facade.readText(charset = Charsets.ISO_8859_1).contains(SCALED_TEXT_FUNCTION)
+        }
+
     private fun screenSource(case: LargeModuleCase): String =
         if (case.heldCatalogs == 0) scenario.standInSource else scenario.callerSource
 
     private fun supportFor(case: LargeModuleCase): CompileTestSupport =
-        if (case.heldCatalogs == 0) {
-            CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
-        } else {
+        if (case.usesPlugin) {
             CompileTestSupport()
+        } else {
+            CompileTestSupport(registrars = listOf(ComposePluginRegistrar()))
         }
 
     private fun optionsFor(case: LargeModuleCase): List<Pair<String, String>> {
-        if (case.heldCatalogs == 0) return emptyList()
+        if (!case.usesPlugin) return emptyList()
         val catalogs = scenario.fullCatalogs(count = case.heldCatalogs).toTypedArray()
         return ProducerTestOptions.producerOptions(*catalogs) +
             ProducerTestOptions.sourceFolderOption(folder = sourceFolder)
@@ -64,5 +71,7 @@ internal class LargeModuleScenario(
     private companion object {
         const val FUNCTIONS_PER_FILE = 40
         const val SCREEN_FILE = "Screen.kt"
+        const val FACADE_FOLDER = "scale/large"
+        const val SCALED_TEXT_FUNCTION = "ScaledBasicText"
     }
 }

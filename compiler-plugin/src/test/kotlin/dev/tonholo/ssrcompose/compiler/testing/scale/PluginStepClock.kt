@@ -12,6 +12,7 @@ internal enum class PluginStep {
     DeclareBridges,
     CreateBridgeBodies,
     CheckCalls,
+    RewriteText,
 }
 
 /** What one step cost in one compile. */

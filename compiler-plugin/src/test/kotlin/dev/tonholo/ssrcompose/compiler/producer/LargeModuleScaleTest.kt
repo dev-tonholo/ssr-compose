@@ -19,6 +19,19 @@ class LargeModuleScaleTest {
     lateinit var workDir: File
 
     @Test
+    fun `given a module with no catalog, when compiled in producer mode, then its text calls are rewritten`() {
+        // Arrange
+        val scenario = bridgeScenario(components = SMALL_COMPONENTS, parts = SMALL_PARTS, called = SMALL_CALLED)
+        val module = LargeModuleScenario(workDir = workDir, scenario = scenario, files = SMALL_FILES)
+
+        // Act
+        val result = module.compile(case = LargeModuleCase.CleanNoCatalog)
+
+        // Assert
+        assertEquals(expected = SMALL_FILES, actual = module.filesCallingScaledText(result = result))
+    }
+
+    @Test
     fun `given an edited file of a module, when compiled alone, then its bridges are created from the scan`() {
         // Arrange
         val scenario = bridgeScenario(components = SMALL_COMPONENTS, parts = SMALL_PARTS, called = SMALL_CALLED)
@@ -114,6 +127,7 @@ class LargeModuleScaleTest {
         const val CALLING_FUNCTIONS = 1
         val MEASURED_CASES = listOf(
             LargeModuleCase.CleanStandIns,
+            LargeModuleCase.CleanNoCatalog,
             LargeModuleCase.CleanOneCatalog,
             LargeModuleCase.CleanTenCatalogs,
             LargeModuleCase.EditedFileStandIns,
@@ -122,6 +136,7 @@ class LargeModuleScaleTest {
         )
         val EXPECTED_LABELS = setOf(
             "large module CleanStandIns",
+            "large module CleanNoCatalog",
             "large module CleanOneCatalog",
             "large module CleanTenCatalogs",
             "large module EditedFileStandIns",
