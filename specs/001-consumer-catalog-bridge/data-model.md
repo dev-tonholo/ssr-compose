@@ -131,6 +131,12 @@ A label the app developer sets: 1 to 64 characters of lowercase ASCII letters, d
 
 `fonts.json` is capped at 1 MiB and each font file at 16 MiB by default. A reader refuses a larger file before reading it.
 
+### Writers and indexes
+
+- `FontBundleWriter` writes a `fonts.json` in its one fixed form, so the same manifest always gives the same bytes.
+- `FontVersionResource` is the generated resource `ssrcompose/font-version`, which carries the app's font version label from the build to the consumer and nothing else.
+- `FontVersionsIndex` is the index at `ssrcompose/font-versions.json` in the server's resources, which lists the font versions held in `ssrcompose/fonts/<version>/`, sorted, each once.
+
 ### Font registration (`producer`)
 
 The font versions the producer holds, each with its families, loaded at start from the resources `ssrFontResources` wrote, or given by hand. Every file is checked against its fingerprint and read by Skia as a font, or `Producer { }` fails at start and names the version, the family and the file. The bundled Roboto is always held as the default family, which server code reaches through `LocalConsumer.current.fonts`; a text with no family, or with `FontFamily.Default`, is refused ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)).
