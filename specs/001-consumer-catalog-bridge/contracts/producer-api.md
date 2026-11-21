@@ -73,7 +73,8 @@ Server content:
 - `LocalConsumer.current` gives the session's `device`, `app`, `catalogVersion` and `fonts`. `device` is state: when the app reports a change, the screen recomposes and what it holds stays.
 - `LocalConsumer.current.fonts.family(name)` gives a font family of the session's font bundle ([font-bundle.md](font-bundle.md)). It fails with a clear message for a name that bundle does not have. The default family it holds is the library's own Roboto, which the device draws with too. A server text must name a family: a text with no family, or with `FontFamily.Default`, stops the screen with `onScreenNotSendable`, since Compose has no public way to remap the default ([ADR 0020](../../../docs/adr/0020-bundle-roboto-as-the-default-font.md)). T128 adds `fonts` to `Consumer`.
 - The font bundles the producer holds come from the build (`ssrFontResources`), or by hand: `fonts(version = "1") { family(name = "brand") { font(bytes = interRegular, weight = 400) } }` in `Producer { }`. A session gets the bundle its app named in the introduction, and an app whose font version the producer does not hold is refused. A missing or unreadable font file makes `Producer { }` fail at start, as does a missing Skiko runtime for the server's OS.
-- `ProducerLimits` also has `measuringRounds` (4 by default), `measurementsPerSecond` (30 `ComponentMeasured` and `ViewportChanged` messages per second by default, apart from the trigger limit) and `documentBytes` (8 MiB by default).
+- `ProducerLimits` also has `measuringRounds` (4 by default), `measurementsPerSecond` (30 `ComponentMeasured` and `ViewportChanged` messages per second by default, apart from the trigger limit), `documentBytes` (8 MiB by default) and `sceneTaskLimit` (1 second by default).
+- Every screen of the process is composed, laid out and read on one scene thread, and its effects run there ([ADR 0021](../../../docs/adr/0021-producer-runs-every-scene-on-one-scene-thread.md)). A composable must never block: while it blocks, every other screen of the process waits. Blocking work goes in an effect that leaves that thread, for example `LaunchedEffect(key) { val data = withContext(Dispatchers.IO) { load() } }`. When one task of a screen holds the scene thread longer than `sceneTaskLimit`, `onSceneThreadHeld` is called once with the screen and the time held. One process composes about 45 new 50-row screens or 400 frames of one per second; run more processes for more.
 
 App components through the bridge:
 
@@ -206,6 +207,7 @@ interface ProducerObserver {
     fun onScreenStopped(screen: String, cause: Throwable)
     fun onScreenNotSendable(screen: String, reason: String)
     fun onLayoutNotSettled(screen: String)
+    fun onSceneThreadHeld(screen: String, heldFor: Duration)
 }
 ```
 
