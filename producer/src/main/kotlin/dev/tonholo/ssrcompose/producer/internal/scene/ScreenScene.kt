@@ -22,6 +22,7 @@ import kotlin.coroutines.CoroutineContext
 internal class ScreenScene(
     setup: SceneSetup,
     coroutineContext: CoroutineContext,
+    private val frameTime: FrameTimeSource = FrameTimeSource.Monotonic,
     content: @Composable () -> Unit,
 ) : AutoCloseable {
     private val scene = withSceneLock {
@@ -48,7 +49,7 @@ internal class ScreenScene(
 
     /** Recomposes, measures and places what changed. */
     fun render() {
-        withSceneLock { scene.render().close() }
+        withSceneLock { scene.render(nanoTime = frameTime.nanoTime()).close() }
     }
 
     override fun close() {
