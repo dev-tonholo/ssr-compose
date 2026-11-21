@@ -2,6 +2,7 @@
 
 package dev.tonholo.ssrcompose.compiler.producer.text
 
+import dev.tonholo.ssrcompose.compiler.ir.PluginOrderGuard
 import dev.tonholo.ssrcompose.compiler.producer.ProducerNames
 import dev.tonholo.ssrcompose.compiler.producer.diagnostic.TextDiagnostics
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -24,6 +25,7 @@ internal class TextCallRewriter(
     private val overloads: ScaledTextOverloads,
 ) : IrElementTransformerVoid() {
     private lateinit var currentFile: IrFile
+    private var isPluginOrderReported = false
 
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
@@ -41,12 +43,12 @@ internal class TextCallRewriter(
     }
 
     private fun rewritten(call: IrCall): IrCall {
-        val replacement = overloads.matching(callee = call.symbol.owner)
-        if (replacement == null) {
-            reportNotSupported(call = call)
-            return call
+        val callee = call.symbol.owner
+        return when {
+            PluginOrderGuard.isLoweredByCompose(function = callee) -> call.also { reportPluginOrderOnce() }
+            else -> overloads.matching(callee = callee)?.let { target -> call.replacedBy(target) }
+                ?: call.also(::reportNotSupported)
         }
-        return call.replacedBy(replacement)
     }
 
     private fun IrCall.replacedBy(replacement: IrSimpleFunctionSymbol): IrCall {
@@ -59,6 +61,12 @@ internal class TextCallRewriter(
         )
         arguments.forEachIndexed { index, argument -> scaled.arguments[index] = argument }
         return scaled
+    }
+
+    private fun reportPluginOrderOnce() {
+        if (isPluginOrderReported) return
+        isPluginOrderReported = true
+        PluginOrderGuard.report(context = context)
     }
 
     private fun reportNotSupported(call: IrCall) {
