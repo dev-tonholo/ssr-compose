@@ -24,4 +24,12 @@ public data class FontEntry(
         requireFileName(entry = this)
         requireFingerprint(fingerprint = fingerprint)
     }
+
+    public companion object {
+        /** The only file name a font of [family], [weight] and [italic] may have, with [extension] `ttf` or `otf`. */
+        public fun fileNameOf(family: String, weight: Int, italic: Boolean, extension: String): String {
+            val style = if (italic) "italic" else "normal"
+            return "$family/$weight-$style.$extension"
+        }
+    }
 }

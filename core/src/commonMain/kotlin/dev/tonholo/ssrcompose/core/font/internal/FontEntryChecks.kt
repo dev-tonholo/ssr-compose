@@ -15,8 +15,9 @@ internal fun requireFamily(family: String) {
 }
 
 internal fun requireFileName(entry: FontEntry) {
-    val style = if (entry.italic) "italic" else "normal"
-    val expected = FONT_EXTENSIONS.map { extension -> "${entry.family}/${entry.weight}-$style.$extension" }
+    val expected = FONT_EXTENSIONS.map { extension ->
+        FontEntry.fileNameOf(family = entry.family, weight = entry.weight, italic = entry.italic, extension = extension)
+    }
     require(entry.file in expected) { "The file of a font must be one of $expected" }
 }
 
@@ -26,7 +27,7 @@ internal fun requireFingerprint(fingerprint: String) {
     }
 }
 
-private val FONT_ORDER = compareBy<FontEntry>({ it.family }, { it.weight }, { it.italic })
+internal val FONT_ORDER: Comparator<FontEntry> = compareBy<FontEntry>({ it.family }, { it.weight }, { it.italic })
 
 internal fun requireFamiliesDistinctIgnoringCase(fonts: List<FontEntry>) {
     val sharingFolder = fonts.map { font -> font.family }

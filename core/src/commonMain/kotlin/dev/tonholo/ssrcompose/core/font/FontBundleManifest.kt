@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.core.font
 
+import dev.tonholo.ssrcompose.core.font.internal.FONT_ORDER
 import dev.tonholo.ssrcompose.core.font.internal.requireFamiliesDistinctIgnoringCase
 import dev.tonholo.ssrcompose.core.font.internal.requireSortedAndDistinct
 
@@ -16,5 +17,19 @@ public data class FontBundleManifest(
     init {
         requireSortedAndDistinct(fonts = fonts)
         requireFamiliesDistinctIgnoringCase(fonts = fonts)
+    }
+
+    public companion object {
+        /** The name of the file, next to the font files. */
+        public const val FILE_NAME: String = "fonts.json"
+
+        /**
+         * The manifest of [fonts] given in any order.
+         *
+         * @throws IllegalArgumentException when [fonts] repeats a family, weight and style, or holds two families
+         * that differ only by case.
+         */
+        public fun sortedOf(version: FontBundleVersion, fonts: List<FontEntry>): FontBundleManifest =
+            FontBundleManifest(version = version, fonts = fonts.sortedWith(comparator = FONT_ORDER))
     }
 }
