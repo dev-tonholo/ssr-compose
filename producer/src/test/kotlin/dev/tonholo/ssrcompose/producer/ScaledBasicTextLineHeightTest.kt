@@ -16,13 +16,16 @@ import dev.tonholo.ssrcompose.producer.testing.TWO_LINES_TEXT
 import dev.tonholo.ssrcompose.producer.testing.WIDE_SCENE_PX
 import dev.tonholo.ssrcompose.producer.testing.assertHeights
 import dev.tonholo.ssrcompose.producer.testing.bandSpec
+import dev.tonholo.ssrcompose.producer.testing.documentOf
 import dev.tonholo.ssrcompose.producer.testing.emulatorSpec
+import dev.tonholo.ssrcompose.producer.testing.firstText
 import dev.tonholo.ssrcompose.producer.testing.heightOf
 import dev.tonholo.ssrcompose.producer.testing.heightOfBasicText
 import dev.tonholo.ssrcompose.producer.testing.openTestScene
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import dev.tonholo.ssrcompose.producer.testing.withRenderedScene
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 private const val TWO_LINES_HEIGHT = 135f
 private const val WIDE_SCENE_PX = 1000
@@ -57,6 +60,20 @@ class ScaledBasicTextLineHeightTest {
 
         // Assert
         assertHeights(expected = expected, actual = listOf(actual))
+    }
+
+    @Test
+    fun `given a 24 sp line height at font scale 1_04, when read, then the document has a 24 sp line height`() {
+        // Arrange
+        val expected = LINE_HEIGHT_SP.toFloat()
+
+        // Act
+        val actual = documentOf(spec = bandSpec()) {
+            ScaledBasicText(text = TWO_LINES_TEXT, style = style)
+        }.root.firstText().style.lineHeight
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
     }
 
     @Test

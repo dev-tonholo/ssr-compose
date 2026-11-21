@@ -34,7 +34,7 @@ public fun ScaledBasicText(
     color: ColorProducer? = null,
     autoSize: TextAutoSize? = null,
 ) {
-    ScaledText(style = style, modifier = modifier) { scaledModifier, scaledStyle ->
+    ScaledText(style = style, modifier = modifier, scaled = autoSize == null) { scaledModifier, scaledStyle ->
         BasicText(
             text = text,
             modifier = scaledModifier,
@@ -70,7 +70,7 @@ public fun ScaledBasicText(
     color: ColorProducer? = null,
     autoSize: TextAutoSize? = null,
 ) {
-    ScaledText(style = style, modifier = modifier) { scaledModifier, scaledStyle ->
+    ScaledText(style = style, modifier = modifier, scaled = autoSize == null) { scaledModifier, scaledStyle ->
         BasicText(
             text = text,
             modifier = scaledModifier,

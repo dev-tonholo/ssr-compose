@@ -15,7 +15,10 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.producer.ScaledBasicText
+import dev.tonholo.ssrcompose.producer.testing.SceneSpec
+import dev.tonholo.ssrcompose.producer.testing.bandSpec
 import dev.tonholo.ssrcompose.producer.testing.documentOf
+import dev.tonholo.ssrcompose.producer.testing.emulatorSpec
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -72,6 +75,23 @@ class TextRefusalTest {
         // Act
         val actual = readSceneOf {
             ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_EM.em))
+        }
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
+
+    @Test
+    fun `given a line height in em, when read at font scale 1, 1_04 and 1_3, then each is not sendable for it`() {
+        // Arrange
+        val specs = listOf(SceneSpec(), bandSpec(), emulatorSpec())
+        val expected = specs.map { ScreenRead.NotSendable(reason = NotSendableReason.RelativeLineHeight) }
+
+        // Act
+        val actual = specs.map { spec ->
+            readSceneOf(spec = spec) {
+                ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_EM.em))
+            }
         }
 
         // Assert

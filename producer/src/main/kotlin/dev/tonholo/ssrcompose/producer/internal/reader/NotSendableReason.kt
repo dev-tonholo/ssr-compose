@@ -22,6 +22,10 @@ internal enum class NotSendableReason(val description: String) {
     GraphicsLayer(description = "a graphics layer that scales, rotates, moves, fades, clips or adds a shadow"),
     RelativeFontSize(description = "a text with a font size that is not in sp, such as em"),
     RelativeLineHeight(description = "a text with a line height that is not in sp, such as em"),
+    UnscaledText(
+        description = "a text not rewritten by the compiler plugin, such as Material's Text or text from a module " +
+            "built without the plugin, so it cannot follow the device's font scale",
+    ),
     TextField(description = "a text field"),
     SeveralWindows(description = "a popup or a dialog, which opens a second window"),
     UnsupportedTextStyle(

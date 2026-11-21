@@ -82,7 +82,9 @@ internal class LiveScreen(
         var lastRead: ScreenRead? = null
         while (true) {
             scene.render()
-            val read = scene.read { roots -> readScreen(roots = roots, density = scene.density) }
+            val read = scene.read { roots ->
+                readScreen(roots = roots, density = scene.density, fontScaleCurve = scene.fontScaleCurve)
+            }
             if (read != lastRead) send(read.toFrame())
             lastRead = read
             awaitWork(scene = scene, changes = changes)

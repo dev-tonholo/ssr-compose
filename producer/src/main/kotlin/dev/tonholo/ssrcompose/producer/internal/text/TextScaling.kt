@@ -18,16 +18,18 @@ private const val BAND_END_FONT_SCALE = 1.05f
 internal class TextScaling(val density: Density, val style: TextStyle, val mark: ScaledTextMark)
 
 /**
- * Lays out the text that [content] draws as the device draws it, or as given when there is no scene or the font size is
- * not in sp. [content] gets the modifier and the style to pass on to `BasicText`.
+ * Lays out the text that [content] draws as the device draws it, or as given when there is no scene, the font size
+ * is not in sp or [scaled] is false, as it is for a text with `autoSize`, whose chosen size the reader cannot see.
+ * [content] gets the modifier and the style to pass on to `BasicText`.
  */
 @Composable
 internal inline fun ScaledText(
     style: TextStyle,
     modifier: Modifier,
+    scaled: Boolean,
     crossinline content: @Composable (modifier: Modifier, style: TextStyle) -> Unit,
 ) {
-    val scene = LocalScaledTextScene.current
+    val scene = LocalScaledTextScene.current.takeIf { scaled }
     val ambient = LocalDensity.current
     val scaling = remember(scene, style, ambient) { scene?.let { style.scaledOn(scene = it, ambient = ambient) } }
     if (scaling == null) {

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -85,6 +86,38 @@ class LiveScreenTest {
             // Assert
             assertEquals(expected = ShownFrame(revision = 1, texts = listOf(FIRST_TEXT)), actual = first)
             assertEquals(expected = ShownFrame(revision = 2, texts = listOf(SECOND_TEXT)), actual = second)
+        }
+    }
+
+    @Test
+    fun `given a screen with a raw BasicText, when collected, then the frame is not sendable as an unscaled text`() =
+        runTest {
+            // Arrange
+            val expected = ScreenFrame.NotSendable(reason = NotSendableReason.UnscaledText)
+            val screen = testScreen { BasicText(text = FIRST_TEXT, style = robotoStyle(sizeSp = RAW_TEXT_SIZE_SP)) }
+
+            screen.frames().test {
+                // Act
+                val actual = awaitItem()
+
+                // Assert
+                assertEquals(expected = expected, actual = actual)
+            }
+        }
+
+    @Test
+    fun `given a screen on a device curve, when collected, then its ScaledBasicText is sent`() = runTest {
+        // Arrange
+        val expected = ShownFrame(revision = 1, texts = listOf(FIRST_TEXT))
+        val device = ScaledTextScene(curve = EMULATOR_CURVE, fontScale = EMULATOR_FONT_SCALE)
+        val screen = testScreen(scaledTextScene = { device }) { ShownText(text = FIRST_TEXT) }
+
+        screen.frames().test {
+            // Act
+            val actual = awaitItem().shown()
+
+            // Assert
+            assertEquals(expected = expected, actual = actual)
         }
     }
 
@@ -435,6 +468,7 @@ class LiveScreenTest {
 
     private companion object {
         const val FIRST_TEXT = "Welcome"
+        const val RAW_TEXT_SIZE_SP = 16
         const val SECOND_TEXT = "Updated"
         const val THIRD_TEXT = "Updated again"
         const val COMPOSITIONS_AFTER_RECOMPOSING = 2
