@@ -25,4 +25,21 @@ class SsrComposeExtensionTest {
         assertTrue(actual = message.contains("consumer { }"), message = message)
         assertTrue(actual = message.contains("producer { }"), message = message)
     }
+
+    @Test
+    fun `given two font bundles with the same version, when declared, then it fails naming the version`() {
+        // Arrange
+        val location = "https://example.com/ssr/fonts/1/fonts.json"
+
+        // Act
+        val failure = assertFailsWith<IllegalArgumentException> {
+            extension.fonts { fonts ->
+                fonts.bundle(version = "1", location = location)
+                fonts.bundle(version = "1", location = location)
+            }
+        }
+
+        // Assert
+        assertTrue(actual = failure.message.orEmpty().contains("\"1\""), message = failure.message)
+    }
 }
