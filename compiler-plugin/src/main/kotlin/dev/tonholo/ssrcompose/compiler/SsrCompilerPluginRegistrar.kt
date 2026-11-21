@@ -34,8 +34,10 @@ internal class SsrCompilerPluginRegistrar : CompilerPluginRegistrar() {
             severity = CompilerMessageSeverity.INFO,
             message = "SSR Compose compiler plugin received $options",
         )
-        if (options.mode == CompilerPluginMode.Producer) {
+        if (options.mode == CompilerPluginMode.Producer || options.mode == CompilerPluginMode.Check) {
             registerTextRewrite()
+        }
+        if (options.mode == CompilerPluginMode.Producer) {
             registerBridgeExtensions(
                 request = bridgeRequest(options = options, configuration = configuration),
                 messages = configuration.messageCollector,
