@@ -12,6 +12,7 @@ import javax.inject.Inject
 public abstract class SsrComposeExtension @Inject constructor(objects: ObjectFactory) {
     internal val consumerSettings: ConsumerSettings = objects.newInstance(ConsumerSettings::class.java)
     internal val producerSettings: ProducerSettings = objects.newInstance(ProducerSettings::class.java)
+    internal val fontSettings: FontSettings = objects.newInstance(FontSettings::class.java)
 
     /** The largest manifest or part, in bytes, that a catalog step reads. */
     public abstract val catalogFileSizeLimit: Property<Long>
@@ -31,6 +32,11 @@ public abstract class SsrComposeExtension @Inject constructor(objects: ObjectFac
     public fun producer(action: Action<ProducerSettings>) {
         producerConfigured = true
         action.execute(producerSettings)
+    }
+
+    /** The app's fonts, separate from the catalog. */
+    public fun fonts(action: Action<FontSettings>) {
+        action.execute(fontSettings)
     }
 
     internal fun isProducerConfigured(): Boolean = producerConfigured && !consumerConfigured
