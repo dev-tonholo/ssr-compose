@@ -1,23 +1,17 @@
 package dev.tonholo.ssrcompose.compiler.producer
 
 import com.tschuchort.compiletesting.JvmCompilationResult
-import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
-import dev.tonholo.ssrcompose.compiler.testing.CompileTestSupport
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.catalog
 import dev.tonholo.ssrcompose.compiler.testing.ProducerTestOptions.producerOptions
 import dev.tonholo.ssrcompose.compiler.testing.TestCatalogs
-import dev.tonholo.ssrcompose.compiler.testing.text.TextProbe
+import dev.tonholo.ssrcompose.compiler.testing.text.assertWithinOnePixel
+import dev.tonholo.ssrcompose.compiler.testing.text.compileTextRunner
+import dev.tonholo.ssrcompose.compiler.testing.text.onAStraightScale
+import dev.tonholo.ssrcompose.compiler.testing.text.onTheCurve
 import dev.tonholo.ssrcompose.compiler.testing.text.probe
-import dev.tonholo.ssrcompose.compiler.testing.text.producerClasses
-import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
-/**
- * Heights in pixels are the probes of ADR 0023 at density 2.5 and font scale 1.3: Skia's own metrics for the bundled
- * Roboto give 59 and 77 px for 16 and 24 sp on the emulator curve, and 61 and 91 px on a straight font scale.
- */
 class TextRewriteTest {
     @Test
     fun `given a String call with positional arguments, when rewritten, then it is on the curve and marked`() {
@@ -69,10 +63,7 @@ class TextRewriteTest {
     @Test
     fun `given no curve provided, when a rewritten call is drawn, then it has no mark and the straight height`() {
         // Arrange
-        val expected = listOf(
-            TextProbe(heightPx = STRAIGHT_HEIGHT_16_SP, markSizeSp = null),
-            TextProbe(heightPx = STRAIGHT_HEIGHT_24_SP, markSizeSp = null),
-        )
+        val expected = onAStraightScale()
 
         // Act
         val actual = compiled.probe(screen = "stringPositional", withCurve = false)
@@ -93,11 +84,6 @@ class TextRewriteTest {
         assertEquals(expected = expected, actual = actual)
     }
 
-    private fun onTheCurve() = listOf(
-        TextProbe(heightPx = CURVE_HEIGHT_16_SP, markSizeSp = SMALL_SP),
-        TextProbe(heightPx = CURVE_HEIGHT_24_SP, markSizeSp = LARGE_SP),
-    )
-
     private fun assertDrawnOnTheCurve(screen: String) {
         // Arrange
         val expected = onTheCurve()
@@ -109,42 +95,15 @@ class TextRewriteTest {
         assertWithinOnePixel(expected = expected, actual = actual)
     }
 
-    private fun assertWithinOnePixel(expected: List<TextProbe>, actual: List<TextProbe>) {
-        val message = "expected $expected but was $actual"
-        val marks = { probes: List<TextProbe> -> probes.map { probe -> probe.markSizeSp } }
-        assertEquals(expected = marks(expected), actual = marks(actual), message = message)
-        assertEquals(expected = expected.size, actual = actual.size, message = message)
-        expected.zip(actual).forEach { (want, got) ->
-            assertTrue(actual = abs(want.heightPx - got.heightPx) <= ONE_PX, message = message)
-        }
-    }
-
     private companion object {
-        const val RUNNER_FIXTURE = "TextRewriteRunner"
         const val BRIDGE_PACKAGE = "app.bridge.v1"
-        const val CURVE_HEIGHT_16_SP = 59
-        const val CURVE_HEIGHT_24_SP = 77
-        const val STRAIGHT_HEIGHT_16_SP = 61
-        const val STRAIGHT_HEIGHT_24_SP = 91
-        const val SMALL_SP = 16f
-        const val LARGE_SP = 24f
         const val DEFAULT_SP = 14f
-        const val ONE_PX = 1
 
         val compiled: JvmCompilationResult by lazy {
             val bridges = catalog(catalog = TestCatalogs.first, bridgePackage = BRIDGE_PACKAGE)
-            compileRunner(options = producerOptions(bridges))
+            compileTextRunner(options = producerOptions(bridges))
         }
 
-        val compiledWithoutCatalog: JvmCompilationResult by lazy { compileRunner(options = producerOptions()) }
-
-        private fun compileRunner(options: List<Pair<String, String>>): JvmCompilationResult =
-            CompileTestSupport().compile(
-                fixtureName = RUNNER_FIXTURE,
-                options = options,
-                friendPaths = listOf(producerClasses()),
-            ).also { result ->
-                assertEquals(expected = ExitCode.OK, actual = result.exitCode, message = result.messages)
-            }
+        val compiledWithoutCatalog: JvmCompilationResult by lazy { compileTextRunner(options = producerOptions()) }
     }
 }
