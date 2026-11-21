@@ -124,6 +124,8 @@ ssrCompose {
 
 An app that declares no font family has no font bundle, and none of these steps does anything.
 
+The font version resource, like the catalog version and the renderer index, is a Java resource that the plugin adds to each Android variant through the Android Gradle plugin's variant API (`variant.sources.resources`), in `com.android.application`, `com.android.library` and `com.android.kotlin.multiplatform.library` modules. Only the module that sets `catalogVersion` writes it, so an app holds one copy of each path. Its path is defined once, in `core`, outside `META-INF` ([ADR 0022](../../../docs/adr/0022-android-variant-api-for-generated-resources.md)).
+
 In the server's project:
 
 ```kotlin
