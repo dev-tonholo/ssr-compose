@@ -17,25 +17,41 @@ import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.ScreenDocument
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.internal.reader.NotSendableReason
 import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 import dev.tonholo.ssrcompose.producer.internal.text.ScaledTextScene
+import dev.tonholo.ssrcompose.producer.testing.BAND_CURVE
+import dev.tonholo.ssrcompose.producer.testing.BAND_FONT_SCALE
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_HEIGHT_PX
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
+import dev.tonholo.ssrcompose.producer.testing.EMULATOR_CURVE
+import dev.tonholo.ssrcompose.producer.testing.EMULATOR_FONT_SCALE
+import dev.tonholo.ssrcompose.producer.testing.LINE_HEIGHT_SP
+import dev.tonholo.ssrcompose.producer.testing.LIVE_FONT_SCALE
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
+import dev.tonholo.ssrcompose.producer.testing.SMALL_SIZE_SP
 import dev.tonholo.ssrcompose.producer.testing.ShownFrame
 import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.TEST_DENSITY
+import dev.tonholo.ssrcompose.producer.testing.TWO_LINES_TEXT
+import dev.tonholo.ssrcompose.producer.testing.firstText
+import dev.tonholo.ssrcompose.producer.testing.heightOfBasicText
 import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.liveSetup
+import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
 import dev.tonholo.ssrcompose.producer.testing.shown
 import dev.tonholo.ssrcompose.producer.testing.withoutIds
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -362,12 +378,50 @@ class LiveScreenTest {
             }
         }
 
+    @Test
+    fun `given a device that moves into the band, when it changes, then each line is curve of 24 dp high`() = runTest {
+        // Arrange
+        var device by mutableStateOf(value = ScaledTextScene(curve = EMULATOR_CURVE, fontScale = EMULATOR_FONT_SCALE))
+        val style = robotoStyle(sizeSp = SMALL_SIZE_SP).copy(lineHeight = LINE_HEIGHT_SP.sp)
+        val screen = testScreen(setup = denseSetup(), scaledTextScene = { device }) {
+            ScaledBasicText(text = TWO_LINES_TEXT, style = style)
+        }
+        val emulatorSize = EMULATOR_CURVE.spToDp(sp = SMALL_SIZE_SP.toFloat())
+        val proportionalLineHeight = LINE_HEIGHT_SP * emulatorSize / SMALL_SIZE_SP
+        val expectedBefore = heightOfBasicText(curve = EMULATOR_CURVE, lineHeightSp = proportionalLineHeight)
+        val expectedAfter = heightOfBasicText(curve = BAND_CURVE)
+
+        screen.frames().test {
+            // Act
+            val before = awaitItem().textHeightPx()
+            device = ScaledTextScene(curve = BAND_CURVE, fontScale = BAND_FONT_SCALE)
+            val after = awaitItem().textHeightPx()
+
+            // Assert
+            assertEquals(expected = expectedBefore, actual = before)
+            assertEquals(expected = expectedAfter, actual = after)
+        }
+    }
+
+    private fun ScreenFrame.textHeightPx(): Int {
+        assertIs<ScreenFrame.Sent>(this)
+        return (document.root.firstText().height * TEST_DENSITY).roundToInt()
+    }
+
+    private fun denseSetup(): SceneSetup = SceneSetup(
+        widthPx = DEFAULT_SCENE_WIDTH_PX,
+        heightPx = DEFAULT_SCENE_HEIGHT_PX,
+        density = Density(density = TEST_DENSITY, fontScale = LIVE_FONT_SCALE),
+        layoutDirection = LayoutDirection.Ltr,
+    )
+
     private fun TestScope.testScreen(
         setup: SceneSetup = liveSetup(),
+        scaledTextScene: () -> ScaledTextScene = liveScaledTextScene(),
         revisions: Revisions = Revisions(),
         content: @Composable () -> Unit,
     ) = LiveScreen(
-        scaledTextScene = liveScaledTextScene(),
+        scaledTextScene = scaledTextScene,
         content = content,
         setup = setup,
         dispatcher = testDispatcher(),
