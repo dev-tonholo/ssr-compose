@@ -68,13 +68,5 @@ internal class JsonMessageCodec : MessageCodec {
         decode(strategy = ProducerWireMessage.serializer(), payload = frame).toMessage()
 
     private fun <T> decode(strategy: DeserializationStrategy<T>, payload: ByteArray): T =
-        try {
-            val element = json.parseToJsonElement(string = payload.decodeToString())
-            if (element.exceedsNestingDepth(limit = MAX_NESTING_DEPTH)) {
-                throw MessageDecodingException(message = "The frame is nested too deeply")
-            }
-            json.decodeFromJsonElement(deserializer = strategy, element = element)
-        } catch (cause: IllegalArgumentException) {
-            throw MessageDecodingException(message = "The frame is not a message", cause = cause)
-        }
+        json.decodeFrame(strategy = strategy, payload = payload)
 }

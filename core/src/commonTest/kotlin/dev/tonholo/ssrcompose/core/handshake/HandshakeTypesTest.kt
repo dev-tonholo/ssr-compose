@@ -8,13 +8,7 @@ import kotlin.test.assertTrue
 
 class HandshakeTypesTest {
     private val app = AppIdentity(version = "1.0.0", variant = "release", flavor = "")
-    private val portraitDevice = DeviceContext(
-        density = 2.5f,
-        screenWidthPx = 1080,
-        screenHeightPx = 2400,
-        theme = Theme.Light,
-        language = "en-US",
-    )
+    private val portraitDevice = TestDevices.portrait
 
     @Test
     fun `given the four handshake values, when an Introduction is built, then it holds them`() {
@@ -47,7 +41,7 @@ class HandshakeTypesTest {
 
         // Assert
         assertEquals(
-            expected = listOf("contractVersion", "catalogVersion", "app", "device"),
+            expected = listOf("contractVersion", "catalogVersion", "fontVersion", "app", "device"),
             actual = actual,
         )
     }

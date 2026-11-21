@@ -5,9 +5,9 @@ import dev.tonholo.ssrcompose.core.data.DataValue
 import dev.tonholo.ssrcompose.core.handshake.Answer
 import dev.tonholo.ssrcompose.core.handshake.AppIdentity
 import dev.tonholo.ssrcompose.core.handshake.ContractVersion
-import dev.tonholo.ssrcompose.core.handshake.DeviceContext
 import dev.tonholo.ssrcompose.core.handshake.Introduction
 import dev.tonholo.ssrcompose.core.handshake.RefusalKind
+import dev.tonholo.ssrcompose.core.handshake.TestDevices
 import dev.tonholo.ssrcompose.core.handshake.Theme
 import dev.tonholo.ssrcompose.core.message.internal.JsonMessageCodec
 import dev.tonholo.ssrcompose.core.message.internal.MAX_NESTING_DEPTH
@@ -19,13 +19,7 @@ import kotlin.test.assertTrue
 class JsonMessageCodecTest {
     private val codec = JsonMessageCodec()
     private val version = ContractVersion(value = 1)
-    private val device = DeviceContext(
-        density = 2.5f,
-        screenWidthPx = 1080,
-        screenHeightPx = 2400,
-        theme = Theme.Dark,
-        language = "pt-BR",
-    )
+    private val device = TestDevices.portrait.copy(theme = Theme.Dark, language = "pt-BR")
     private val introduce = ConsumerMessage.Introduce(
         introduction = Introduction(
             contractVersion = version,

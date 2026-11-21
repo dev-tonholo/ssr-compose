@@ -123,7 +123,7 @@ A label the app developer sets: 1 to 64 characters of lowercase ASCII letters, d
 
 | Field | Rule |
 |---|---|
-| `family` | a plain identifier of at most 64 characters, never `default` |
+| `family` | a plain identifier of at most 64 characters, never `default`, never a Windows device name in any case, and never differing only by case from another family of the bundle |
 | `weight` | 1 to 1,000 |
 | `italic` | true or false |
 | `file` | always `<family>/<weight>-<normal or italic>.<ttf or otf>` |
@@ -165,6 +165,7 @@ Can change during a session.
 | `theme` | light or dark |
 | `language` | a language tag, at most 35 characters |
 | `fontScale` | the user's font scale, above 0, at most 4 ([research.md R20](research.md#r20-server-rendered-content-194)) |
+| `fontScaleCurve` | the device's own sp to dp curve, sampled at `FontScaleCurve.SAMPLED_SIZES`, since Android 14 and later scale text non-linearly ([research.md R20](research.md#r20-server-rendered-content-194)). 1 to 32 points; each sp above 0 and at most 1,000, strictly increasing; each dp above 0, never smaller than the one before, and at most 10 times its sp. A curve that breaks a rule makes the message unreadable. |
 | `layoutDirection` | `Ltr` or `Rtl` |
 
 ### AppIdentity
@@ -229,9 +230,9 @@ A parameter the screen did not give is absent from `values`, `callbacks` and `sl
 - `Decoration`: `background` (a color, optional), `border` (`width` in dp and `color`, optional), `shape` (`Rectangle`, or `Rounded` with `topStart`, `topEnd`, `bottomEnd`, `bottomStart` in dp).
 - `Click`: `Remote` (`action`, `label` optional, `role` optional) or `Local` (`switcher`, a node id, and `variant`). A local click shows the variant on the device at once, in a box of the largest variant's size, and sends `Switched`; the producer lays out again ([contracts/messages.md](contracts/messages.md#screen-content)).
 - `NodeSemantics`: `description`, `heading`, `role`, each optional.
-- `TextStyleSpec`: `family` (a family name from the session's font bundle, absent for the default family, the bundled Roboto; the producer refuses a server text that names no family), `size` in sp (above 0, at most 1,000), `weight` (1 to 1,000), `italic` (the producer only sends a weight and italic its family has a file for, [ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)), `color`, `lineHeight` in sp (optional), `align` (`Start`, `Center`, `End`, `Justify`).
+- `TextStyleSpec`: `family` (a family name from the session's font bundle, absent for the default family, the bundled Roboto; the producer refuses a server text that names no family), `size` in sp (above 0, at most 1,000), `weight` (1 to 1,000), `italic` (the producer only sends a weight and italic its family has a file for, [ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)), `color`, `lineHeight` in sp (optional, above 0, at most 1,000), `align` (`Start`, `Center`, `End`, `Justify`).
 - `Viewport`: `width` and `height` in dp, each above 0 and at most 100,000.
-- `Measurement`: `id`, `width`, `height`, `slots` (slot name to `SlotSpace`: `maxWidth`, `maxHeight`, null when unbounded). A `ComponentMeasured` holds at most one per app component and at most 10,000 ([contracts/messages.md](contracts/messages.md#rules), rule 5a).
+- `Measurement`: `id`, `width`, `height`, `slots` (slot name to `SlotSpace`: `maxWidth`, `maxHeight`, null when unbounded). At most 118 slots, each name at most 64 characters. A `ComponentMeasured` holds at most one per app component and at most 10,000 ([contracts/messages.md](contracts/messages.md#rules), rule 5a).
 
 Rules checked while decoding, so a document that breaks one is unreadable: sizes finite and not negative, positions finite and within 100,000 dp either way (a position can be negative, where Compose placed a node past its parent's top or left edge), ids unique, a `Local` click names a switcher and a variant the document has, a switcher's `selected` variant exists, and its largest size is at least each variant's box. See [contracts/messages.md](contracts/messages.md#rules), rule 3a.
 
@@ -273,7 +274,7 @@ Used by app and server developers:
 
 - `@ConsumerComposable`, `@ProducerComposable`
 - `CatalogVersion`, `ContractVersion`, `FontBundleVersion`
-- `AppIdentity`, `DeviceContext` (with `Orientation` and `Theme`), `Introduction`, `RefusalKind`
+- `AppIdentity`, `DeviceContext` (with `Orientation`, `Theme`, `LayoutDirection`, `FontScaleCurve` and `FontScalePoint`), `Introduction`, `RefusalKind`
 - `ValueKind`, `DataValue`, `ActionId`
 - `Connection`
 
@@ -284,10 +285,13 @@ Public only because `consumer`, `producer` or `catalog-model` use it across the 
 - `Answer` (with `Accepted` and `Refused`)
 - `ConsumerMessage` and `ProducerMessage`, with their cases
 - `MessageFrame`, `MessageCodec`, `MessageDecodingException`
-- `ScreenDocument`, `DocumentNode` with its cases, `SlotContent`, and the document values above (`DocumentColor`, `Decoration`, `Click`, `NodeSemantics`, `TextStyleSpec`, `Viewport`, `Measurement`)
-- `FontBundleManifest`, `FontEntry` and their reader, used by `tooling` and `producer`
+- `ScreenDocument`, `DocumentNode` with its cases, `SlotContent`, and the document values above (`DocumentColor`, `Decoration`, `Click`, `NodeSemantics` with `NodeRole`, `TextStyleSpec`, `Viewport`, `Measurement` with `SlotSpace`)
 
 The second group carries the opt-in marker `InternalSsrComposeApi` ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)).
+
+`FontBundleManifest`, `FontEntry`, `FontBundleReader` and `FontBundleException` are public too, with no marker: `tooling` and `producer` read the font bundle with them, and ADR 0014 does not list them.
+
+`isKotlinIdentifier`, `isKotlinPackageName` and `MAX_IDENTIFIER_LENGTH` are public too, with no marker: they are the one identifier rule, which `catalog-model` and `compiler-plugin` call and the font bundle reader uses for family names, and those two modules do not opt in.
 
 ## Session (`producer`)
 
