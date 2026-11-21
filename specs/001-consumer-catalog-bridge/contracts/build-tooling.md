@@ -118,7 +118,8 @@ ssrCompose {
 
 | Step | What it does |
 |---|---|
-| `ssrFontBundle` | Writes the font bundle (`fonts.json` and the font files) from the declared families, and the font version into a small generated resource the consumer reads, `ssrcompose/font-version`, as for the catalog version. Cacheable: its inputs are the bytes of each declared file, each declaration's family, weight and italic, and the version, so a changed declaration with the same file and version is not taken from the cache and `ssrFontCheck` sees it. |
+| `ssrFontBundle` | Writes the font bundle (`fonts.json` and the font files) from the declared families. Fails when the `fonts.json` would be over the size cap the reader allows. Cacheable: its inputs are the bytes of each declared file, each declaration's family, weight and italic, and the version, so a changed declaration with the same file and version is not taken from the cache and `ssrFontCheck` sees it. |
+| `ssrFontVersion<Variant>` | One per Android variant, such as `ssrFontVersionDebug`, in the module that declares the fonts. Writes the font version into a small generated resource the consumer reads, `ssrcompose/font-version`, as for the catalog version, and adds it to the variant's Java resources (ADR 0022). Cacheable. It runs before the resources are processed and is not meant to be run by hand. |
 | `ssrFontCheck` | Compares the font bundle with the saved one in `ssr/fonts/<version>/`, byte for byte, and names each file that differs. Fails when any differs, or when no saved bundle exists for that version, with a message that says to run `ssrFontDump`. Part of the normal check and build. |
 | `ssrFontDump` | Writes the font bundle to `ssr/fonts/<version>/` and removes any font file its `fonts.json` does not list. Run on purpose, after changing a font and raising the font version. The folder is committed and published like a catalog. |
 
