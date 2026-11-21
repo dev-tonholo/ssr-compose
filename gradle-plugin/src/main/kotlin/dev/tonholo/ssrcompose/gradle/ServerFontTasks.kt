@@ -10,15 +10,12 @@ import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.language.base.plugins.LifecycleBasePlugin
 
 /**
  * Registers the server's font steps. With no held font bundle, the sync and verify steps are skipped, and the
  * resources step empties its output so that bundles held earlier do not stay in the server's resources.
  */
 internal object ServerFontTasks {
-    private const val GROUP = "ssr"
-    private const val SAVED_FOLDER = "ssr/fonts"
     private const val LOCK_FILE = "ssr/fonts.lock"
     private const val RESOURCES_FOLDER = "ssr/font-resources"
     private const val NO_BUNDLE_REASON = "no font bundle is declared in ssrCompose { fonts { } }"
@@ -28,7 +25,7 @@ internal object ServerFontTasks {
         val bundles = settings.heldBundles.toMap()
         val versions = bundles.keys.toList()
         val hasBundles = bundles.isNotEmpty()
-        val savedRoot = project.layout.projectDirectory.dir(SAVED_FOLDER)
+        val savedRoot = project.layout.projectDirectory.dir(SAVED_FONTS_FOLDER)
         val lockFile = project.layout.projectDirectory.file(LOCK_FILE)
         val sync = project.tasks.register(FontStepNames.SYNC, FontSyncTask::class.java) { task ->
             task.describe(text = "Fetches, checks and pins the held font bundles.", hasBundles = hasBundles)
@@ -44,7 +41,7 @@ internal object ServerFontTasks {
             task.lockFile.set(lockFile)
         }
         val resources = project.tasks.register(FontStepNames.RESOURCES, FontResourcesTask::class.java) { task ->
-            task.describe(text = "Puts the saved font bundles in the server's resources.")
+            task.describeFontStep(text = "Puts the saved font bundles in the server's resources.")
             task.versions.set(versions)
             task.savedBundles.from(savedRoot)
             task.savedRoot.set(savedRoot)
@@ -52,27 +49,14 @@ internal object ServerFontTasks {
             task.lockFiles.from(lockFile)
             task.outputFolder.set(project.layout.buildDirectory.dir(RESOURCES_FOLDER))
         }
-        partOfCheck(project = project, verify = verify)
+        project.addToCheck(task = verify)
         intoMainResources(project = project, resources = resources)
         warnWhenNotWired(project = project, hasBundles = hasBundles)
         return sync
     }
 
-    private fun Task.describe(text: String, hasBundles: Boolean) {
-        describe(text = text)
-        onlyIf(NO_BUNDLE_REASON) { hasBundles }
-    }
-
-    private fun Task.describe(text: String) {
-        group = GROUP
-        description = text
-    }
-
-    private fun partOfCheck(project: Project, verify: TaskProvider<FontVerifyTask>) {
-        project.plugins.withType(LifecycleBasePlugin::class.java) {
-            project.tasks.named(LifecycleBasePlugin.CHECK_TASK_NAME).configure { check -> check.dependsOn(verify) }
-        }
-    }
+    private fun Task.describe(text: String, hasBundles: Boolean) =
+        describeFontStep(text = text, hasWork = hasBundles, skipReason = NO_BUNDLE_REASON)
 
     private fun warnWhenNotWired(project: Project, hasBundles: Boolean) {
         if (hasBundles && !project.plugins.hasPlugin(JavaPlugin::class.java)) {
