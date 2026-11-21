@@ -23,9 +23,8 @@ import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.TextStyleSpec
 import dev.tonholo.ssrcompose.producer.internal.font.RobotoFace
 import dev.tonholo.ssrcompose.producer.internal.font.bundledRobotoFamily
+import dev.tonholo.ssrcompose.producer.internal.text.DEFAULT_FONT_SIZE_SP
 
-/** The size `BasicText` uses for a style with no font size, in sp. */
-internal const val DEFAULT_FONT_SIZE_SP = 14f
 private const val TEXT_SEPARATOR = ""
 private val SENT_OVERFLOWS = mapOf(
     TextOverflow.Clip to DocumentNode.Text.Overflow.Clip,

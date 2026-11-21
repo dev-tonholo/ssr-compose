@@ -30,6 +30,7 @@ import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.NodeSemantics
 import dev.tonholo.ssrcompose.core.document.TextStyleSpec
 import dev.tonholo.ssrcompose.producer.internal.font.bundledRobotoFamily
+import dev.tonholo.ssrcompose.producer.internal.text.DEFAULT_FONT_SIZE_SP
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_HEIGHT_PX
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
 import dev.tonholo.ssrcompose.producer.testing.READ_DENSITY
