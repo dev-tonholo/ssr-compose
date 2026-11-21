@@ -17,7 +17,10 @@ internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
     override fun apply(target: Project) {
         val extension = target.extensions.create(EXTENSION_NAME, SsrComposeExtension::class.java)
         target.afterEvaluate {
-            SyncHook.registerIfProducer(project = target, extension = extension)
+            if (extension.isProducerConfigured()) {
+                val fontSync = ServerFontTasks.register(project = target, settings = extension.fontSettings)
+                SyncHook.register(project = target, alsoOnSync = fontSync)
+            }
         }
     }
 

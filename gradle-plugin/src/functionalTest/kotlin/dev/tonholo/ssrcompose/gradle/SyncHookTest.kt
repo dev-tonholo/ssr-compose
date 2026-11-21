@@ -15,7 +15,7 @@ class SyncHookTest {
     lateinit var projectDir: File
 
     @Test
-    fun `given a producer block, when sync triggers are inspected, then afterSync exports ssrCatalogSync`() {
+    fun `given a producer block, when sync triggers are inspected, then afterSync exports both syncs`() {
         // Arrange
         val fixture = FixtureProject(projectDir)
             .configure(
@@ -28,7 +28,7 @@ class SyncHookTest {
 
         // Assert
         val afterSyncTasks = parseAfterSyncEntries(result.output)
-        assertEquals(expected = listOf(SYNC_TASK_NAME), actual = afterSyncTasks.map { it.first })
+        assertEquals(expected = listOf(SYNC_TASK_NAME, FONT_SYNC_TASK_NAME), actual = afterSyncTasks.map { it.first })
     }
 
     @Test
@@ -85,11 +85,11 @@ class SyncHookTest {
         assertEquals(expected = TaskOutcome.SUCCESS, actual = firstRun.task(EXPECTED_SYNC_TASK_PATH)?.outcome)
         assertEquals(expected = TaskOutcome.SUCCESS, actual = secondRun.task(EXPECTED_SYNC_TASK_PATH)?.outcome)
         val afterSyncTasks = parseAfterSyncEntries(secondRun.output)
-        assertEquals(expected = listOf(SYNC_TASK_NAME), actual = afterSyncTasks.map { it.first })
+        assertEquals(expected = listOf(SYNC_TASK_NAME, FONT_SYNC_TASK_NAME), actual = afterSyncTasks.map { it.first })
     }
 
     @Test
-    fun `given a multi-module server, when root sync triggers are inspected, then afterSync exports server sync`() {
+    fun `given a multi-module server, when root sync triggers are inspected, then afterSync exports server syncs`() {
         // Arrange
         val fixture = FixtureProject(projectDir)
             .addFile(relativePath = "settings.gradle.kts", text = multiModuleSettingsScript())
@@ -102,9 +102,9 @@ class SyncHookTest {
 
         // Assert
         val afterSyncEntries = parseAfterSyncEntries(inspectResult.output)
-        assertEquals(expected = listOf(SYNC_TASK_NAME), actual = afterSyncEntries.map { it.first })
+        assertEquals(expected = listOf(SYNC_TASK_NAME, FONT_SYNC_TASK_NAME), actual = afterSyncEntries.map { it.first })
         assertEquals(
-            expected = listOf(File(projectDir, "server").canonicalPath),
+            expected = List(size = 2) { File(projectDir, "server").canonicalPath },
             actual = afterSyncEntries.map { File(it.second).canonicalPath },
         )
         assertEquals(expected = TaskOutcome.SUCCESS, actual = syncResult.task(SERVER_SYNC_TASK_PATH)?.outcome)
@@ -153,6 +153,7 @@ class SyncHookTest {
 
     private companion object {
         const val SYNC_TASK_NAME = "ssrCatalogSync"
+        const val FONT_SYNC_TASK_NAME = "ssrFontSync"
         const val EXPECTED_SYNC_TASK_PATH = ":$SYNC_TASK_NAME"
         const val SERVER_SYNC_TASK_PATH = ":server:$SYNC_TASK_NAME"
         const val COMPILE_TASK_PATH = ":compileKotlin"

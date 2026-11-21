@@ -20,10 +20,10 @@ internal object SyncHook {
         "idea-ext was applied on the root project, but its taskTriggers API was not found; " +
             "IDE sync will not run ssrCatalogSync automatically."
 
-    fun registerIfProducer(project: Project, extension: SsrComposeExtension) {
-        if (!extension.isProducerConfigured()) return
+    /** Registers `ssrCatalogSync` and runs it, then [alsoOnSync], on IDE sync. */
+    fun register(project: Project, alsoOnSync: TaskProvider<out Task>) {
         val syncTask = registerStandInSyncTask(project)
-        wireIdeaAfterSync(project = project, syncTask = syncTask)
+        wireIdeaAfterSync(project = project, syncTasks = listOf(syncTask, alsoOnSync))
     }
 
     private fun registerStandInSyncTask(project: Project): TaskProvider<Task> =
@@ -35,7 +35,7 @@ internal object SyncHook {
             }
         }
 
-    private fun wireIdeaAfterSync(project: Project, syncTask: TaskProvider<Task>) {
+    private fun wireIdeaAfterSync(project: Project, syncTasks: List<TaskProvider<out Task>>) {
         val rootProject = project.rootProject
         rootProject.plugins.apply(IdeaExtPlugin::class.java)
         val taskTriggers = findTaskTriggers(rootProject)
@@ -43,7 +43,7 @@ internal object SyncHook {
             project.logger.warn(MISSING_TRIGGER_API_WARNING)
             return
         }
-        taskTriggers.afterSync(syncTask)
+        taskTriggers.afterSync(*syncTasks.toTypedArray())
     }
 
     private fun findTaskTriggers(rootProject: Project): TaskTriggersConfig? =
