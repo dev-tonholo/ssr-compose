@@ -8,21 +8,29 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.unit.Density
 import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.ScreenDocument
+import dev.tonholo.ssrcompose.core.handshake.FontScaleCurve
 
 /**
  * Reads what a scene composed, measured and placed into a positioned document, from the unmerged semantics trees
  * under [roots], one per window. A screen that opens a popup or a dialog has several, and is not sendable. A node with
  * nothing to draw, no click and no semantics is left out, and its children are placed in the node it would have been
  * sent in. Clicks are not sent yet.
+ *
+ * A text must have been laid out by `ScaledBasicText` on [fontScaleCurve] at [density].
  */
-internal fun readScreen(roots: List<SemanticsNode>, density: Density): ScreenRead = try {
+internal fun readScreen(
+    roots: List<SemanticsNode>,
+    density: Density,
+    fontScaleCurve: FontScaleCurve,
+): ScreenRead = try {
     val root = roots.singleOrNull() ?: refuse(reason = NotSendableReason.SeveralWindows)
-    ScreenRead.Document(document = ScreenDocument(root = NodeReader(density = density).readRoot(root = root)))
+    val reader = NodeReader(density = density, fontScaleCurve = fontScaleCurve)
+    ScreenRead.Document(document = ScreenDocument(root = reader.readRoot(root = root)))
 } catch (refusal: NotSendableException) {
     ScreenRead.NotSendable(reason = refusal.reason)
 }
 
-private class NodeReader(private val density: Density) {
+private class NodeReader(private val density: Density, private val fontScaleCurve: FontScaleCurve) {
     fun readRoot(root: SemanticsNode): DocumentNode.Box {
         val box = root.ownBox()
         return box.toBox(id = root.id, parent = box, children = readChildren(node = root, parent = box))
@@ -50,7 +58,11 @@ private class NodeReader(private val density: Density) {
 
     private fun SemanticsNode.readTextIn(parent: NodeBox, decorated: DecoratedBox?): DocumentNode.Text {
         if (decorated != null) refuse(reason = NotSendableReason.TextWithDecoration)
-        return readText(placement = ownBox().placedIn(parent = parent, density = density.density))
+        return readText(
+            placement = ownBox().placedIn(parent = parent, density = density.density),
+            fontScaleCurve = fontScaleCurve,
+            density = density,
+        )
     }
 
     private fun SemanticsNode.readScrollIn(

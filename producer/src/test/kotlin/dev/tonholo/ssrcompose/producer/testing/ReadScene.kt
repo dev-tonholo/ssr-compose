@@ -18,7 +18,9 @@ internal fun readSceneOf(
     spec: SceneSpec = SceneSpec(density = Density(density = READ_DENSITY)),
     content: @Composable () -> Unit,
 ): ScreenRead = withRenderedScene(spec = spec, content = content) { scene ->
-    scene.read { roots -> readScreen(roots = roots, density = scene.density) }
+    scene.read { roots ->
+        readScreen(roots = roots, density = scene.density, fontScaleCurve = scene.fontScaleCurve)
+    }
 }
 
 internal fun documentOf(
