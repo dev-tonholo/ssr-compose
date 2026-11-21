@@ -29,6 +29,7 @@ class PluginStepScaleTest {
 
         // Assert
         assertEquals(expected = SMALL_CALLED, actual = scenario.createdBridgeCount(result = result))
+        assertEquals(expected = SMALL_FILES, actual = module.filesCallingScaledText(result = result))
         assertEquals(expected = REQUIRED_STEPS, actual = clock.measured.keys)
     }
 
@@ -111,6 +112,7 @@ class PluginStepScaleTest {
             PluginStep.DeclareBridges,
             PluginStep.CreateBridgeBodies,
             PluginStep.CheckCalls,
+            PluginStep.RewriteText,
         )
     }
 }

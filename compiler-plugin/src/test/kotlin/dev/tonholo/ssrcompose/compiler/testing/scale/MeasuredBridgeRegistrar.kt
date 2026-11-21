@@ -11,6 +11,7 @@ import dev.tonholo.ssrcompose.compiler.producer.ir.BridgeIrGenerationExtension
 import dev.tonholo.ssrcompose.compiler.producer.scan.ComponentNameSource
 import dev.tonholo.ssrcompose.compiler.producer.scan.ScanRoots
 import dev.tonholo.ssrcompose.compiler.producer.scan.SourceNameScan
+import dev.tonholo.ssrcompose.compiler.producer.text.TextRewriteIrExtension
 import java.io.File
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -59,9 +60,16 @@ internal class MeasuredBridgeRegistrar(
         val load = loader.load(options = catalogs)
         clock.stop(step = PluginStep.DecodeNamedComponents)
         check(load.problems.isEmpty()) { load.problems.joinToString(separator = "\n") }
+        IrGenerationExtension.registerExtension(
+            MeasuredIrExtension(delegate = TextRewriteIrExtension(), step = PluginStep.RewriteText, clock = clock),
+        )
         FirExtensionRegistrarAdapter.registerExtension(MeasuredFirRegistrar(catalogs = load.catalogs, clock = clock))
         IrGenerationExtension.registerExtension(
-            MeasuredIrExtension(delegate = BridgeIrGenerationExtension(catalogs = load.catalogs), clock = clock),
+            MeasuredIrExtension(
+                delegate = BridgeIrGenerationExtension(catalogs = load.catalogs),
+                step = PluginStep.CreateBridgeBodies,
+                clock = clock,
+            ),
         )
     }
 }
@@ -144,10 +152,11 @@ private class MeasuredChecker<E : FirStatement>(
 
 private class MeasuredIrExtension(
     private val delegate: IrGenerationExtension,
+    private val step: PluginStep,
     private val clock: PluginStepClock,
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
-        clock.measure(step = PluginStep.CreateBridgeBodies) {
+        clock.measure(step = step) {
             delegate.generate(moduleFragment = moduleFragment, pluginContext = pluginContext)
         }
     }

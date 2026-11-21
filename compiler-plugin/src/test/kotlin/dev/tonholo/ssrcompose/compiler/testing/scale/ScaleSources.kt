@@ -66,7 +66,7 @@ $callers
 """
     }
 
-    /** One source file of a large module: [functions] plain functions that call no bridge. */
+    /** One source file of a large module: a text and [functions] plain functions that call no bridge. */
     fun plainFile(fileIndex: Int, functions: Int): String {
         val body = List(size = functions) { index ->
             // language=kotlin
@@ -75,7 +75,11 @@ $callers
             function
         }.joinToString(separator = LINE_BREAK)
         // language=kotlin
-        return "package scale.large\n\n$body"
+        val text = "@Composable\nfun file${fileIndex}Text() {\n    BasicText(text = \"$fileIndex\")\n}\n"
+        // language=kotlin
+        val imports = "import androidx.compose.foundation.text.BasicText\nimport androidx.compose.runtime.Composable"
+        // language=kotlin
+        return "package scale.large\n\n$imports\n\n$text\n$body"
     }
 
     private fun screenOf(components: List<ComponentDescriptor>): String {

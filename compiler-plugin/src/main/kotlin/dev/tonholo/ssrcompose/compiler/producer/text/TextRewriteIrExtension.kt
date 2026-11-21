@@ -11,7 +11,7 @@ internal fun ExtensionStorage.registerTextRewrite() {
     IrGenerationExtension.registerExtension(TextRewriteIrExtension())
 }
 
-private class TextRewriteIrExtension : IrGenerationExtension {
+internal class TextRewriteIrExtension : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
         val overloads = ScaledTextOverloads(context = pluginContext)
         if (!overloads.isAvailable) return
