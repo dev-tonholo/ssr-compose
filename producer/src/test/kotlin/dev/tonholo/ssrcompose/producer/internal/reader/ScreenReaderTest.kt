@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -29,6 +28,7 @@ import dev.tonholo.ssrcompose.core.document.DocumentColor
 import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.NodeSemantics
 import dev.tonholo.ssrcompose.core.document.TextStyleSpec
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.internal.font.bundledRobotoFamily
 import dev.tonholo.ssrcompose.producer.internal.text.DEFAULT_FONT_SIZE_SP
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_HEIGHT_PX
@@ -145,7 +145,7 @@ class ScreenReaderTest {
 
         // Act
         val actual = documentOf {
-            BasicText(
+            ScaledBasicText(
                 text = TEXT,
                 modifier = Modifier.padding(OUTER_PADDING_DP.dp),
                 style = style,
@@ -183,7 +183,7 @@ class ScreenReaderTest {
 
         // Act
         val actual = documentOf {
-            BasicText(text = TEXT, style = TextStyle(fontFamily = bundledRobotoFamily()))
+            ScaledBasicText(text = TEXT, style = TextStyle(fontFamily = bundledRobotoFamily()))
         }.root.children.map { (it as DocumentNode.Text).style }
 
         // Assert
