@@ -16,9 +16,10 @@ internal data class SemanticsSummary(
     val children: List<SemanticsSummary>,
 )
 
-internal fun ScreenScene.rootChildNodes(): List<SemanticsNode> = root.children
+internal fun ScreenScene.rootChildNodes(): List<SemanticsNode> = read { roots -> roots.single().children }
 
-internal fun ScreenScene.rootChildrenSummary(): List<SemanticsSummary> = root.children.map { it.toSummary() }
+internal fun ScreenScene.rootChildrenSummary(): List<SemanticsSummary> =
+    read { roots -> roots.single().children.map { it.toSummary() } }
 
 private fun SemanticsNode.toSummary(): SemanticsSummary = SemanticsSummary(
     text = config.getOrNull(SemanticsProperties.Text)?.joinToString(separator = "") { it.text },
