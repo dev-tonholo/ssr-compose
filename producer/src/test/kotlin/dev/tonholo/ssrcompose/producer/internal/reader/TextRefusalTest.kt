@@ -1,6 +1,5 @@
 package dev.tonholo.ssrcompose.producer.internal.reader
 
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -15,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import dev.tonholo.ssrcompose.core.document.DocumentNode
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.documentOf
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
@@ -44,7 +44,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertIs<ScreenRead.Document>(value = actual)
@@ -57,7 +57,7 @@ class TextRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(fontSize = DOUBLE_SIZE_EM.em))
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(fontSize = DOUBLE_SIZE_EM.em))
         }
 
         // Assert
@@ -71,7 +71,7 @@ class TextRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_EM.em))
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_EM.em))
         }
 
         // Assert
@@ -85,7 +85,7 @@ class TextRefusalTest {
 
         // Act
         val actual = documentOf {
-            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_SP.sp))
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_SP.sp))
         }.root.children.map { (it as DocumentNode.Text).style.lineHeight }
 
         // Assert
@@ -112,7 +112,9 @@ class TextRefusalTest {
         val overflow = TextOverflow.Visible
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), overflow = overflow) }
+        val actual = readSceneOf {
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), overflow = overflow)
+        }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -125,7 +127,7 @@ class TextRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), overflow = overflow, maxLines = ONE_LINE)
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), overflow = overflow, maxLines = ONE_LINE)
         }
 
         // Assert
@@ -139,7 +141,7 @@ class TextRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), overflow = overflow, maxLines = ONE_LINE)
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), overflow = overflow, maxLines = ONE_LINE)
         }
 
         // Assert
@@ -152,7 +154,9 @@ class TextRefusalTest {
         val softWrap = false
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), softWrap = softWrap) }
+        val actual = readSceneOf {
+            ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP), softWrap = softWrap)
+        }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -164,7 +168,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP).copy(letterSpacing = LETTER_SPACING_SP.sp)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -176,7 +180,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP).copy(textDecoration = TextDecoration.Underline)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -188,7 +192,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP).copy(brush = GRADIENT)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -205,7 +209,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP).copy(shadow = shadow)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -217,7 +221,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP).copy(baselineShift = BaselineShift.Superscript)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -229,7 +233,7 @@ class TextRefusalTest {
         val style = robotoStyle(TEXT_SIZE_SP).copy(textIndent = TextIndent(firstLine = INDENT_SP.sp))
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -241,7 +245,7 @@ class TextRefusalTest {
         val style = robotoStyle(sizeSp = TEXT_SIZE_SP).copy(background = Color.Yellow)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -254,7 +258,7 @@ class TextRefusalTest {
         val style = robotoStyle(sizeSp = TEXT_SIZE_SP).copy(textGeometricTransform = stretch)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)
@@ -266,7 +270,7 @@ class TextRefusalTest {
         val style = robotoStyle(sizeSp = TEXT_SIZE_SP).copy(drawStyle = Stroke(width = STROKE_WIDTH_PX))
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNSUPPORTED_STYLE, actual = actual)

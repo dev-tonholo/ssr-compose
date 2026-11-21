@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -92,7 +92,7 @@ class ScreenReaderRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            LazyColumn { items(count = LAZY_ROWS) { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) } }
+            LazyColumn { items(count = LAZY_ROWS) { ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) } }
         }
 
         // Assert
@@ -119,7 +119,7 @@ class ScreenReaderRefusalTest {
         val expected = ScreenRead.NotSendable(reason = NotSendableReason.NoFontFamily)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT) }
 
         // Assert
         assertEquals(expected = expected, actual = actual)
@@ -131,7 +131,7 @@ class ScreenReaderRefusalTest {
         val expected = ScreenRead.NotSendable(reason = NotSendableReason.NoFontFamily)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = TextStyle(fontFamily = FontFamily.Default)) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = TextStyle(fontFamily = FontFamily.Default)) }
 
         // Assert
         assertEquals(expected = expected, actual = actual)
@@ -143,7 +143,7 @@ class ScreenReaderRefusalTest {
         val expected = ScreenRead.NotSendable(reason = NotSendableReason.UnknownFontFamily)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = TextStyle(fontFamily = FontFamily.Serif)) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = TextStyle(fontFamily = FontFamily.Serif)) }
 
         // Assert
         assertEquals(expected = expected, actual = actual)
@@ -159,7 +159,7 @@ class ScreenReaderRefusalTest {
         }
 
         // Act
-        val actual = readSceneOf { BasicText(text = text, style = robotoStyle(TEXT_SIZE_SP)) }
+        val actual = readSceneOf { ScaledBasicText(text = text, style = robotoStyle(TEXT_SIZE_SP)) }
 
         // Assert
         assertEquals(expected = expected, actual = actual)
@@ -172,7 +172,7 @@ class ScreenReaderRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            BasicText(
+            ScaledBasicText(
                 text = TEXT,
                 modifier = Modifier.background(Color.Red).padding(PADDING_DP.dp),
                 style = robotoStyle(TEXT_SIZE_SP),
@@ -289,7 +289,7 @@ class ScreenReaderRefusalTest {
         // Act
         val actual = readSceneOf {
             Box(Modifier.size(SIZE_DP.dp))
-            Popup { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) }
+            Popup { ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) }
         }
 
         // Assert
@@ -304,7 +304,7 @@ class ScreenReaderRefusalTest {
         // Act
         val actual = readSceneOf {
             Box(Modifier.size(SIZE_DP.dp))
-            Dialog(onDismissRequest = {}) { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) }
+            Dialog(onDismissRequest = {}) { ScaledBasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) }
         }
 
         // Assert

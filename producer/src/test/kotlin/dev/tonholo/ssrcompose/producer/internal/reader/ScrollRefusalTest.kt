@@ -4,11 +4,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -65,7 +65,7 @@ class ScrollRefusalTest {
 
         // Act
         val actual = readSceneOf {
-            BasicText(
+            ScaledBasicText(
                 text = LONG_TEXT,
                 modifier = Modifier.size(VIEWPORT_DP.dp).verticalScroll(rememberScrollState()),
                 style = robotoStyle(sizeSp = TEXT_SIZE_SP),

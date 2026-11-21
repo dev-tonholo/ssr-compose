@@ -1,10 +1,10 @@
 package dev.tonholo.ssrcompose.producer.testing
 
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import dev.tonholo.ssrcompose.core.document.DocumentNode
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.internal.ScreenFrame
 import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 
@@ -13,7 +13,7 @@ private const val SHOWN_TEXT_SIZE_SP = 14
 /** A text a test screen shows, in the bundled Roboto so the reader can send it. */
 @Composable
 internal fun ShownText(text: String) {
-    BasicText(text = text, style = robotoStyle(sizeSp = SHOWN_TEXT_SIZE_SP))
+    ScaledBasicText(text = text, style = robotoStyle(sizeSp = SHOWN_TEXT_SIZE_SP))
 }
 
 internal fun liveSetup(layoutDirection: LayoutDirection = LayoutDirection.Ltr): SceneSetup = SceneSetup(

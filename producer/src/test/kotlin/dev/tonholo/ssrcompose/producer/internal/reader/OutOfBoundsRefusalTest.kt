@@ -5,10 +5,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -55,7 +55,7 @@ class OutOfBoundsRefusalTest {
         val style = robotoStyle(sizeSp = OVERSIZED_TEXT_SP)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = OUT_OF_BOUNDS, actual = actual)
@@ -81,7 +81,7 @@ class OutOfBoundsRefusalTest {
         val style = robotoStyle(sizeSp = TEXT_SIZE_SP)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertIs<ScreenRead.Document>(value = actual)

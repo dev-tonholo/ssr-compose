@@ -1,8 +1,8 @@
 package dev.tonholo.ssrcompose.producer.internal.reader
 
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -32,7 +32,7 @@ class TextFaceRefusalTest {
         // Act
         val actual = faces.map { (weight, style) ->
             readSceneOf {
-                BasicText(
+                ScaledBasicText(
                     text = TEXT,
                     style = robotoStyle(sizeSp = TEXT_SIZE_SP, weight = FontWeight(weight)).copy(fontStyle = style),
                 )
@@ -49,7 +49,7 @@ class TextFaceRefusalTest {
         val style = robotoStyle(sizeSp = TEXT_SIZE_SP, weight = FontWeight(LIGHT))
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNAVAILABLE_FACE, actual = actual)
@@ -61,7 +61,7 @@ class TextFaceRefusalTest {
         val style = robotoStyle(sizeSp = TEXT_SIZE_SP, weight = FontWeight(MEDIUM)).copy(fontStyle = FontStyle.Italic)
 
         // Act
-        val actual = readSceneOf { BasicText(text = TEXT, style = style) }
+        val actual = readSceneOf { ScaledBasicText(text = TEXT, style = style) }
 
         // Assert
         assertEquals(expected = UNAVAILABLE_FACE, actual = actual)

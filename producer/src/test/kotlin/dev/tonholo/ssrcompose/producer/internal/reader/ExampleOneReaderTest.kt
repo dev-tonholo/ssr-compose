@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -21,6 +20,7 @@ import dev.tonholo.ssrcompose.core.document.Decoration
 import dev.tonholo.ssrcompose.core.document.DocumentColor
 import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.TextStyleSpec
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.SceneSpec
 import dev.tonholo.ssrcompose.producer.testing.documentOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
@@ -68,7 +68,7 @@ class ExampleOneReaderTest {
                         .clickable {}
                         .padding(SCREEN_PADDING_DP.dp),
                 ) {
-                    BasicText(
+                    ScaledBasicText(
                         text = CARD_TEXT,
                         style = robotoStyle(sizeSp = CARD_TEXT_SIZE_SP, weight = FontWeight.Medium)
                             .copy(color = Color.White),
@@ -76,7 +76,7 @@ class ExampleOneReaderTest {
                     )
                 }
                 Spacer(Modifier.height(SCREEN_PADDING_DP.dp))
-                BasicText(
+                ScaledBasicText(
                     text = FOOTER_TEXT,
                     modifier = Modifier.fillMaxWidth(),
                     style = robotoStyle(sizeSp = FOOTER_TEXT_SIZE_SP).copy(color = FOOTER_COLOR),
