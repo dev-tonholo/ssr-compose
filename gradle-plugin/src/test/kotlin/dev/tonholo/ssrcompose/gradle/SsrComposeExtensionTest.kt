@@ -27,6 +27,45 @@ class SsrComposeExtensionTest {
     }
 
     @Test
+    fun `given a family and then a bundle, when declared, then it fails saying where each belongs`() {
+        // Arrange
+        val location = "https://example.com/ssr/fonts/1/fonts.json"
+
+        // Act
+        val failure = assertFailsWith<IllegalStateException> {
+            extension.fonts { fonts ->
+                fonts.family(name = "brand") { }
+                fonts.bundle(version = "1", location = location)
+            }
+        }
+
+        // Assert
+        assertNamesWhereEachBelongs(message = failure.message.orEmpty())
+    }
+
+    @Test
+    fun `given a bundle and then a family, when declared, then it fails saying where each belongs`() {
+        // Arrange
+        val location = "https://example.com/ssr/fonts/1/fonts.json"
+
+        // Act
+        val failure = assertFailsWith<IllegalStateException> {
+            extension.fonts { fonts ->
+                fonts.bundle(version = "1", location = location)
+                fonts.family(name = "brand") { }
+            }
+        }
+
+        // Assert
+        assertNamesWhereEachBelongs(message = failure.message.orEmpty())
+    }
+
+    private fun assertNamesWhereEachBelongs(message: String) {
+        assertTrue(actual = message.contains("bundle() belongs to the server"), message = message)
+        assertTrue(actual = message.contains("family() to the app"), message = message)
+    }
+
+    @Test
     fun `given two font bundles with the same version, when declared, then it fails naming the version`() {
         // Arrange
         val location = "https://example.com/ssr/fonts/1/fonts.json"
