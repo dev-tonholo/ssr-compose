@@ -21,6 +21,9 @@ internal class SsrComposePlugin : KotlinCompilerPluginSupportPlugin {
                 val fontSync = ServerFontTasks.register(project = target, settings = extension.fontSettings)
                 SyncHook.register(project = target, alsoOnSync = fontSync)
             }
+            if (extension.isConsumerConfigured()) {
+                AppFontTasks.register(project = target, settings = extension.fontSettings)
+            }
         }
     }
 

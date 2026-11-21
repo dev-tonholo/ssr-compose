@@ -39,6 +39,8 @@ public abstract class SsrComposeExtension @Inject constructor(objects: ObjectFac
         action.execute(fontSettings)
     }
 
+    internal fun isConsumerConfigured(): Boolean = consumerConfigured && !producerConfigured
+
     internal fun isProducerConfigured(): Boolean = producerConfigured && !consumerConfigured
 
     internal fun resolveMode(): CompilerPluginMode =
