@@ -17,6 +17,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.roboto.fonts) { isTransitive = false }
 
+    testImplementation(libs.kotlin.metadata.jvm)
     testRuntimeOnly(libs.skiko.runtime.macos.arm64)
     testRuntimeOnly(libs.skiko.runtime.linux.x64)
 }
