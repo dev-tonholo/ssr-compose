@@ -7,6 +7,7 @@ import org.jetbrains.kotlin.name.Name
 
 internal object ProducerNames {
     private val producerPackage = FqName("dev.tonholo.ssrcompose.producer")
+    private val foundationTextPackage = FqName("androidx.compose.foundation.text")
     private val composeInternalPackage = FqName("androidx.compose.runtime.internal")
     private val coreAnnotationPackage = FqName("dev.tonholo.ssrcompose.core.annotation")
     private val coreCatalogPackage = FqName("dev.tonholo.ssrcompose.core.catalog")
@@ -23,6 +24,8 @@ internal object ProducerNames {
     val markerClass: Name = Name.identifier("markerClass")
     val message: Name = Name.identifier("message")
     val consumerComponent = CallableId(producerPackage, Name.identifier("ConsumerComponent"))
+    val basicText = CallableId(foundationTextPackage, Name.identifier("BasicText"))
+    val scaledBasicText = CallableId(producerPackage, Name.identifier("ScaledBasicText"))
     val catalogVersion = ClassId(coreCatalogPackage, Name.identifier("CatalogVersion"))
     val textValue = ClassId(coreDataPackage, FqName("DataValue.Text"), isLocal = false)
     val pair = ClassId(kotlinPackage, Name.identifier("Pair"))

@@ -28,6 +28,8 @@ dependencies {
     testImplementation(libs.compose.runtime)
     testImplementation(libs.kotlin.compile.testing)
     testImplementation(projects.producer)
+    testRuntimeOnly(libs.skiko.runtime.macos.arm64)
+    testRuntimeOnly(libs.skiko.runtime.linux.x64)
     testImplementation(testFixtures(projects.catalogModel))
 }
 
