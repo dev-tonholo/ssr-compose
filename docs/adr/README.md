@@ -30,4 +30,5 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0018](0018-local-switcher-for-interactions-without-a-round-trip.md) | A local switcher is the minimal interaction with no round trip | Accepted |
 | [0019](0019-contract-version-1-carries-the-document.md) | Contract version 1 carries the server-rendered document | Accepted |
 | [0020](0020-bundle-roboto-as-the-default-font.md) | Bundle Roboto as the default font | Accepted |
+| [0021](0021-producer-runs-every-scene-on-one-scene-thread.md) | The producer runs every scene on one scene thread | Proposed |
 | [0022](0022-android-variant-api-for-generated-resources.md) | Add generated resources to Android variants through the Android Gradle plugin's variant API | Proposed |
