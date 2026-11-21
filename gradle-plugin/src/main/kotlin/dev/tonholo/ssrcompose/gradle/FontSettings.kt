@@ -14,6 +14,9 @@ public abstract class FontSettings @Inject constructor(private val objects: Obje
     internal val heldBundles: MutableMap<String, String> = linkedMapOf()
     internal val families: MutableList<FontFamilySettings> = mutableListOf()
 
+    internal val hasFonts: Boolean
+        get() = families.any { family -> family.fonts.isNotEmpty() }
+
     /** The version of the app's font bundle. Raise it whenever a declared font changes. */
     public abstract val version: Property<String>
 

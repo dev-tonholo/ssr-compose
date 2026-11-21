@@ -14,7 +14,7 @@ internal object AppFontTasks {
     private const val NO_FONT_REASON = "no font family is declared in ssrCompose { fonts { } }"
 
     fun register(project: Project, settings: FontSettings) {
-        val hasFonts = settings.families.any { family -> family.fonts.isNotEmpty() }
+        val hasFonts = settings.hasFonts
         val version = settings.version.orElse("")
         val savedRoot = project.layout.projectDirectory.dir(SAVED_FONTS_FOLDER)
         val bundle = project.tasks.register(FontStepNames.BUNDLE, FontBundleTask::class.java) { task ->
