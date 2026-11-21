@@ -1,62 +1,95 @@
 package dev.tonholo.ssrcompose.producer.internal
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Composition
-import androidx.compose.runtime.Recomposer
-import dev.tonholo.ssrcompose.core.message.ScreenContent
-import dev.tonholo.ssrcompose.producer.internal.content.toScreenContent
-import dev.tonholo.ssrcompose.producer.internal.frame.ImmediateFrameClock
+import dev.tonholo.ssrcompose.producer.internal.reader.ScreenRead
+import dev.tonholo.ssrcompose.producer.internal.reader.readScreen
+import dev.tonholo.ssrcompose.producer.internal.scene.FrameTimeSource
+import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
+import dev.tonholo.ssrcompose.producer.internal.scene.ScreenScene
+import dev.tonholo.ssrcompose.producer.internal.scene.WakingDispatcher
+import dev.tonholo.ssrcompose.producer.internal.scene.sceneDispatcher
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
-import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 
+private val FRAME_INTERVAL = 16.milliseconds
+
 /**
- * One screen of one session, kept alive while something collects [contents].
+ * One screen of one session, hosted in a scene while something collects [frames].
  *
  * @param content the screen, as the server developer wrote it.
- * @param dispatcher runs the composition. It must run one thing at a time, as a composition is not thread safe.
+ * @param setup the size, density and direction the scene lays the screen out with.
+ * @param dispatcher creates, drives and closes the scene, and runs its effects. By default the producer's one scene
+ * thread; a test may pass its own, which must run one thing at a time.
  * @param notifier tells the screen about state writes.
+ * @param revisions numbers the documents sent.
+ * @param frameTime gives the scene the time of each frame it renders.
+ * @param framePause waits between two frames of a screen that keeps asking for frames, 16 ms by default.
  */
 internal class LiveScreen(
     private val content: @Composable () -> Unit,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(parallelism = 1),
+    private val setup: SceneSetup,
+    private val dispatcher: CoroutineDispatcher = sceneDispatcher,
     private val notifier: SnapshotNotifier = SnapshotNotifier.shared,
+    private val revisions: Revisions = Revisions(),
+    private val frameTime: FrameTimeSource = FrameTimeSource.Monotonic,
+    private val framePause: suspend () -> Unit = { delay(FRAME_INTERVAL) },
 ) {
     /**
-     * Composes the screen for each collector and emits its content, then again whenever a state it reads changes
-     * and the content differs from the last one sent. A collector that falls behind gets the latest content only.
-     * The composition is disposed when the collector cancels.
+     * Lays the screen out for each collector and emits what it shows, then again whenever a state it reads changes
+     * or an effect asks for a frame, and what it shows differs from the last frame. While an effect keeps asking for
+     * frames, such as an animation, the scene renders one frame per 16 ms. A collector that falls behind gets the
+     * latest frame only.
+     * The flow fails with the error of a composition or an effect that throws. The scene is closed when the flow
+     * ends, however it ends.
      */
-    fun contents(): Flow<ScreenContent> =
-        channelFlow { compose() }
+    fun frames(): Flow<ScreenFrame> =
+        channelFlow { host() }
             .buffer(Channel.CONFLATED)
             .flowOn(dispatcher)
-            .distinctUntilChanged()
 
-    private suspend fun ProducerScope<ScreenContent>.compose() {
-        val root = PlacedNode.Root()
-        val recomposer = Recomposer(coroutineContext)
-        val composition = Composition(
-            applier = ScreenApplier(root = root, onChangesApplied = { trySend(root.toScreenContent()) }),
-            parent = recomposer,
-        )
+    private suspend fun ProducerScope<ScreenFrame>.host() {
+        val changes = Channel<Unit>(capacity = Channel.CONFLATED)
         launch(start = CoroutineStart.UNDISPATCHED) { notifier.applyWritesWhileWaiting() }
-        launch(context = ImmediateFrameClock, start = CoroutineStart.UNDISPATCHED) {
-            recomposer.runRecomposeAndApplyChanges()
+        val failEffects = CoroutineExceptionHandler { _, error -> changes.close(cause = error) }
+        val wakingDispatcher = WakingDispatcher(delegate = dispatcher) { changes.trySend(Unit) }
+        val sceneContext = wakingDispatcher + failEffects
+        ScreenScene(setup = setup, frameTime = frameTime, coroutineContext = sceneContext).use { scene ->
+            scene.setContent(content = content)
+            sendChanges(scene = scene, changes = changes)
         }
-        composition.setContent(content)
-        awaitClose {
-            composition.dispose()
-            recomposer.cancel()
+    }
+
+    private suspend fun ProducerScope<ScreenFrame>.sendChanges(scene: ScreenScene, changes: Channel<Unit>): Nothing {
+        var lastRead: ScreenRead? = null
+        while (true) {
+            scene.render()
+            val read = scene.read { roots -> readScreen(roots = roots, density = scene.density) }
+            if (read != lastRead) send(read.toFrame())
+            lastRead = read
+            awaitWork(scene = scene, changes = changes)
         }
+    }
+
+    private suspend fun awaitWork(scene: ScreenScene, changes: Channel<Unit>) {
+        if (scene.hasInvalidations()) {
+            framePause()
+        } else {
+            do changes.receive() while (!scene.hasInvalidations())
+        }
+    }
+
+    private fun ScreenRead.toFrame(): ScreenFrame = when (this) {
+        is ScreenRead.Document -> ScreenFrame.Sent(revision = revisions.next(), document = document)
+        is ScreenRead.NotSendable -> ScreenFrame.NotSendable(reason = reason)
     }
 }
