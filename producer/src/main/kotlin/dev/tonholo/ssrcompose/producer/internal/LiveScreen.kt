@@ -8,6 +8,7 @@ import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 import dev.tonholo.ssrcompose.producer.internal.scene.ScreenScene
 import dev.tonholo.ssrcompose.producer.internal.scene.WakingDispatcher
 import dev.tonholo.ssrcompose.producer.internal.scene.sceneDispatcher
+import dev.tonholo.ssrcompose.producer.internal.text.ScaledTextScene
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -28,6 +29,8 @@ private val FRAME_INTERVAL = 16.milliseconds
  *
  * @param content the screen, as the server developer wrote it.
  * @param setup the size, density and direction the scene lays the screen out with.
+ * @param scaledTextScene the device's font scale curve and font scale, read in composition so a device change
+ * recomposes the texts.
  * @param dispatcher creates, drives and closes the scene, and runs its effects. By default the producer's one scene
  * thread; a test may pass its own, which must run one thing at a time.
  * @param notifier tells the screen about state writes.
@@ -38,6 +41,7 @@ private val FRAME_INTERVAL = 16.milliseconds
 internal class LiveScreen(
     private val content: @Composable () -> Unit,
     private val setup: SceneSetup,
+    private val scaledTextScene: () -> ScaledTextScene,
     private val dispatcher: CoroutineDispatcher = sceneDispatcher,
     private val notifier: SnapshotNotifier = SnapshotNotifier.shared,
     private val revisions: Revisions = Revisions(),
@@ -63,7 +67,12 @@ internal class LiveScreen(
         val failEffects = CoroutineExceptionHandler { _, error -> changes.close(cause = error) }
         val wakingDispatcher = WakingDispatcher(delegate = dispatcher) { changes.trySend(Unit) }
         val sceneContext = wakingDispatcher + failEffects
-        ScreenScene(setup = setup, frameTime = frameTime, coroutineContext = sceneContext).use { scene ->
+        ScreenScene(
+            setup = setup,
+            coroutineContext = sceneContext,
+            frameTime = frameTime,
+            readScaledTextScene = scaledTextScene,
+        ).use { scene ->
             scene.setContent(content = content)
             sendChanges(scene = scene, changes = changes)
         }

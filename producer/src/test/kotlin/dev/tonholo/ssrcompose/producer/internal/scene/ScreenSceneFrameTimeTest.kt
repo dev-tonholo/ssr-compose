@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_HEIGHT_PX
 import dev.tonholo.ssrcompose.producer.testing.DEFAULT_SCENE_WIDTH_PX
+import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,7 @@ class ScreenSceneFrameTimeTest {
             ),
             frameTime = clock,
             coroutineContext = Dispatchers.Unconfined,
+            readScaledTextScene = liveScaledTextScene(),
         )
         scene.setContent { LaunchedEffect(Unit) { repeat(FRAMES) { withFrameNanos { seen += it } } } }
 

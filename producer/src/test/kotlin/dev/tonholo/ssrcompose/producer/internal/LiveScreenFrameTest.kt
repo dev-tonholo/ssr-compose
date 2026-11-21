@@ -10,6 +10,7 @@ import app.cash.turbine.test
 import dev.tonholo.ssrcompose.producer.testing.FakeFrameTimeSource
 import dev.tonholo.ssrcompose.producer.testing.ShownFrame
 import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.liveSetup
 import dev.tonholo.ssrcompose.producer.testing.shown
 import kotlin.test.Test
@@ -153,6 +154,7 @@ class LiveScreenFrameTest {
     ) = LiveScreen(
         content = content,
         setup = liveSetup(),
+        scaledTextScene = liveScaledTextScene(),
         dispatcher = StandardTestDispatcher(scheduler = testScheduler),
         notifier = SnapshotNotifier(dispatcher = StandardTestDispatcher(scheduler = testScheduler)),
         frameTime = frameTime,

@@ -19,7 +19,7 @@ internal fun ShownText(text: String) {
 internal fun liveSetup(layoutDirection: LayoutDirection = LayoutDirection.Ltr): SceneSetup = SceneSetup(
     widthPx = DEFAULT_SCENE_WIDTH_PX,
     heightPx = DEFAULT_SCENE_HEIGHT_PX,
-    density = Density(density = 1f),
+    density = Density(density = 1f, fontScale = LIVE_FONT_SCALE),
     layoutDirection = layoutDirection,
 )
 
