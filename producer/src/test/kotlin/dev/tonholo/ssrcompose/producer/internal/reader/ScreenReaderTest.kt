@@ -83,9 +83,12 @@ class ScreenReaderTest {
 
         // Act
         val (expected, actual) = withRenderedScene(content = content) { scene ->
-            val ids = listOf(scene.root.id, scene.root.children.single().id)
-            val document = assertIs<ScreenRead.Document>(value = readScreen(root = scene.root, density = scene.density))
-            ids to listOf(document.document.root.id, document.document.root.children.single().id)
+            scene.read { roots ->
+                val document = assertIs<ScreenRead.Document>(value = readScreen(roots = roots, density = scene.density))
+                val root = roots.single()
+                listOf(root.id, root.children.single().id) to
+                    listOf(document.document.root.id, document.document.root.children.single().id)
+            }
         }
 
         // Assert

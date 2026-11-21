@@ -17,6 +17,7 @@ internal enum class NotSendableReason(val description: String) {
     GraphicsLayer(description = "a graphics layer that scales, rotates, moves, fades, clips or adds a shadow"),
     RelativeFontSize(description = "a text with a font size that is not in sp, such as em"),
     TextField(description = "a text field"),
+    SeveralWindows(description = "a popup or a dialog, which opens a second window"),
     UnsupportedTextStyle(
         description = "a text with letter spacing, a decoration, a brush, a shadow, a baseline shift, an indent, " +
             "no soft wrap, or an overflow other than clip or ellipsis",

@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.Popup
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -273,6 +275,36 @@ class ScreenReaderRefusalTest {
                     .border(width = BORDER_DP.dp, color = Color.Black)
                     .border(width = BORDER_DP.dp, color = Color.Red),
             )
+        }
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
+
+    @Test
+    fun `given a popup, when read, then it is not sendable for opening a second window`() {
+        // Arrange
+        val expected = ScreenRead.NotSendable(reason = NotSendableReason.SeveralWindows)
+
+        // Act
+        val actual = readSceneOf {
+            Box(Modifier.size(SIZE_DP.dp))
+            Popup { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) }
+        }
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
+
+    @Test
+    fun `given a dialog, when read, then it is not sendable for opening a second window`() {
+        // Arrange
+        val expected = ScreenRead.NotSendable(reason = NotSendableReason.SeveralWindows)
+
+        // Act
+        val actual = readSceneOf {
+            Box(Modifier.size(SIZE_DP.dp))
+            Dialog(onDismissRequest = {}) { BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP)) }
         }
 
         // Assert

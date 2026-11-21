@@ -10,11 +10,13 @@ import dev.tonholo.ssrcompose.core.document.DocumentNode
 import dev.tonholo.ssrcompose.core.document.ScreenDocument
 
 /**
- * Reads what a scene composed, measured and placed into a positioned document, from the unmerged semantics tree
- * under [root], the producer's root `Box`. A node with nothing to draw, no click and no semantics is left out, and
- * its children are placed in the node it would have been sent in. Clicks are not sent yet.
+ * Reads what a scene composed, measured and placed into a positioned document, from the unmerged semantics trees
+ * under [roots], one per window. A screen that opens a popup or a dialog has several, and is not sendable. A node with
+ * nothing to draw, no click and no semantics is left out, and its children are placed in the node it would have been
+ * sent in. Clicks are not sent yet.
  */
-internal fun readScreen(root: SemanticsNode, density: Density): ScreenRead = try {
+internal fun readScreen(roots: List<SemanticsNode>, density: Density): ScreenRead = try {
+    val root = roots.singleOrNull() ?: refuse(reason = NotSendableReason.SeveralWindows)
     ScreenRead.Document(document = ScreenDocument(root = NodeReader(density = density).readRoot(root = root)))
 } catch (refusal: NotSendableException) {
     ScreenRead.NotSendable(reason = refusal.reason)
