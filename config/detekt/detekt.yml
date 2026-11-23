@@ -9,3 +9,5 @@ naming:
 style:
   MaxLineLength:
     maxLineLength: 120
+    excludes:
+      - '**/test/**'
