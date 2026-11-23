@@ -14,6 +14,8 @@ import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import dev.tonholo.ssrcompose.core.document.DocumentNode
+import dev.tonholo.ssrcompose.producer.testing.documentOf
 import dev.tonholo.ssrcompose.producer.testing.readSceneOf
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import kotlin.test.Test
@@ -23,6 +25,8 @@ import kotlin.test.assertIs
 private const val TEXT = "text"
 private const val TEXT_SIZE_SP = 14
 private const val DOUBLE_SIZE_EM = 2
+private const val LINE_HEIGHT_EM = 1.5f
+private const val LINE_HEIGHT_SP = 24
 private const val LETTER_SPACING_SP = 1
 private const val INDENT_SP = 4
 private const val SHADOW_OFFSET_PX = 2f
@@ -55,6 +59,34 @@ class TextRefusalTest {
         val actual = readSceneOf {
             BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(fontSize = DOUBLE_SIZE_EM.em))
         }
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
+
+    @Test
+    fun `given a text with a line height in em, when read, then it is not sendable for its relative line height`() {
+        // Arrange
+        val expected = ScreenRead.NotSendable(reason = NotSendableReason.RelativeLineHeight)
+
+        // Act
+        val actual = readSceneOf {
+            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_EM.em))
+        }
+
+        // Assert
+        assertEquals(expected = expected, actual = actual)
+    }
+
+    @Test
+    fun `given a text with a line height in sp, when read, then the document has that line height`() {
+        // Arrange
+        val expected = listOf(LINE_HEIGHT_SP.toFloat())
+
+        // Act
+        val actual = documentOf {
+            BasicText(text = TEXT, style = robotoStyle(TEXT_SIZE_SP).copy(lineHeight = LINE_HEIGHT_SP.sp))
+        }.root.children.map { (it as DocumentNode.Text).style.lineHeight }
 
         // Assert
         assertEquals(expected = expected, actual = actual)

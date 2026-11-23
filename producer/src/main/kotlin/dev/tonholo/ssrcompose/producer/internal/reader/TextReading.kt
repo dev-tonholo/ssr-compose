@@ -81,7 +81,8 @@ private fun TextStyle.toSpec(alignment: TextStyleSpec.Align): TextStyleSpec {
     val family = fontFamily.toFamilyName()
     refuseUnavailableFace()
     val textColor = color.takeOrElse { Color.Black }.toDocumentColor()
-    val height = lineHeight.toSp(fontSize = size)
+    if (lineHeight.isEm) refuse(reason = NotSendableReason.RelativeLineHeight)
+    val height = lineHeight.takeIf { it.isSp }?.value
     return documentValue {
         TextStyleSpec(
             family = family,
@@ -125,10 +126,4 @@ private fun FontFamily?.toFamilyName(): String? = when (this) {
     null, FontFamily.Default -> refuse(reason = NotSendableReason.NoFontFamily)
     bundledRobotoFamily() -> null
     else -> refuse(reason = NotSendableReason.UnknownFontFamily)
-}
-
-private fun TextUnit.toSp(fontSize: Float): Float? = when {
-    isSp -> value
-    isEm -> value * fontSize
-    else -> null
 }
