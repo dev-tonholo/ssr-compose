@@ -42,7 +42,16 @@ internal inline fun ScaledText(
     }
 }
 
-/** Null when the font size is not in sp, which the reader refuses. */
+/**
+ * Builds the [TextScaling] for this style on [scene] using [DEFAULT_FONT_SIZE_SP] when `fontSize` is unspecified,
+ * adjusting sp `lineHeight` to the curve in the `1.03..1.05` `fontScale` band, and marking the resolved sp sizes
+ * in [ScaledTextMark].
+ *
+ * @param scene the device's font scale curve and font scale for the screen.
+ * @param ambient the ambient [Density], whose pixel density is preserved.
+ * @return the [TextScaling] for this style, or `null` when `fontSize` is neither positive sp nor unspecified, which
+ * the reader refuses.
+ */
 internal fun TextStyle.scaledOn(scene: ScaledTextScene, ambient: Density): TextScaling? {
     val size = when {
         fontSize.isSp && fontSize.value > 0f -> fontSize.value
