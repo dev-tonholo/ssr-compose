@@ -45,7 +45,7 @@ internal inline fun ScaledText(
 /** Null when the font size is not in sp, which the reader refuses. */
 internal fun TextStyle.scaledOn(scene: ScaledTextScene, ambient: Density): TextScaling? {
     val size = when {
-        fontSize.isSp -> fontSize.value
+        fontSize.isSp && fontSize.value > 0f -> fontSize.value
         fontSize.isUnspecified -> DEFAULT_FONT_SIZE_SP
         else -> return null
     }
