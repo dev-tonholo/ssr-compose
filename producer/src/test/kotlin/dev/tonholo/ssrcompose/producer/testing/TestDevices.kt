@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.producer.testing
 
+import androidx.compose.ui.unit.Density
 import dev.tonholo.ssrcompose.core.handshake.DeviceContext
 import dev.tonholo.ssrcompose.core.handshake.FontScaleCurve
 import dev.tonholo.ssrcompose.core.handshake.FontScalePoint
@@ -58,6 +59,7 @@ internal val BAND_CURVE: FontScaleCurve = FontScaleCurve(
         FontScalePoint(sp = sp, dp = sp * ratio)
     },
 )
+
 internal fun testDevice(
     density: Float = TEST_DENSITY,
     fontScale: Float = TEST_FONT_SCALE,
@@ -73,3 +75,6 @@ internal fun testDevice(
     fontScaleCurve = fontScaleCurve,
     layoutDirection = layoutDirection,
 )
+
+internal val DeviceContext.composeDensity: Density
+    get() = Density(density = density, fontScale = fontScale)
