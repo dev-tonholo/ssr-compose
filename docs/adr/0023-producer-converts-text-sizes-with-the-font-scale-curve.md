@@ -68,7 +68,7 @@ Option 4, chosen by the owner on 2026-11-21, with the factor given through `Loca
 
 1. takes `size`, the style's font size when it is in sp, or 14 sp when it is unspecified, and `curve`, from an internal composition local, `LocalScaledTextCurve: ProvidableCompositionLocal<FontScaleCurve?>`, null by default. The producer provides it once per screen, at the root of the scene's content, from the session's `Consumer.device.fontScaleCurve`, so a device change updates it. When it is null, outside a producer screen (a preview, the server developer's own Compose tests), the copy calls `BasicText` unchanged, with no provider and no mark;
 2. calls `BasicText` with every argument unchanged inside `CompositionLocalProvider(LocalDensity provides Density(density = LocalDensity.current.density, fontScale = curve.spToDp(size) / size))`, so the text is laid out at `curve.spToDp(size)` dp and the scene's own density stays as it is;
-3. turns a line height in em into sp first (the em value times `size`), since the document carries it in sp; then, when the line height is in sp and `device.fontScale` is from 1.03 to 1.05, passes the line height as `curve.spToDp(lineHeight) / factor` sp, so it is laid out at `curve.spToDp(lineHeight)` dp as the device lays it out in that range; elsewhere the factor alone gives the device's line height (G);
+3. leaves a line height in em as it is, since the document carries sp only and the reader refuses an em line height; when the line height is in sp and `device.fontScale` is from 1.03 to 1.05, passes the line height as `curve.spToDp(lineHeight) / factor` sp, so it is laid out at `curve.spToDp(lineHeight)` dp as the device lays it out in that range; elsewhere the factor alone gives the device's line height (G);
 4. adds an internal semantics property, `ScaledTextMark(size, lineHeight)`, with the font size and line height as written, to the modifier it passes on;
 5. calls `BasicText` with no provider and no mark when the size is in em, which the reader refuses as now.
 
@@ -89,8 +89,9 @@ For each text node, in this order:
 
 1. Several styles, as now, and also any inline content placeholder (`layoutInput.placeholders` not empty): `SeveralStyles`.
 2. A size in em: `RelativeFontSize`, as now.
-3. No `ScaledTextMark`: the new reason `NotSendableReason.UnscaledText` ("a text compiled without the ssr-compose compiler plugin, such as Material's Text or a text from a library module, so it cannot follow the device's font scale"). This holds at every font scale, so a screen that works at font scale 1 never fails only for users with large fonts.
-4. `layoutInput.density.fontScale` times the size differs from `curve.spToDp(size)` by more than 0.01 dp: `UnscaledText`. The curve is the one the scene was laid out with: `readScreen` gains a `curve` parameter, and `LiveScreen` passes the same `Consumer.device.fontScaleCurve` it provides to `LocalScaledTextCurve`. This catches a size changed after `ScaledBasicText` chose its factor, such as `autoSize` (I).
+3. A line height in em: the new reason `NotSendableReason.RelativeLineHeight`, at every font scale. Server text supports line heights in sp only; em support is tracked in #222.
+4. No `ScaledTextMark`: the new reason `NotSendableReason.UnscaledText` ("a text compiled without the ssr-compose compiler plugin, such as Material's Text or a text from a library module, so it cannot follow the device's font scale"). This holds at every font scale, so a screen that works at font scale 1 never fails only for users with large fonts.
+5. `layoutInput.density.fontScale` times the size differs from `curve.spToDp(size)` by more than 0.01 dp: `UnscaledText`. The curve is the one the scene was laid out with: `readScreen` gains a `curve` parameter, and `LiveScreen` passes the same `Consumer.device.fontScaleCurve` it provides to `LocalScaledTextCurve`. This catches a size changed after `ScaledBasicText` chose its factor, such as `autoSize` (I).
 
 The document's `TextStyleSpec.size` and `lineHeight` are the mark's values, in sp as the server wrote them. The consumer draws them with its own `Density`, as R20 says.
 
