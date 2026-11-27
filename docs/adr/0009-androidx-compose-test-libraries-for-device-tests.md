@@ -1,6 +1,6 @@
 # 0009. Use the AndroidX Compose test libraries for consumer device tests
 
-- Status: Accepted
+- Status: Superseded by [0027](0027-compose-decides-the-versions-of-libraries-tied-to-it.md)
 - Date: 2026-11-18
 - Modules: `consumer`
 
