@@ -1706,7 +1706,7 @@ The app's fonts travel in a font bundle of their own, with its own version, sepa
 - Many sessions: memory at 10,000 open screens is not measured yet. Slice 9 measures it before the feature is called done.
 - Skiko's native runtime is per OS. A server without it fails at the first screen; `Producer { }` checks for it at start and fails with a message that names the missing jar.
 - `isDebugInspectorInfoEnabled` is a process-wide switch. Any other Compose code in the same server process also builds inspector info, a small cost.
-- The consumer's device test environment: every Compose device test fails on the owner's Android 17 phone with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso (probe P10). Device work for this design runs only on the emulator `emulator-5554`, with `ANDROID_SERIAL=emulator-5554`, never on a physical phone. The text gate and slices 4 and 5 run there.
+- The consumer's device test environment: every Compose device test fails on the owner's Android 17 phone with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso (probe P10). Device work for this design runs on the emulator `emulator-5554`, or since 2026-11-26 on the two devices the owner allowed ("Text gate (T123)", "Where it runs"), with `ANDROID_SERIAL` set on every command and never on any other phone. P10 has not been checked again on the Pixel, so the Pixel is unproven until slice G2 of the text gate runs the existing device test there once. The text gate and slices 4 and 5 run on these devices.
 - An older development build of either side fails at its first `Screen` with `AnswerUnreadable` ([ADR 0019](../../docs/adr/0019-contract-version-1-carries-the-document.md)).
 - Text measured by Skia on the server and drawn by Android's text engine on the device, with the same font file, is not compared yet. It is the design's largest risk, so a gate after slice 3 measures it on a device before the consumer slices start.
 - A Compose upgrade adds or changes a `BasicText` overload. The rewrite gives a compile error at the call, and the parameter test of `ScaledBasicText` fails the build ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)).
@@ -1765,7 +1765,7 @@ Each slice is tests first, one mechanism, and buildable on every commit. Each na
 3. The producer scene and reader. Add Compose UI, foundation and the Skiko test runtime to `producer`. Tests: `SemanticsVisibilityTest` (invariant 7); the reader turns a `Box` with background and border, a text and a `verticalScroll` into example 1's nodes without its click, and a `clickable` node is sent with no `click` until slice 6 (T126); a state change sends a new revision; an image, a brush, a lazy list and an unknown shape each give `onScreenNotSendable`; every scene step runs on the scene thread and a blocked composition holds back no other thread (invariants 12 and 13). Break per test: drop one case from the reader, or drive one scene step from the caller's thread.
 3a. The scene watchdog ([ADR 0021](../../docs/adr/0021-producer-runs-every-scene-on-one-scene-thread.md)), after T051 adds `ProducerLimits` and `ProducerObserver`. Tests, with a manual clock: a task of one screen that passes `sceneTaskLimit` calls `onSceneThreadHeld` once with that screen and the time held; a task under the limit calls nothing; a later long task of the same screen is reported again. Then add `sceneTaskLimit`, `onSceneThreadHeld`, and the scene thread's record of the running task and its screen, read from a coroutine context element the scene's context carries. Break per test: report on every check, or never.
 3b. The text rewrite, T130 ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)). Tests: items 1 to 8 of the test plan in section 2, "Text sizes and the font scale curve". Then the IR step, registered by `SsrCompilerPluginRegistrar` in `producer` and `check` mode, its call-based order check and the "not supported yet" error, and the same mode and order in the Kotlin toolchain plugin (T101). Break per test; for the main one, skip the rewrite and the 16 and 24 sp texts are 61 and 91 px.
-Text gate, after slice 3 and before slice 4. On the emulator `emulator-5554` only, with `ANDROID_SERIAL=emulator-5554`, never on a physical phone, draw a fixed set of strings (short, long and wrapping, Latin and one other script) at 12, 16 and 24 sp and font scales 1 and 1.3 with one font from a font bundle and with the default Roboto, and compare each one's line count and height with what the producer measured for the same font, density and width. The gate passes when every line count matches and every height is within 1 dp. If it fails, stop and report to the owner, since measuring on the producer would then need text overflow reports from the device. Its first run found the non-linear font scaling of Android 14 and later, so the producer measures with the device's `fontScaleCurve`, not with `fontScale` alone (section 2, "Messages"). A text with a line height in sp also runs at font scale 1.04, the band where the line height has a curve of its own. Server text in the gate is written as `BasicText` and compiled with the plugin, so the rewrite is what is measured ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)).
+Text gate, after slice 3 and before slice 4. On `emulator-5554` or one of the two devices the owner allowed on 2026-11-26, with `ANDROID_SERIAL` set to it, draw a fixed set of strings (short, long and wrapping, Latin and one other script) at 12, 16 and 24 sp and font scales 1 and 1.3 with one font from a font bundle and with the default Roboto, and compare each one's line count and height with what the producer measured for the same font, density and width. The gate passes when every line count matches and every height is within 1 dp. If it fails, stop and report to the owner, since measuring on the producer would then need text overflow reports from the device. Its first run found the non-linear font scaling of Android 14 and later, so the producer measures with the device's `fontScaleCurve`, not with `fontScale` alone (section 2, "Messages"). A text with a line height in sp also runs at font scale 1.04, the band where the line height has a curve of its own. Server text in the gate is written as `BasicText` and compiled with the plugin, so the rewrite is what is measured ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)). The design, and a first result from replaying the emulator's file that missed the rule in 10 of 60 rows (probe P21), are in "Text gate (T123)".
 
 4. The consumer drawing and the switch-over. Tests: example 1 draws at its boxes with `ComponentBindings {}` (invariant 4); invariant 1's grep. Then `ProducerMessage.Screen` carries `ScreenDocument`, `ScreenContent`, `ProvisionalScreenContent` and the list loop are deleted, in one commit, since the type change breaks every caller at once. Break: place one node at 0, 0 and the bounds test fails.
 5. App components as holes. Tests: `ConsumerComponent` reads as a `Component` node with its values; a pending document is not shown (invariant 8); the consumer reports a measured size; the producer lays out again and sends `pending = false`; a slot reports its space and its server content comes back laid out in it (example 3); the guard inside a slot (invariant 6); nested components stay pending until all are measured (invariant 8); `measuringRounds` stops a loop only after every component is measured; a first report with 10,000 components is accepted and one with 10,001 is refused; measurements over 30 per second are merged, not dropped. Break per test.
@@ -1791,7 +1791,7 @@ Text gate, after slice 3 and before slice 4. On the emulator `emulator-5554` onl
 13. The marker exists once, in `core`, on the types ADR 0014 lists, and invariant 9's `PublicSignatureMarkerTest` finds no marked type in a public signature, and catches its own fixtures.
 14. The load test ran at 10,000 open screens and its numbers are in this section.
 15. Principle I gate, again: the producer owns arrangement (points 1, 5 and 9); a screen with no app component renders in an app with an empty catalog (point 9); nothing makes the catalog the only content or gives the consumer a layout decision (points 2 and 9); composable logic runs on the producer only (point 5 and invariant 5).
-16. The text gate passed on `emulator-5554`, with its numbers recorded here.
+16. The text gate passed on the device the owner named, with its numbers recorded in "Text gate (T123)", "Results".
 17. The producer refuses out-of-range measurements and viewports without laying out, ignores unknown ids, and merges, without dropping, `ComponentMeasured` and `ViewportChanged` over their own limit, apart from the trigger limit, each with a test.
 18. An app component inside a switcher variant gives `onScreenNotSendable`.
 19. `./gradlew build detekt --configuration-cache` and `./gradlew check --configuration-cache` pass.
@@ -1841,6 +1841,160 @@ The design:
 
 The principle I gate for this change: it moves only where the producer's own work runs. The producer still composes, measures and arranges every screen in its scene (points 1 and 4 of [the gate](#the-principle-i-gate)), the document and the wire do not change, so the consumer gains no layout decision (point 3), and a screen with no app component takes the same path as any other, so the zero-catalog path stays open (point 2). No option above moves layout to the consumer or limits content to the app's catalog.
 
+### Text gate (T123)
+
+Designed on 2026-11-26 for the part of T123 that PR #212 did not build: the producer half, the cases T123 still lacks, and the comparison. Where the producer half lives is [ADR 0024](../../docs/adr/0024-text-gate-producer-half-in-contract-tests-jvm.md).
+
+#### First result, before anything is built
+
+Probe P21 replayed the 60 rows the emulator recorded in PR #212 through the real producer, with the real rewrite, and missed the gate's rule in 10 of 60. That is the stop-and-report case of T123, so this design goes to the owner with it. Nothing below changes the tolerance, the case list or producer code to make it pass.
+
+Two causes, both seen in P21's numbers:
+
+- Each line's height differs by about 1 px between Android and Skia, and the difference adds up with each line. Roboto at 24 sp and font scale 1: the device's lines are 73 px each (219 px for 3 lines, 803 px for 11), the producer's 74 px (222 and 814). Open Sans at 16 sp and font scale 1.3 goes the other way: the device has 730 px for 10 lines, the producer 720. At density 2.625 one line is 0.38 dp off, so 3 lines are over 1 dp.
+- A line break at the edge of the width. "Καλημέρα κόσμε" in Roboto at 24 sp and font scale 1.3 is 525.9 px wide on the producer, in a box of 525 px, so it wraps to 2 lines where the device kept 1. Any difference in width between two text engines, however small, flips a break for some text.
+
+The 50 rows that pass are within 0.38 dp. Every text size the producer laid out matched the device's: `density * curve.spToDp(size)` equals each row's `fontSizeInPx` to 0.001 px, so the curve and the rewrite are right and the misses come from line metrics and line breaking. P21 ran on macOS; the producer runs on Linux in CI and in production, and the Linux numbers are unproven.
+
+#### Boundaries
+
+- `contract-tests` owns the gate: the case list and file format in `src/textGate/kotlin` (package `dev.tonholo.ssrcompose.contracttests.textgate`), the device half in `src/androidDeviceTest`, and the producer half and the comparison in a new `src/jvmTest`, on a new `jvm()` target (ADR 0024). The JVM tests know the producer only through its public `ScaledBasicText`, reached by the rewrite, and the test fixture below.
+- `producer` gains a test fixture, `producer/src/testFixtures/kotlin/dev/tonholo/ssrcompose/producer/textgate/`, not published (the `catalog-model` pattern). It measures one composable in a `ScreenScene` and knows nothing about cases, files or devices.
+- `compiler-plugin` is unchanged. It runs on the JVM tests of `contract-tests` in `producer` mode with no catalog.
+- `core` gains one function, so the consumer and the device half sample a curve the same way (slice G1).
+- `consumer` changes only to call that function. It never learns about the gate.
+
+#### Interfaces
+
+The device file, schema version 2. `TextGateMeasurementFiles.SCHEMA_VERSION` becomes 2 and `decode` refuses version 1, as it refuses any other version. Each `TextGateMeasurement` gains two fields and keeps every other one:
+
+- `lineHeightInSp: Float?`, null when the case sets no line height.
+- `fontScaleCurve: FontScaleCurve`, the `core` type, sampled at `FontScaleCurve.SAMPLED_SIZES` with the same `Density(density, fontScale)` the case was drawn with, exactly as the consumer samples it for `DeviceContext`. The producer replays each row with this curve, never with one it derives itself.
+
+The case list. `TextGateCase` gains `lineHeightInSp: Float?`; its id adds `/lh<N>sp` when it is set, so the ids of PR #212's 60 cases stay as they are. `TextGateCases.all` becomes 2 fonts, 5 samples, 3 sizes (12, 16, 24 sp), 3 font scales (1, 1.04, 1.3) and 2 line heights (none, and 1.5 times the size: 18, 24 and 36 sp), 180 cases. Font scale 1.04 is inside the band from 1.03 to 1.05 where Android converts a line height in sp on its own (ADR 0023), and 1 and 1.3 are outside it, so the same text is seen under all three line height rules. The device sets each font scale through `LocalDensity`, as `TextGateRecorder` does today, never through a system setting: Compose's own `FontScaleConverterFactory` in `ui-unit-android` 1.12.1 converts sizes for that `Density`, which `Density(context)` also uses (read in the class files, P22).
+
+One file per device. Each recorded file lives at `contract-tests/src/androidHostTest/resources/textgate/<device key>/text-gate-measurements.json`, and a new `TextGateRecordings` object in `src/textGate` lists the device keys, such as `sm-p615-api36`. The device test writes `TextGateMeasurementFiles.FILE_NAME` as now; the worker puts the file under its key. Two devices never share a file.
+
+`core`: `FontScaleCurve.Companion.sample(spToDp: (sp: Float) -> Float): FontScaleCurve`, which calls `spToDp` at each of `SAMPLED_SIZES`. The consumer's private `Density.fontScaleCurve()` becomes `FontScaleCurve.sample { sp -> sp.sp.toDp().value }`, and the device half calls the same function.
+
+The producer test fixture, public inside the fixture only:
+
+- `ProducerTextScene(widthPx: Int, density: Float, fontScale: Float, curve: FontScaleCurve)`.
+- `measureProducerText(scene: ProducerTextScene, content: @Composable () -> Unit): ProducerTextMeasurement`. It opens a `ScreenScene` with `SceneSetup(widthPx, heightPx, Density(density, fontScale), LayoutDirection.Ltr)`, `Dispatchers.Unconfined` and `ScaledTextScene(curve, fontScale)`, as the producer's own test scenes do, sets the content, renders once, and reads the one text node of the unmerged semantics tree. It fails when there is not exactly one text node. The scene's height is a fixed 10,000 px, far above the tallest case (P21's tallest was 1,316 px).
+- `ProducerTextMeasurement(lineCount: Int, heightPx: Int, isMarked: Boolean, isSendable: Boolean)`: the line count and height of the node's `TextLayoutResult`, whether it carries `ScaledTextMark`, and whether `readScreen` with the same density and curve gives a document.
+- `producerDefaultFamily(): FontFamily` and `producerRobotoRegularBytes(): ByteArray`, giving the producer's own default family and the bytes of its Regular file.
+
+The build wiring of the JVM tests is in ADR 0024.
+
+#### Data flow
+
+1. On the device (slice G2), the recorder draws each case with foundation `BasicText` inside `LocalDensity(density, fontScale)` and a 200 dp box, with the case's line height, and writes each row with its curve.
+2. On the producer (slice G5), the comparison reads every file `TextGateRecordings` names. For each row it builds the font family: Roboto is `producerDefaultFamily()`, the producer's default family, and Open Sans is `Font(identity, data)` from the bytes of `ph-fonts-open-sans` 5.0.4. It measures the row's text with `measureProducerText`, at the row's `widthInPx`, `density`, `fontScale` and `fontScaleCurve`, through a server text composable in `src/jvmTest` that calls `BasicText` inside a box `widthInDp` wide, with the row's weight, size and line height. That `BasicText` call is what the plugin rewrites.
+3. It compares every row, then writes a report and then asserts. A failure of any step is a failure of the gate.
+
+#### The comparison
+
+A row passes when the line counts are equal and `abs(producer heightPx - device heightInPx) <= density` (1 dp, in pixels). Before the comparison, each row must also hold all of these, or the gate fails and names the row:
+
+- The font is the same file: the SHA-256 of the bytes the producer used equals the row's `fontSha256`, for Roboto from `producerRobotoRegularBytes()`. Skia must read the bytes as a typeface (`FontMgr.default.makeFromData` not null), since Compose's `Font(identity, data)` falls back to the default font without an error for bytes that are not a font (probe P8). P22 found both fonts are the same bytes on both sides: Roboto `7277cfb8…`, Open Sans `c53aceea…`.
+- The curve converts as the device did: `abs(density * curve.spToDp(sizeInSp) - fontSizeInPx) <= 0.01 * density`. At 16 sp this checks the interpolation between the sampled sizes, condition 2 of ADR 0023.
+- The rewrite ran: `isMarked` is true.
+- A Roboto row is sendable: `isSendable` is true. An Open Sans row is not checked for it, since the reader refuses every family but the bundled Roboto until T128.
+
+No way to pass by comparing nothing:
+
+- `TextGateRecordings.all` is not empty.
+- Each file's case ids equal `TextGateCases.all`'s ids, in order, and that list is not empty.
+- The number of rows compared equals `TextGateCases.all.size` for each file, counted from the results, not from the input.
+
+The comparison is a pure function, `TextGateComparison` in `src/jvmTest`, from rows and producer measurements to one result per row, so its rule has unit tests with made-up numbers apart from the gate itself.
+
+#### When a case fails
+
+The gate test fails and lists every failing row with both line counts, both heights in px and dp, and the difference. It also writes the whole table, failing or not, to `contract-tests/build/reports/text-gate/<device key>.md`. The worker stops there: no change to the tolerance, the case list, the fonts, the producer or the plugin, and no retry on another device to find one that passes. It reports the table to the engineering-manager, who reports to the owner. R20 says what comes next if the gate fails: measuring on the producer then needs text size reports from the device, a new design.
+
+#### Where it runs
+
+- The device half runs by hand on one device the owner names, with `ANDROID_SERIAL` set to it. It is a recording, not a pass or fail test, and runs again only when the case list, the file format or the Compose version changes.
+- The comparison is in `./gradlew :contract-tests:jvmTest`, so `./gradlew build` runs it, locally on macOS and in CI's `Build` job on `ubuntu-latest`, on every pull request. The producer ships on Linux, so the Linux run counts. If macOS and Linux give different results, that is a gate result to report too.
+- Devices. On 2026-11-26 the owner allowed two devices besides `emulator-5554`: a Pixel 7 Pro (API 37, density 2.975 from an override) and a Samsung SM-P615 tablet on LineageOS (API 36, density 1.5), with the limits in the brief: set the serial on every command, install only our own test APKs, change no setting, unlock nothing. The curve tables are Compose's own, inside the app (P22), so a second device on the same Compose version adds no curve coverage; it adds another text engine (Android 16 against 17) and another density, and the per-line rounding P21 found depends on density. The tablet is the safer first choice: its API level is the one the emulator ran, and the Pixel's Android 17 failed every Compose device test in probe P10. Unproven: whether the device half runs on either device (no device command could run for this design), and whether P10 still fails on the Pixel. Slice G2 proves both, the Pixel first with one run of the existing device test before any new code.
+
+#### Invariants
+
+1. One case list and one file format, in `contract-tests/src/textGate`. Check: `git grep -n "data class TextGateMeasurement"` finds one file.
+2. The gate's server text is rewritten. Check: `TextRewriteWiringTest` (slice G4) and `isMarked` on every row (slice G5).
+3. The plugin runs before the Compose compiler on the JVM tests. Check: the rewrite's own `PLUGIN_ORDER` check fails the compile otherwise (P22).
+4. Only the gate's server text is rewritten: `producer`'s main and test compilations never get the plugin. Check: `UnscaledTextRefusalTest` in `producer` still passes, since it relies on a raw `BasicText` being refused.
+5. The gate never compares zero cases. Check: the three counts under "The comparison", each with a unit test in `TextGateComparisonRuleTest`.
+6. The producer test fixture is not published. Check: `./gradlew :producer:publishToMavenLocal` puts no `test-fixtures` jar in `~/.m2`, and `:producer:verifyMavenPublications` passes.
+7. The device sets font scale only through `LocalDensity`. Check: `TextGateRecorder` reads no system setting and changes none; review.
+
+#### Risks and edge cases
+
+- The gate fails (P21). Handled by "When a case fails"; the owner decides.
+- Linux and macOS differ. Skia reads glyph metrics through a different font backend on each system, which can move both causes of P21 (not checked in Skiko's source). The first CI run of slice G5 shows it.
+- A newer text engine on the device. The Pixel on API 37 may differ from API 36. Only a recording there shows it, after P10 is checked.
+- Size of the run. P21 opened 120 scenes in one test with no trouble (its time was not measured), and PR #212 drew 60 cases in one device test, so 180 cases stay in one test on each side. The comparison test records its own time in the report so a slow run shows.
+- A case near the edge of the width can flip on any change of font, size or engine. The case list is fixed and never tuned to dodge one.
+- The device file is stale after a Compose upgrade. The file records `deviceModel` and `sdkInt`; the Compose version is not in it. Slice G2 adds nothing for it; a Compose upgrade re-records by hand, which the testing rules' row should say.
+
+#### Principle I
+
+- The producer owns the arrangement. The gate changes no wire type, no reader rule and no producer code. The producer still lays out every text in its scene with `ScaledBasicText` and sends the box; the device draws in it (rule 14 of the architecture rules).
+- A screen with no app component renders. The gate's screen is server text only, compiled in `producer` mode with no catalog, the zero-catalog path of rule 15 and T130 item 3.
+- Nothing makes the catalog the only content. The gate holds no app component and no catalog. If it fails, the fallback R20 names keeps the producer measuring and adds a size report from the device, as app components do (ADR 0016); it gives the consumer no layout decision.
+
+#### Slices
+
+Each is tests first, one mechanism, compile and detekt on every commit, the tests the change affects plus its new ones while building, and the full suite once before the push. Sizes from the table in `.ai/agents/engineering-manager.md`.
+
+- G1, small. `FontScaleCurve.sample` in `core/src/commonMain/kotlin/dev/tonholo/ssrcompose/core/handshake/FontScaleCurve.kt`, and the consumer's `ComposeDeviceValues.kt` calls it. Test in `core`: a `spToDp` given as a lambda gives one point per sampled size with its dp. Break: skip one size. The consumer's existing tests cover the call.
+- G2, medium, needs a device. The device half, version 2, and its recording: `lineHeightInSp` on the case, font scale 1.04 and the line heights in `TextGateCases`, `lineHeightInSp` and `fontScaleCurve` on the measurement, schema 2, `TextGateRecordings`, the recorder drawing the line height and recording the curve with `FontScaleCurve.sample`, and `RecordedTextGateFileTest` reading every recording. Host tests first in `contract-tests/src/androidHostTest/.../textgate/`. Before any new code, one run of the existing device test on the Pixel settles P10. Then the recording on the device the owner named, with `ANDROID_SERIAL` set, and the new file is committed in the same commit as the code, so every commit is green; PR #212's emulator file is removed in that commit, its numbers kept here under "Results". Copying the file off the device is unproven, and PR #212 does not say how it was done. The connected test task removes the test APK after the run, and the app's external files folder goes with it, where `TextGateDeviceTest` writes today. So the device test writes the file to the folder the instrumentation argument `additionalTestOutputDir` names, which the Android Gradle plugin copies to `contract-tests/build/outputs/connected_android_test_additional_output/` after the run, and the worker takes it from there. If that folder stays empty on AGP 9.5.1's Kotlin Multiplatform library plugin, the worker stops and reports; it does not keep the test APK installed or change any device setting to get the file.
+- G3, medium. The producer test fixture: `java-test-fixtures` on `producer`, its two variants left out of the publication, and `ProducerTextScene`, `measureProducerText`, `ProducerTextMeasurement` and the two Roboto functions in `producer/src/testFixtures/kotlin/dev/tonholo/ssrcompose/producer/textgate/`. Tests first in `producer/src/test/kotlin/dev/tonholo/ssrcompose/producer/textgate/ProducerTextMeasurerTest.kt`: `ScaledBasicText` at 16 sp on the emulator curve at density 2.5 and font scale 1.3 is 1 line, 59 px, marked and sendable; a raw `BasicText`, which `producer` does not rewrite, is not marked and not sendable; two texts fail the measure. Break per test.
+- G4, complex. The `jvm()` target of `contract-tests` and the plugin wiring of ADR 0024, with one test, `contract-tests/src/jvmTest/kotlin/dev/tonholo/ssrcompose/contracttests/textgate/TextRewriteWiringTest.kt`: a server text written as `BasicText`, measured with the fixture, carries the mark. Break: leave the plugin off the classpath and it is not marked; reverse the order and the compile fails with `PLUGIN_ORDER` (reported, not a test). Complex because it is a new pattern that crosses three modules.
+- G5, medium. The comparison in `contract-tests/src/jvmTest/kotlin/dev/tonholo/ssrcompose/contracttests/textgate/`: `ServerText.kt` (the `BasicText` composable), `TextGateFonts.kt` (the producer's family per `TextGateFont`, with the SHA-256 and Skia checks), `TextGateComparison.kt` (the pure rule), `TextGateReport.kt` (the table) and `TextGateComparisonTest.kt` (the gate). Tests first: `TextGateComparisonRuleTest` with made-up rows, one per rule: a line count one off fails; a height exactly 1 dp off passes and one pixel more fails; zero recordings, an empty case list, a missing case and a row compared twice each fail; a wrong SHA-256 or bytes Skia cannot read fail. Then the gate runs on the recorded file. If it fails, stop and report as "When a case fails" says.
+- G6, trivial, the system-architect in validate mode. Record the numbers under "Results" below.
+
+#### Validation checklist
+
+1. `contract-tests` has a `jvm()` target, and only its `jvmTest` compilation has `:compiler-plugin` on its plugin classpath, with `mode=producer` and the order flag of ADR 0024; `producer` applies no compiler plugin of ours.
+2. The plugin id in the wiring comes from the Gradle property `ssrcompose.compiler.plugin.id`.
+3. One `TextGateMeasurement`, one `TextGateCases`, both in `contract-tests/src/textGate`.
+4. Schema 2 has `lineHeightInSp` and `fontScaleCurve`, and decoding version 1 fails.
+5. `TextGateCases.all` holds 180 cases with font scales 1, 1.04 and 1.3, and line heights of none and 1.5 times the size; PR #212's ids are unchanged.
+6. The device half and the consumer both sample the curve with `FontScaleCurve.sample`.
+7. The recorder sets font scale only through `LocalDensity`.
+8. The producer test fixture is not published and is used only by `contract-tests`' JVM tests and `producer`'s own tests.
+9. The gate measures through `ScreenScene` with `ScaledTextScene(curve, fontScale)` from each row, never a curve derived on the producer.
+10. Every row checks the font's SHA-256, Skia reading the bytes, the curve against `fontSizeInPx`, and the mark; Roboto rows check `isSendable`.
+11. The gate cannot pass with zero recordings, zero cases or fewer rows compared than cases, and `TextGateComparisonRuleTest` has a test for each.
+12. A failure lists every failing row, and the report file is written before the assertion.
+13. No tolerance, case, font or producer change was made after a failing run.
+14. `./gradlew build` runs the gate, and CI's `Build` job ran it.
+15. The numbers are recorded under "Results", per device and per host system.
+16. Principle I: no wire type, reader rule or producer code changed; the gate's screen has no app component and no catalog.
+
+#### Results
+
+| Run | Device file | Producer host | Cases | Missed the rule | Largest height difference |
+|---|---|---|---|---|---|
+| P21, 2026-11-26 | PR #212's emulator file: `sdk_gphone64_arm64`, API 36, density 2.625, schema 1 | macOS arm64 | 60 | 10 | 30.86 dp (a line break), 4.19 dp from line heights |
+
+The 10 rows that missed, device then producer, as line count and height in px:
+
+| Case | Device | Producer | Difference |
+|---|---|---|---|
+| `roboto-regular/latin-wrapping/24sp/x1.0` | 3, 219 | 3, 222 | 1.14 dp |
+| `roboto-regular/latin-long/24sp/x1.0` | 11, 803 | 11, 814 | 4.19 dp |
+| `roboto-regular/greek-short/24sp/x1.3` | 1, 81 | 2, 162 | line count |
+| `roboto-regular/greek-long/24sp/x1.0` | 9, 657 | 9, 666 | 3.43 dp |
+| `open-sans-regular/latin-wrapping/16sp/x1.3` | 3, 219 | 3, 216 | 1.14 dp |
+| `open-sans-regular/latin-wrapping/24sp/x1.0` | 3, 255 | 3, 258 | 1.14 dp |
+| `open-sans-regular/latin-long/16sp/x1.3` | 10, 730 | 10, 720 | 3.81 dp |
+| `open-sans-regular/latin-long/24sp/x1.0` | 11, 935 | 11, 946 | 4.19 dp |
+| `open-sans-regular/greek-long/16sp/x1.3` | 8, 584 | 8, 576 | 3.05 dp |
+| `open-sans-regular/greek-long/24sp/x1.0` | 9, 765 | 9, 774 | 3.43 dp |
+
 ### Probes
 
 Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `core/src/jvmTest` (`./gradlew :core:jvmTest --tests dev.tonholo.ssrcompose.core.probe.ProbeTest --configuration-cache`, exit 0), and a producer probe (`./gradlew :producer:test --tests dev.tonholo.ssrcompose.producer.probe.ProbeTest --configuration-cache`, exit 0). P4 to P9 and P11 in a throwaway Gradle project outside the repository: Kotlin 2.4.21, Compose Multiplatform 1.12.2 desktop (`ui-desktop`, `foundation-desktop`), `skiko-awt-runtime-macos-arm64` 0.150.2, JVM 17 with `-Djava.awt.headless=true`, on macOS arm64, run by `./gradlew -p <probe> test` (exit 0). Both were removed afterwards.
@@ -1866,6 +2020,9 @@ Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `
 - P18: lanes, each a child-first class loader for `androidx.*` and the probe's screen code, sharing Skiko, Kotlin and kotlinx.coroutines, each on its own thread with no lock, in the same passes as P17. Per lane, 1 lane: 2.23 to 2.54 ms per frame (2.23 to 2.43 ms of CPU); 2 lanes: 2.71 to 3.03 ms (2.67 to 2.82 ms of CPU); 4 lanes: 6.91 to 7.93 ms (4.85 to 5.47 ms of CPU). New screens took 20, 28 and 55 ms of wall time per lane. Each lane added about 10.7 MB of metaspace and loaded its own `NodeKindKt`; the 6 runs with 2 or 4 lanes had no error. With one lane blocked in a recomposition, a screen in another lane showed two changes in 12.1 ms.
 - P19: one JVM alone: 2.22 to 2.33 ms per frame (2.15 to 2.27 ms of CPU). Four JVMs at once, at a load average of 21: 4.03 to 4.39 ms per frame each (3.58 to 3.78 ms of CPU).
 - P20: AGP 9.5.1 with an included-build plugin compiled against `com.android.tools.build:gradle-api:9.5.1` with `compileOnly`, reacting to each Android plugin id with `pluginManager.withPlugin` and using the typed extensions, applied in the same `plugins {}` block as AGP, with AGP declared in the root with `apply false` (`./gradlew -p <probe> :app:assembleDebug :app:testDebugUnitTest :jvm:assemble :kmplib:assemble`, exit 0). `sources.res`, `resources` and `assets` were present for `com.android.application` and `com.android.library`; for `com.android.kotlin.multiplatform.library` (variant `androidMain`) only `resources` was. A file added through `sources.resources?.addGeneratedSourceDirectory` was in the APK, an app host test read it from the class loader as one copy, and the multiplatform library put it in its AAR's `classes.jar`. With a library writing the same path, AGP warned "More than one file was found with OS independent path" and that future versions will throw an error. A plain JVM module in a build with no AGP applied the plugin with no error and could not see AGP classes ([ADR 0022](../../docs/adr/0022-android-variant-api-for-generated-resources.md)).
+- P21 and P22 ran on 2026-11-26 on macOS arm64, in a copy of branch `test/194/text-gate-server` at 6e449de7 made with `git archive`, outside the repository, with the wiring of [ADR 0024](../../docs/adr/0024-text-gate-producer-half-in-contract-tests-jvm.md): a `jvm()` target on `contract-tests`, `:compiler-plugin` on `kotlinCompilerPluginClasspathJvmTest` with `mode=producer` and `-Xcompiler-plugin-order=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin`, and a test fixture in `producer` that measures through `ScreenScene`. No device command ran: the permission settings of the run refused `adb devices`.
+- P21: `./gradlew -p <copy> :contract-tests:jvmTest` (exit 0, the probe printed instead of asserting) replayed the 60 rows of PR #212's emulator file. The server text was `BasicText` in a 200 dp box with the row's font, weight and size, rewritten by the plugin. The curve was Compose's table for font scale 1.3 (8, 10, 12, 14, 18, 20, 24, 30 and 100 sp to 10.4, 13, 15.6, 18.8, 21.6, 23.2, 26.4, 30 and 100 dp) and a straight line for font scale 1, since the file holds no curve; `density * curve.spToDp(size)` matched every row's `fontSizeInPx` to 0.001 px. Roboto was the producer's bundled family and Open Sans `Font(identity, data)` from `ph-fonts-open-sans` 5.0.4, which Skia read. Every text carried the mark, every Roboto row read as a document, and every Open Sans row gave `UnknownFontFamily`, as the reader does until T128. 10 of 60 rows missed the rule; the numbers are in "Text gate (T123)", "Results". Each failing row with equal line counts is a whole number of pixels per line on both sides, height divided by line count: Roboto at 24 sp and font scale 1 is 73 px per line on the device and 74 px on the producer, and Open Sans at 16 sp and font scale 1.3 is 73 px on the device and 72 px on the producer. In the same run, "Καλημέρα κόσμε" in Roboto at 24 sp and font scale 1.3 was 525.9 px wide on one line, in a box of 525 px.
+- P22: in the same copy, `./gradlew -p <copy> :contract-tests:compileTestKotlinJvm -Pprobe.order=compose-first` failed with `PLUGIN_ORDER` and the message to pass the order flag (exit 1); with the Compose id misspelled in the order flag (`...plugins.kotlinx`), `:contract-tests:jvmTest` compiled and every one of the 60 texts still carried the mark (exit 0), and with no order flag at all `:contract-tests:compileTestKotlinJvm` compiled (exit 0), so the default order of this build puts the SSR plugin first and a wrong id is ignored without an error; `:contract-tests:testAndroidHostTest :contract-tests:assembleAndroidDeviceTest :producer:test` passed (exit 0); `:contract-tests:jvmTest :producer:verifyMavenPublications --configuration-cache` passed (exit 0). `dependencyInsight` on `:contract-tests:androidHostTestRuntimeClasspath` picked `androidRuntimeElements-published` for `org.jetbrains.compose.ui:ui`, also for `:producer`'s, and found no `org.jetbrains.skiko`. `shasum -a 256` of `fonts/ttf/Roboto/Roboto-Regular.ttf` in `ph-fonts-roboto` 5.0.4, the producer's bundled file, gave `7277cfb805def6410f317129b8e1f78bdd47d1a4e24c233077d06e88a36e57ae`, and of `fonts/ttf/OpenSans/OpenSans-Regular.ttf` in `ph-fonts-open-sans` 5.0.4 gave `c53aceea2dcf5b4098099c0c4d0a061d17e178a049317b42a422b1a9f7f8eb59`, the `fontSha256` of the device file's 30 Roboto and 30 Open Sans rows. `javap` on `ui-unit-android` 1.12.1 showed `Density(Context)` building a `DensityWithConverter` from Compose's own `FontScaleConverterFactory.forScale`, in that artifact.
 
 ### Guardrails proposed for the rules
 
