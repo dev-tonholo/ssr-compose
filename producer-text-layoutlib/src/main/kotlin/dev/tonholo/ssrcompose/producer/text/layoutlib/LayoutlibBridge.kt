@@ -19,7 +19,6 @@ package dev.tonholo.ssrcompose.producer.text.layoutlib
 
 import com.android.layoutlib.bridge.Bridge
 import java.nio.file.Path
-import java.util.Locale
 
 private const val BUILD_PROPERTIES = "build.prop"
 private const val DATA_FOLDER = "data"
@@ -27,8 +26,7 @@ private const val FONTS_FOLDER = "fonts"
 private const val HYPHENATION_FOLDER = "hyphen-data"
 private const val ICU_DATA = "icu/icudt76l.dat"
 private const val KEYBOARD = "keyboards/Generic.kcm"
-private const val MAC_LIBRARIES = "mac-arm/lib64"
-private const val LINUX_LIBRARIES = "linux/lib64"
+private const val LIBRARIES_FOLDER = "lib64"
 
 /** Starts layoutlib's native Android classes, once for the whole process, with no render session. */
 internal object LayoutlibBridge {
@@ -70,7 +68,7 @@ internal object LayoutlibBridge {
     }
 
     private fun nativeLibraryFolder(): String {
-        val isMac = System.getProperty("os.name").lowercase(Locale.US).startsWith("mac")
-        return if (isMac) MAC_LIBRARIES else LINUX_LIBRARIES
+        val runtimeName = layoutlibRuntimeName(os = System.getProperty("os.name"), arch = System.getProperty("os.arch"))
+        return "$runtimeName/$LIBRARIES_FOLDER"
     }
 }

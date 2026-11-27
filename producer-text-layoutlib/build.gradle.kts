@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
     alias(libs.plugins.ssrcompose.conventions.serialization)
@@ -8,13 +10,18 @@ val layoutlibRuntime = configurations.create("layoutlibRuntime") {
     isTransitive = false
 }
 
+val layoutlibHostsFile = layout.projectDirectory
+    .dir("src/main/resources/dev/tonholo/ssrcompose/producer/text/layoutlib")
+    .file("layoutlib-hosts.properties")
+
+val hostSystem: Provider<String> =
+    providers.systemProperty("os.name").zip(providers.systemProperty("os.arch")) { os, arch -> "$os/$arch" }
+
 val hostLayoutlibRuntimeClassifier: Provider<String> =
-    providers.systemProperty("os.name").zip(providers.systemProperty("os.arch")) { os, arch ->
-        when {
-            os.startsWith("Mac") && arch == "aarch64" -> "mac-arm"
-            os == "Linux" && arch == "amd64" -> "linux"
-            else -> error("layoutlib's runtime is set up for macOS arm64 and Linux x64 only, not $os $arch")
-        }
+    providers.fileContents(layoutlibHostsFile).asText.zip(hostSystem) { table, host ->
+        val hosts = Properties().apply { load(table.reader()) }
+        hosts.getProperty(host)
+            ?: error("layoutlib has no runtime set up for $host, only for ${hosts.stringPropertyNames().sorted()}")
     }
 
 dependencies {
