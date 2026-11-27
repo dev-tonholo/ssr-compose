@@ -1,9 +1,9 @@
 [versions]
 kotlin = "2.4.21"
-agp = "9.5.1"
+agp = "9.5.3"
 compose-multiplatform = "1.12.2"
-ph-fonts-roboto = "5.0.4"
-ph-fonts-open-sans = "5.0.4"
+ph-fonts-roboto = "6.1.1"
+ph-fonts-open-sans = "6.1.1"
 kotlinx-serialization = "1.13.0"
 kotlinx-coroutines = "1.11.0"
 kctfork = "0.14.0"
