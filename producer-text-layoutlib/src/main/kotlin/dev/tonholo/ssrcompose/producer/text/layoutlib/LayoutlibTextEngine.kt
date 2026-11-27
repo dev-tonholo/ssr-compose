@@ -37,6 +37,9 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
     }
 
     override fun measure(request: TextRequest): TextMeasurement {
+        if (request.lineHeightPx != null) {
+            throw UnsupportedOperationException("a line height cannot be measured yet, only none")
+        }
         val layout = layOut(request = request, paint = paintFor(request))
         val lastLine = min(a = layout.lineCount, b = request.maxLines) - 1
         return TextMeasurement(
