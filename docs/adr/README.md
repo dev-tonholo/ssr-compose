@@ -18,7 +18,7 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 |--------|-------|--------|
 | [0001](0001-keep-the-poc-in-a-folder.md) | Keep the proof of concept in a folder and build the library from a clean root | Accepted |
 | [0002](0002-ksp-for-tests-only.md) | Use KSP in tests only | Accepted |
-| [0009](0009-androidx-compose-test-libraries-for-device-tests.md) | Use the AndroidX Compose test libraries for consumer device tests | Accepted |
+| [0009](0009-androidx-compose-test-libraries-for-device-tests.md) | Use the AndroidX Compose test libraries for consumer device tests | Superseded by 0027 |
 | [0010](0010-per-module-choice-enums-in-bridge-subpackage.md) | Place per-module choice enums in a bridge subpackage | Accepted |
 | [0011](0011-replaceable-text-through-a-string-manager.md) | Replace the consumer's text through a string manager | Accepted |
 | [0012](0012-problem-message-style-parameters.md) | Style the default problem message with Material's shape of style parameters | Accepted |
@@ -36,3 +36,4 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0024](0024-text-gate-producer-half-in-contract-tests-jvm.md) | The text gate's producer half runs in a JVM target of contract-tests | Rejected |
 | [0025](0025-device-measures-server-text.md) | The device measures server text and reports its sizes | Not chosen; fallback D of 0026 |
 | [0026](0026-producer-measures-text-with-layoutlib.md) | The producer measures text with layoutlib's Android text classes | Accepted (L2b) |
+| [0027](0027-compose-decides-the-versions-of-libraries-tied-to-it.md) | Let Compose decide the versions of the libraries tied to it | Accepted |
