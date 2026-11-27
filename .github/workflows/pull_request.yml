@@ -26,6 +26,8 @@ jobs:
       - uses: ./.github/actions/setup-build
       - name: Build and detekt with the configuration cache
         run: ./gradlew build detekt --configuration-cache
+      - name: Test the build logic
+        run: ./gradlew -p build-logic test
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
