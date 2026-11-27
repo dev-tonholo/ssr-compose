@@ -6,10 +6,12 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
 
 /**
  * Verifies that a module applying [PublishingConventionPlugin] declares at least one `MavenPublication`.
  */
+@DisableCachingByDefault(because = "Only reads its inputs and fails the build, so it has no outputs to cache")
 internal abstract class VerifyMavenPublicationsTask : DefaultTask() {
     /**
      * Names of `MavenPublication` instances registered on the module.
