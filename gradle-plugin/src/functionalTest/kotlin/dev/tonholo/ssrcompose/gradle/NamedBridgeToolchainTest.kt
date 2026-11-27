@@ -13,12 +13,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@Tag(SCALE_TAG)
 class NamedBridgeToolchainTest {
     @TempDir
     lateinit var projectDir: File
 
     @Test
+    @Tag(SCALE_TAG)
     fun `given a shared metadata compile, when common code mentions a component, then both compiles pass`() {
         // Arrange
         val project = FixtureProject(directory = projectDir)
@@ -65,6 +65,7 @@ class NamedBridgeToolchainTest {
     }
 
     @Test
+    @Tag(SCALE_TAG)
     fun `given common and jvm code calling one bridge, when compiled, then the bridge is declared once`() {
         // Arrange
         val project = FixtureProject(directory = projectDir)
@@ -83,6 +84,7 @@ class NamedBridgeToolchainTest {
     }
 
     @Test
+    @Tag(SCALE_TAG)
     fun `given a bridge called only from common code, when a jvm file is edited, then the bridge stays`() {
         // Arrange
         val project = FixtureProject(directory = projectDir)
