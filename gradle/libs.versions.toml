@@ -2,7 +2,6 @@
 kotlin = "2.4.21"
 agp = "9.5.1"
 compose-multiplatform = "1.12.2"
-skiko = "0.150.2"
 ph-fonts-roboto = "5.0.4"
 ph-fonts-open-sans = "5.0.4"
 kotlinx-serialization = "1.13.0"
@@ -40,8 +39,8 @@ kotlin-compile-testing = { module = "dev.zacsweers.kctfork:core", version.ref = 
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
-skiko-runtime-macos-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-macos-arm64", version.ref = "skiko" }
-skiko-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64", version.ref = "skiko" }
+skiko-runtime-macos-arm64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-macos-arm64" }
+skiko-runtime-linux-x64 = { module = "org.jetbrains.skiko:skiko-awt-runtime-linux-x64" }
 roboto-fonts = { module = "com.helger.font:ph-fonts-roboto", version.ref = "ph-fonts-roboto" }
 open-sans-fonts = { module = "com.helger.font:ph-fonts-open-sans", version.ref = "ph-fonts-open-sans" }
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "compose-multiplatform" }
