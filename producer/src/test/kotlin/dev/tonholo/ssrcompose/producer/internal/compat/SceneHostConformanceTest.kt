@@ -21,8 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -96,6 +98,32 @@ private fun CountedText(lifetime: Lifetime, text: () -> String) {
 @Composable
 private fun FixedText(text: String, widthDp: Int, modifier: Modifier = Modifier) {
     BasicText(text = text, modifier = modifier.size(width = widthDp.dp, height = ROW_HEIGHT_DP.dp))
+}
+
+private enum class AnchoredSlot { Anchor, Popup }
+
+/** Adds a popup from the measure step, once [isAnchorPlaced] says so. */
+@Composable
+private fun PopupOnceAnchorIsPlaced(isAnchorPlaced: () -> Boolean, onAnchorPlaced: () -> Unit) {
+    SubcomposeLayout { constraints ->
+        val addsPopup = isAnchorPlaced()
+        val anchor = subcompose(slotId = AnchoredSlot.Anchor) {
+            FixedText(
+                text = "anchor",
+                widthDp = NAME_WIDTH_DP,
+                modifier = Modifier.onGloballyPositioned { onAnchorPlaced() },
+            )
+        }.single().measure(constraints)
+        val popup = if (addsPopup) {
+            subcompose(slotId = AnchoredSlot.Popup) { Popup { FixedText(text = "popup", widthDp = NAME_WIDTH_DP) } }
+                .map { it.measure(constraints) }
+        } else {
+            emptyList()
+        }
+        layout(width = anchor.width, height = anchor.height) {
+            (popup + anchor).forEach { it.place(x = 0, y = 0) }
+        }
+    }
 }
 
 private class StateMadeInLayout {
@@ -347,6 +375,26 @@ internal abstract class SceneHostConformanceTest(
     }
 
     @Test
+    fun `given a popup that layout adds late in a frame, when the frames settle, then the popup is laid out`() {
+        // Arrange
+        var anchorPlaced by mutableStateOf(value = false)
+        val host = open()
+        host.setContentLocked {
+            PopupOnceAnchorIsPlaced(isAnchorPlaced = { anchorPlaced }, onAnchorPlaced = { anchorPlaced = true })
+        }
+
+        // Act
+        host.renderLocked()
+        val pendingAfterFirstFrame = host.hasPendingWork()
+        host.renderWhilePending()
+        val popup = host.placedTexts().single { it.text == "popup" }
+
+        // Assert
+        assertEquals(expected = true, actual = pendingAfterFirstFrame)
+        assertEquals(expected = Size(width = NAME_WIDTH_PX, height = ROW_HEIGHT_PX), actual = popup.bounds.size)
+    }
+
+    @Test
     fun `given a text below another, when an update makes the upper one taller, then both new bounds are read`() {
         // Arrange
         var upperHeightDp by mutableStateOf(value = ROW_HEIGHT_DP)
@@ -548,6 +596,14 @@ internal abstract class SceneHostConformanceTest(
             if (!hasPendingWork()) return
         }
         fail("the host still had pending work after $FRAMES_TO_SETTLE frames")
+    }
+
+    private fun SceneHost.renderWhilePending() {
+        var frames = 0
+        while (hasPendingWork()) {
+            if (++frames > FRAMES_TO_SETTLE) fail("the host still had pending work after $FRAMES_TO_SETTLE frames")
+            renderLocked(nanoTime = FIRST_FRAME_NANOS + frames * FRAME_STEP_NANOS)
+        }
     }
 
     private fun SceneHost.textsByWindow(): List<List<String>> = withSceneLock {
