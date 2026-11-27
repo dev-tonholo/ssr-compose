@@ -168,7 +168,7 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 - A review round is one reviewer verdict on the item, including a review after a QA `NO-GO` repair.
 - Send every finding of a review, at every severity, to the worker in one repair brief.
 - This replaces "a full re-review" in Gates. After `CHANGES REQUESTED`, the re-review is the one in the reviewer's Project notes: it checks the earlier findings and the fix commits, and the reviewer still runs every gate on the whole `<base>..<head>` range.
-- Nits never start a review round. When only nits are left, the worker fixes them and you confirm with `git range-diff` that only those lines changed and that the gates pass. That check closes gate 2 for the item, with no new reviewer verdict.
+- `minor` and `nit` findings never start a review round. When a `PASS` lists them, the worker fixes the quick ones and you put the rest in a follow-up issue. You confirm any fixes with `git range-diff`: only those lines changed and the gates pass. That check closes gate 2 for the item, with no new reviewer verdict.
 - A third review round on the same item is a stop point, in addition to the guideline stop points: stop and report to the owner with the findings of each round.
 
 ### Retrospectives
