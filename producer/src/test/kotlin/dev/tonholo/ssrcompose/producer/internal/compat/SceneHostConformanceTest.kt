@@ -439,16 +439,23 @@ internal abstract class SceneHostConformanceTest(
     }
 
     @Test
-    fun `given a state first made while laying out, when it is written later, then the new bounds are read`() {
+    fun `given a state first made in a frame's last layout pass, when written later, then the new bounds are read`() {
         // Arrange
+        var reported by mutableStateOf(value = false)
         val state = StateMadeInLayout()
         val host = open()
         host.setContentLocked {
-            PlacedBy(content = { FixedText(text = "moving", widthDp = NAME_WIDTH_DP) }) { placeable ->
-                placeable.place(x = state.readOrMake(), y = 0)
-            }
+            PlacedBy(
+                content = {
+                    FixedText(
+                        text = "moving",
+                        widthDp = NAME_WIDTH_DP,
+                        modifier = Modifier.onGloballyPositioned { reported = true },
+                    )
+                },
+            ) { placeable -> placeable.place(x = if (reported) state.readOrMake() else 0, y = 0) }
         }
-        host.renderUntilIdle()
+        host.renderLocked()
 
         // Act
         checkNotNull(state.shift).value = SHIFT_PX
