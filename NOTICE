@@ -3,3 +3,8 @@ Copyright 2026 Rafael Tonholo
 
 This product is licensed under the Apache License, Version 2.0.
 See the LICENSE file for the full text.
+
+producer/src/main/kotlin/dev/tonholo/ssrcompose/producer/internal/compat/SkikoSceneHost.kt
+is adapted from ImageComposeScene.skiko.kt of Compose Multiplatform 1.12.2
+(https://github.com/JetBrains/compose-multiplatform-core),
+Copyright 2022 The Android Open Source Project, licensed under the Apache License, Version 2.0.
