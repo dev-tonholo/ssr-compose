@@ -8,6 +8,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextDirectionHeuristics
 import android.text.TextPaint
+import android.text.TextUtils
 import java.nio.ByteBuffer
 import java.nio.file.Path
 import kotlin.math.ceil
@@ -37,10 +38,10 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
 
     override fun measure(request: TextRequest): TextMeasurement {
         val layout = layOut(request = request, paint = paintFor(request))
-        val lastLine = layout.lineCount - 1
+        val lastLine = min(a = layout.lineCount, b = request.maxLines) - 1
         return TextMeasurement(
             heightPx = layout.getLineBottom(lastLine),
-            lineEnds = (0..lastLine).map(layout::getLineVisibleEnd),
+            lineEnds = (0..lastLine).map(layout::shownTextEnd),
             firstBaselinePx = layout.getLineBaseline(0),
             lastBaselinePx = layout.getLineBaseline(lastLine),
         )
@@ -87,8 +88,8 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
         USE_FALLBACK_LINE_SPACING,
     )
 
-    private fun staticLayout(request: TextRequest, paint: TextPaint, width: Int): StaticLayout =
-        StaticLayout.Builder.obtain(request.text, 0, request.text.length, paint, width)
+    private fun staticLayout(request: TextRequest, paint: TextPaint, width: Int): StaticLayout {
+        val builder = StaticLayout.Builder.obtain(request.text, 0, request.text.length, paint, width)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
             .setLineSpacing(SPACING_ADDED, SPACING_MULTIPLIER)
@@ -97,7 +98,15 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
             .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
             .setJustificationMode(Layout.JUSTIFICATION_MODE_NONE)
-            .build()
+            .setMaxLines(request.maxLines)
+        if (request.overflow == TextOverflow.Ellipsis) {
+            builder.setEllipsize(TextUtils.TruncateAt.END).setEllipsizedWidth(width)
+        }
+        return builder.build()
+    }
 
     private class LayoutlibFont(val typeface: Typeface) : TextFont
 }
+
+private fun Layout.shownTextEnd(line: Int): Int =
+    if (getEllipsisCount(line) > 0) getLineStart(line) + getEllipsisStart(line) else getLineVisibleEnd(line)
