@@ -1,6 +1,6 @@
 # 0024. The text gate's producer half runs in a JVM target of contract-tests
 
-- Status: Proposed
+- Status: Rejected on 2026-11-26, never accepted: the owner chose that the device measures server text ([ADR 0025](0025-device-measures-server-text.md)), so the text gate this record places is not built. Kept as the record of probes P21 and P22.
 - Date: 2026-11-26
 - Modules: `contract-tests`, `producer`, `compiler-plugin`
 

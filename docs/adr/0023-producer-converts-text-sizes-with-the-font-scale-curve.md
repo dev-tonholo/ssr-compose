@@ -1,6 +1,6 @@
 # 0023. The producer converts text sizes with the font scale curve
 
-- Status: Proposed
+- Status: Proposed, amended by [ADR 0025](0025-device-measures-server-text.md): the device measures server text, so `ScaledBasicText` and the rewrite stay as the hook that applies its sizes, and "When the device draws what the producer measured" no longer carries correctness.
 - Date: 2026-11-21
 - Modules: `producer`, `compiler-plugin`, `gradle-plugin`, `consumer`
 
