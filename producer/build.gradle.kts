@@ -2,12 +2,17 @@ plugins {
     alias(libs.plugins.ssrcompose.conventions.kotlin.jvm)
     alias(libs.plugins.ssrcompose.conventions.compose)
     alias(libs.plugins.ssrcompose.conventions.publishing)
+    alias(libs.plugins.ssrcompose.conventions.scale.test)
 }
 
 kotlin {
     compilerOptions {
         optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi")
     }
+}
+
+tasks.named<Test>("scaleTest") {
+    providers.gradleProperty("memoryScreens").orNull?.let { systemProperty("ssrcompose.memory.screens", it) }
 }
 
 tasks.test {
