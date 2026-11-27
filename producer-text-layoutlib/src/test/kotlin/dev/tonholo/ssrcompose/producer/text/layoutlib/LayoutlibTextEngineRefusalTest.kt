@@ -11,6 +11,18 @@ class LayoutlibTextEngineRefusalTest {
     private val request = row.request(engine.loadFont(classpathBytes(row.fontFile)))
 
     @Test
+    fun `given less than one line allowed, when a request is built, then it is refused`() {
+        // Arrange
+        val noLines = 0
+
+        // Act
+        val build = { request.copy(maxLines = noLines) }
+
+        // Assert
+        assertFailsWith<IllegalArgumentException> { build() }
+    }
+
+    @Test
     fun `given a font size Android would silently replace, when a request is built, then it is refused`() {
         // Arrange
         val sizes = listOf(-1f, Float.NaN, Float.POSITIVE_INFINITY)

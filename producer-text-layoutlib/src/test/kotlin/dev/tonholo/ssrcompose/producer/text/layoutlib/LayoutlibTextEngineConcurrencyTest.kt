@@ -19,10 +19,28 @@ private const val TEXT_FOR_FALLBACK_FONTS = "漢字かな 😀 مرحبا بال
 
 private val SIZES_PX = (12..71).map { it.toFloat() }
 private val WIDTHS_PX = listOf(120, 300, 525)
+private val LINE_LIMITS = listOf(
+    LineLimit(maxLines = Int.MAX_VALUE, overflow = TextOverflow.Clip),
+    LineLimit(maxLines = 2, overflow = TextOverflow.Ellipsis),
+)
 
-private data class Case(val text: String, val fontFile: String, val sizePx: Float, val widthPx: Int) {
-    fun request(fonts: Map<String, TextFont>): TextRequest =
-        TextRequest(text = text, font = fonts.getValue(fontFile), sizePx = sizePx, widthPx = widthPx)
+private data class LineLimit(val maxLines: Int, val overflow: TextOverflow)
+
+private data class Case(
+    val text: String,
+    val fontFile: String,
+    val sizePx: Float,
+    val widthPx: Int,
+    val lineLimit: LineLimit,
+) {
+    fun request(fonts: Map<String, TextFont>): TextRequest = TextRequest(
+        text = text,
+        font = fonts.getValue(fontFile),
+        sizePx = sizePx,
+        widthPx = widthPx,
+        maxLines = lineLimit.maxLines,
+        overflow = lineLimit.overflow,
+    )
 }
 
 private data class Answer(val case: Case, val measurement: TextMeasurement)
@@ -34,9 +52,13 @@ class LayoutlibTextEngineConcurrencyTest {
     private val texts = rows.map { it.text }.distinct() + TEXT_FOR_FALLBACK_FONTS
 
     private val cases = texts.flatMap { text ->
-        rows.map { it.fontFile }.distinct().flatMap { fontFile ->
-            SIZES_PX.flatMap { size ->
-                WIDTHS_PX.map { width -> Case(text = text, fontFile = fontFile, sizePx = size, widthPx = width) }
+        rows.map { it.fontFile }.distinct().flatMap { fontFile -> cases(text = text, fontFile = fontFile) }
+    }
+
+    private fun cases(text: String, fontFile: String): List<Case> = SIZES_PX.flatMap { size ->
+        WIDTHS_PX.flatMap { width ->
+            LINE_LIMITS.map { limit ->
+                Case(text = text, fontFile = fontFile, sizePx = size, widthPx = width, lineLimit = limit)
             }
         }
     }
