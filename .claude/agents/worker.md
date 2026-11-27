@@ -82,7 +82,7 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 
 ### Repairs
 
-- Fix every finding in the repair brief, at every severity, in one go.
+- Fix every `critical`, `major` and `medium` finding in the repair brief, in one go. Fix `minor` and `nit` findings when the change is quick. List the ones you leave, each with a reason; they become a follow-up issue.
 - Then self-review the whole change again, not only the reported cases.
 - A fix must not create new issues. Before you write a logic fix, list what it changes and what could break because of it, and write those cases as tests first, not only the case the finding names.
 - Keep a fix as small as the problem. A finding that seems to need a new mechanism, option or class goes back through `ask` with a short design before you build it.
