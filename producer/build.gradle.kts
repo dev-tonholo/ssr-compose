@@ -10,6 +10,12 @@ kotlin {
     }
 }
 
+tasks.test {
+    inputs.files(layout.projectDirectory.dir("src"), buildFile)
+        .withPropertyName("sourcesReadByTests")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     api(projects.core)
     api(libs.compose.runtime)
