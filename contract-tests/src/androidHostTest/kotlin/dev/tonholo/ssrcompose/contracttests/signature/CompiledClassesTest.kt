@@ -1,5 +1,6 @@
 package dev.tonholo.ssrcompose.contracttests.signature
 
+import dev.tonholo.ssrcompose.contracttests.fixture.AnonymousClassHolder
 import dev.tonholo.ssrcompose.contracttests.fixture.ScreenDocument
 import dev.tonholo.ssrcompose.contracttests.fixture.nested.NestedClass
 import kotlin.test.Test
@@ -17,6 +18,18 @@ class CompiledClassesTest {
 
         // Assert
         assertEquals(expected = expected, actual = found.intersect(other = expected))
+    }
+
+    @Test
+    fun `given a package with an anonymous class, when read, then the anonymous class is left out`() {
+        // Arrange
+        val anonymous = AnonymousClassHolder.anonymous.javaClass.name
+
+        // Act
+        val found = CompiledClasses.inPackage(packageName = FIXTURE_PACKAGE).map { it.name }
+
+        // Assert
+        assertEquals(expected = false, actual = anonymous in found)
     }
 
     @Test

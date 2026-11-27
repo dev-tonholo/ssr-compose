@@ -10,9 +10,12 @@ internal object CompiledClasses {
     private const val CLASS_FILE_SUFFIX = ".class"
     private const val PACKAGE_INFO = "package-info"
     private const val MODULE_INFO = "module-info"
+    private val anonymousSegment = Regex(pattern = """\$\d+(\$|$)""")
 
     /**
-     * Loads, without initializing, every class of [packageName] and of its sub packages.
+     * Loads, without initializing, every class of [packageName] and of its sub packages that source code can name. An
+     * anonymous class is left out: no signature can name it, and one that implements a type of another platform cannot
+     * even be loaded here.
      * @throws IllegalStateException when the classpath holds none, so a check that reads nothing cannot pass.
      */
     fun inPackage(packageName: String): List<Class<*>> {
@@ -30,6 +33,7 @@ internal object CompiledClasses {
             .filter { path -> path.startsWith(packagePath) && path.endsWith(CLASS_FILE_SUFFIX) }
             .map { path -> path.removeSuffix(CLASS_FILE_SUFFIX).replace(oldChar = '/', newChar = '.') }
             .filterNot { name -> name.endsWith(PACKAGE_INFO) || name.endsWith(MODULE_INFO) }
+            .filterNot { name -> anonymousSegment.containsMatchIn(input = name) }
             .distinct()
     }
 
