@@ -15,7 +15,7 @@ How to add or update a dependency. The rules are in [architecture](../../rules/a
 4. Check platform support. Anything for the consumer or core library must work in Kotlin Multiplatform common code or have an Android artifact. Anything for the producer or core library must work on a plain JVM with no Android.
 5. Never add AndroidX Remote Compose outside `poc/`.
 6. Do not let an alpha, experimental or restricted type reach public API.
-7. Add the version and the library to the catalog. Use a BOM where one exists. Never write a version in a module's build file.
+7. Add the version and the library to the catalog. Use a BOM where one exists. Never write a version in a module's build file. One exception: a library whose version Compose's published constraints supply, such as a Skiko runtime or an AndroidX Compose test library, goes in the catalog with no version ([ADR 0027](../../../docs/adr/0027-compose-decides-the-versions-of-libraries-tied-to-it.md)).
 8. Declare it in the module with the catalog accessor, with the narrowest configuration that works.
 9. Record a library choice as an ADR. See [the ADR blueprint](../../blueprints/adr.md).
 
