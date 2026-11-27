@@ -39,6 +39,7 @@ import dev.tonholo.ssrcompose.producer.testing.EMULATOR_FONT_SCALE
 import dev.tonholo.ssrcompose.producer.testing.LINE_HEIGHT_SP
 import dev.tonholo.ssrcompose.producer.testing.LIVE_FONT_SCALE
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
+import dev.tonholo.ssrcompose.producer.testing.PlacedBy
 import dev.tonholo.ssrcompose.producer.testing.SMALL_SIZE_SP
 import dev.tonholo.ssrcompose.producer.testing.ShownFrame
 import dev.tonholo.ssrcompose.producer.testing.ShownText
@@ -436,6 +437,35 @@ class LiveScreenTest {
         }
     }
 
+    @Test
+    fun `given a position read only by a layer, when a plain write changes it, then the next frame shows the move`() =
+        runTest {
+            // Arrange
+            var shift by mutableIntStateOf(0)
+            val screen = testScreen {
+                PlacedBy(content = { ShownText(text = FIRST_TEXT) }) { placeable ->
+                    placeable.placeWithLayer(x = 0, y = 0) { translationX = shift.toFloat() }
+                }
+            }
+
+            screen.frames().test {
+                val before = awaitItem().textX()
+                advanceUntilIdle()
+
+                // Act
+                shift = LAYER_SHIFT_PX
+                val after = awaitItem().textX()
+
+                // Assert
+                assertEquals(expected = listOf(0f, LAYER_SHIFT_PX.toFloat()), actual = listOf(before, after))
+            }
+        }
+
+    private fun ScreenFrame.textX(): Float {
+        assertIs<ScreenFrame.Sent>(this)
+        return document.root.firstText().x
+    }
+
     private fun ScreenFrame.textHeightPx(): Int {
         assertIs<ScreenFrame.Sent>(this)
         return (document.root.firstText().height * TEST_DENSITY).roundToInt()
@@ -473,6 +503,7 @@ class LiveScreenTest {
         const val THIRD_TEXT = "Updated again"
         const val COMPOSITIONS_AFTER_RECOMPOSING = 2
         const val BOX_SIZE_DP = 10
+        const val LAYER_SHIFT_PX = 50
         const val COMPOSITION_ERROR = "the first composition failed"
         const val EFFECT_ERROR = "the effect failed"
     }
