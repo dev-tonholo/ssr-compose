@@ -37,12 +37,14 @@ internal data class DeviceRow(
     val firstBaselineInPx: Float,
     val lastBaselineInPx: Float,
     val maxLines: Int? = null,
+    val lineHeightInPx: Float? = null,
 ) {
     fun request(font: TextFont): TextRequest = TextRequest(
         text = text,
         font = font,
         sizePx = fontSizeInPx,
         widthPx = widthInPx,
+        lineHeightPx = lineHeightInPx,
         maxLines = maxLines ?: Int.MAX_VALUE,
         overflow = if (maxLines == null) TextOverflow.Clip else TextOverflow.Ellipsis,
     )
