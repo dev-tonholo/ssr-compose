@@ -2001,6 +2001,8 @@ The 10 rows that missed, device then producer, as line count and height in px:
 
 ### Text measured on the device (#194)
 
+Since 2026-11-27 this design is candidate D of "Text laid out by layoutlib (#194)" below and of [ADR 0026](../../docs/adr/0026-producer-lays-screens-out-in-layoutlib.md), which recommends another option. Its ellipsis fix holds in every option. Nothing in it past slice M0 was approved; do not build it unless the owner chooses D.
+
 Proposed on 2026-11-26. After probe P21 the owner chose that the device reports text sizes back to the producer ([ADR 0025](../../docs/adr/0025-device-measures-server-text.md), which holds the options table). On 2026-11-26, after reading that table, the owner answered "Yes both": yes to option (a), text waits for the device, and yes to running slice M0 on the tablet now. That approves building slice M0 only. Slices A0 and M0b to M6 are not approved yet, and neither are the `textPendingLimit` fallback, the refusal of `onTextLayout` and of `minLines` above 1, whole pixels on the wire for text, and the removal of PR #212's recorder and recorded file. This section is the design. The wire shape below goes into [contracts/messages.md](contracts/messages.md) and [data-model.md](data-model.md) only after approval (slice A0), so it is written in one place until then.
 
 #### Evidence
@@ -2183,6 +2185,136 @@ Order: M0 first, approved on 2026-11-26; the rest waits for the owner's approval
 15. Principle I: the device sends no position and no constraint of its own; the producer places every node; a screen with no app component renders.
 16. T123 is gone from `tasks.md`, and no file builds the dropped gate.
 
+### Text laid out by layoutlib (#194)
+
+Proposed on 2026-11-27, for the owner to approve before any worker starts. It compares three designs for exact text and recommends one: L1, the whole scene in layoutlib; L2, the desktop scene with text sizes from layoutlib; and D, "Text measured on the device (#194)" above. The comparison table and the decision are in [ADR 0026](../../docs/adr/0026-producer-lays-screens-out-in-layoutlib.md). This section is the design of L1 and the answers the brief asked for. Nothing here is approved; the slices past M0 of the earlier design were never approved either.
+
+#### Evidence
+
+- P32, two replay rounds by another worker on 2026-11-27 (`.crew/reports-layoutlib/`, `report-round2.md`): 360 recorded texts per device (2 fonts, 5 samples, 12, 16 and 24 sp, font scales 1, 1.04 and 1.3, line height none or 1.5 times the size, `maxLines` none or 2 with an ellipsis, 200 dp wide) replayed through layoutlib 16.2.1 with Paparazzi 2.0.0-alpha05 and Compose 1.12.1, layoutlib reporting API 36. API 33 (physical Motorola), 35 (emulator), 36 (emulator and physical tablet) and 37 (emulator and physical Pixel 7 Pro) matched in every check: line count, height, box width, line ends, line widths, line bottoms, baselines and the ellipsis flag. API 30, 31 and 32 (emulators) matched in all but line widths, in 90 Roboto rows, by at most 0.02 px. API 23, 26, 28 (physical Moto G6) and 29 matched in line count and height; Roboto line widths differed by up to 1.73 px (0.58 dp) and 24 to 28 one-line Roboto boxes were 1 px wider in layoutlib; API 23 cut 2 Open Sans ellipsis texts differently. API 24, 25, 27 and 34 were not tested, and no older layoutlib release could be run. Linux x86_64 gave values byte for byte equal to macOS. Every replay's control, each text 1 sp larger, failed. layoutlib also repeats M0's failure.
+- P27 and P28: the ellipsis fix below, on the tablet and in layoutlib.
+- P29: what layoutlib costs a server, measured on this Mac. The same probe is packed for the owner's Linux server; its run is pending (see "Server cost").
+- P30: a plain `java` command, with no Gradle, no Android Gradle plugin and no JUnit runner, drove layoutlib, rendered screens and read their semantics.
+- P31: read in the class files: every layoutlib render takes one process-wide lock; desktop and Android Compose define the same class names.
+
+#### The ellipsis fix (M0)
+
+M0 found that a text with `Ellipsis` under a height limit, measured to 2 lines in 48 px, draws 1 line when drawn again in a fixed 48 px box: Android cuts lines by height again against the smaller box (`AndroidParagraph.android.kt` line 286). The fix: when a text's overflow is `Ellipsis`, the document carries as `maxLines` the smaller of the server's `maxLines` and the line count the producer's layout ended with. The device then draws in the fixed box with that line limit, and the height cut does not run again, since the text with that many lines fits the box exactly.
+
+- On the tablet (P27), over M0's 720 cases and 4 constraints: the current fixed box gave 16 mismatches, the same as M0; the line limit gave 0 of 2,880; drawing at the fixed width with no height limit gave 440, so it is rejected. The comparison checked line ends, the ellipsis flag per line, size and both baselines.
+- In layoutlib (P28), the same matrix at densities 1.5 and 2.625: 16 mismatches with the current fixed box at each, 0 with the line limit.
+- It holds in every design: in L1 and L2 the reader writes it; in D the producer writes it from the device's answer. The consumer draws `maxLines` as sent, so it needs no change. A device-only test keeps it (slice L1-5).
+
+#### Design L1
+
+Boundaries:
+
+- `producer` composes, lays out and reads every screen with Android Compose inside layoutlib, in a package `dev.tonholo.ssrcompose.producer.internal.layoutlib` that holds the driver: start the bridge once per process, create the render session, attach a `ComposeView` per screen, drive its frames, and hand the semantics roots to the reader. Nothing outside that package names a layoutlib type.
+- The reader keeps its walk: Android Compose has the same `SemanticsNode`, `SemanticsProperties`, `ModifierInfo` and `InspectableValue` API the desktop reader uses, and P29 and P30 read 100 text nodes with their bounds from `ViewRootForTest.semanticsOwner` inside layoutlib. Whether every inspector value the reader reads is the same on Android Compose is unproven; slice L1-3 ports the reader's tests first.
+- The scene thread of [ADR 0021](../../docs/adr/0021-producer-runs-every-scene-on-one-scene-thread.md) stays. layoutlib allows one render at a time per process anyway: every render action takes `Bridge.getLock()`, a static `ReentrantLock`, and sets a static current context (`RenderAction.acquireLock`, P31).
+- `consumer` is unchanged. `core` loses `DeviceContext.fontScaleCurve` in its own slice, since Android Compose converts sizes from the font scale itself (P22: `Density(context)` uses Compose's own `FontScaleConverterFactory`).
+- `compiler-plugin` loses the rewrite of `BasicText` and its order check, in its own slice, after the scene moved.
+
+Shipping layoutlib without Paparazzi (principle VIII). Paparazzi is alpha and is a JUnit tool: it reads its paths from system properties its Gradle plugin sets, installs a ByteBuddy agent, and writes images. The producer does not depend on it. It drives layoutlib through its own driver over `com.android.tools.layoutlib:layoutlib-api` and the `Bridge` of `com.android.tools.layoutlib:layoutlib`, the API Android Studio itself uses. The pieces of Paparazzi it needs (starting the bridge with fonts, ICU and hyphenation data, building the session parameters, driving frames) are copied under Apache 2.0 with attribution, in that package. Tests may use Paparazzi as a second opinion; no shipped artifact does.
+
+Shipping to a plain JVM server. Android Compose comes as AARs, which a plain JVM build cannot read, and its classes use Android resource classes (`R`) that an Android build generates. P30 ran layoutlib from a plain `java` command, but with a classpath the Android Gradle plugin had prepared, including its generated `R.jar` and `android.jar`. So L1 needs a module, built in this repository with the Android Gradle plugin, that publishes the Android Compose classes and the generated resource classes as plain jars, so that Gradle and Kotlin toolchain servers consume ordinary Maven jars. Repackaging AndroidX is allowed by Apache 2.0 with its notices. Whether `android.jar` and an Android SDK can be left out at run time is unproven; slice L1-0 proves it.
+
+Fonts:
+
+- App font bundles ([ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md)): the producer loads each file into Android Compose with `Font(file)`, as the replay probe did for Open Sans and Roboto, which matched every device file. Fingerprints and the font version rules stay.
+- The bundled Roboto ([ADR 0020](../../docs/adr/0020-bundle-roboto-as-the-default-font.md)) stays: a text with no `family` in the document is drawn with the library's Roboto file on the device, so the producer measures that file. layoutlib's own system Roboto gave the same width for "Hello world" in P28 (210 px), but it is Android 16's system font, so `FontFamily.Default` stays refused.
+- Fallback: a character the text's font lacks is drawn from layoutlib's own Android 16 fallback fonts (`data/fonts/fonts.xml` and `font_fallback.xml`: Noto Sans for most scripts, Noto Sans CJK, Noto Color Emoji). P28 measured emoji, a flag, Chinese, Japanese, Arabic, Hebrew, Thai and Devanagari with only the bundled Roboto or Open Sans file, and all of them laid out with glyphs of their own width and taller lines for CJK and Arabic. A device draws them from its own system fonts, which match layoutlib's only on AOSP and Google images of the same generation. Fallback text is not proven exact on any device; it is documented, and a later recording adds emoji and CJK cases.
+
+The Android version. L1 needs no version from the device: layoutlib lays out as API 36 for every device. The owner's line is API 30. The recommended minimum is above API 29, that is API 30 (Android 11) and later: from API 30 the replays matched every box, line break, height and baseline, and only line widths moved by at most 0.02 px; at API 29 and below, boxes were 1 px wider in up to 28 of 360 rows and line widths moved by up to 1.73 px. The note goes in three places: the public docs page on supported Android versions, the KDoc of `SsrScreen` (the consumer's entry point), and the consumer's README. No runtime warning: neither the app nor its user can act on it, and it would be noise in every log of an older device. The note says: "Text is laid out by the server to match Android 11 (API 30) and later on AOSP and Google Android. On Android 10 (API 29) and older, and on devices whose maker changed the text engine or system fonts, a line can be up to about 1 px longer or shorter than the server measured, so text may be clipped by a pixel or leave a small gap."
+
+Server cost (P29, macOS M3 Pro, 12 cores, 36 GB, load average about 3 from other work, warm unless noted):
+
+| What | layoutlib | Desktop Compose, for comparison |
+|---|---|---|
+| Process startup to the first render ready | about 2 s (bridge start 0.4 to 0.8 s, session 0.8 to 1.3 s, JVM before it 1.7 to 2.7 s) | not measured as such |
+| First screen of a process (50 rows) | 245 to 424 ms | 434 ms to create, 117 ms to render (P4) |
+| A new 50-row screen, warm | 9.5 ms median, 15.5 ms at p90, over 100 | 20 to 23 ms (P7, P17) |
+| An update of one screen, one frame | 6.7 ms median over 100 frames | 2.3 ms (P17) |
+| Heap per live 50-row screen | 1.25 to 1.29 MB from 1,000 to 2,000 screens laid out at once (0.7 MB at 10) | 297 KB (P7) |
+| Resident memory per live screen | 2.5 to 3.3 MB, including heap growth | not measured |
+| New screens per second, 1, 4 and 8 processes at once, 300 each, 1 GB heap each | 122; 4 x 79 = 315; 8 x 43 = 343. Median 7.6, 10.4 and 19 ms; about 1.2 to 1.3 GB resident per process | one JVM 2.2 to 2.3 ms per frame, four JVMs 4.0 to 4.4 ms (P19) |
+| A new text measured alone | 0.04 ms median, 0.13 ms at p90 | not measured |
+| Text measuring on 1, 2, 4, 8 threads | 13,250, 12,980, 2,570 and 2,440 texts per second in all | not measured |
+
+What the 10,000 session bound (SC-011) implies, from these numbers: 10,000 live 50-row screens hold about 13 GB of heap and 25 to 33 GB resident, against about 3 GB of heap for desktop Compose. One process renders about 120 new screens or 150 frames per second, one at a time, and on this 12-core Mac throughput stopped growing between 4 and 8 processes, at about 340 new screens per second, with every process holding 1.2 GB or more. So a server of 31 GB holds 10,000 sessions of 50-row screens only if most of them are not live in memory at once, or with several machines; that is the bound the Linux run measures. The Linux run, `.crew/reports-layoutlib/cost/ssrcompose-cost-layoutlib.tar.gz` (SHA-256 `6394f9f2971e88444b9afe8e4b3a6194320e957327b1eac8c1a978db99b53f19`), measures the same steps up to 8,000 live screens and 16 processes. My permissions refused ssh, and the coordinator stopped without running it, so its numbers are pending. A screen taller than 16,777,215 px cannot be laid out at all (Compose's size limit, seen at 4,000 screens of 1,700 dp in one column), which bounded the Mac steps at 2,000.
+
+Tests that replace T123. The device recordings are committed under `producer/src/test/resources/text-recordings/`, one JSON file per device in the round 2 format with a schema version: the physical tablet (API 36), the Pixel 7 Pro (API 37) and the Motorola (API 33), and the API 30 and API 35 emulators. A JVM test in `producer` replays every row through the producer's own driver, not Paparazzi, and requires equal line count, height, box width, line ends, baselines and ellipsis flag, and line widths within 0.05 px; each file also runs 1 sp larger and must fail. The API 23 to 29 files are kept as fixtures of the documented difference: their test requires equal line count and height only. The device recorder becomes a committed device test in `contract-tests` that writes its file through `additionalTestOutputDir`. The ellipsis test of P27 stays as a device test. A layoutlib or Compose upgrade re-records on the tablet and the Pixel and must pass the replay.
+
+What happens to merged and planned work under L1:
+
+| Work | Keep, change or remove | Why |
+|---|---|---|
+| Desktop Compose and Skiko in `producer`, the scene of T122 | Remove, after L1-3 | Android Compose in layoutlib replaces them |
+| The reader | Change | The same semantics API on Android Compose; the tests move first |
+| `ScaledBasicText` and the plugin's rewrite (ADR 0023, T130) | Remove, in their own slice | Android Compose scales text itself, so nothing needs rewriting; merged work becomes unused |
+| The reader's `UnscaledText` and its size check | Remove with the rewrite | There is no mark to check |
+| Material `Text`, text from modules without the plugin, `autoSize` | Allow `Text` and plugin-free modules; `autoSize` stays refused | They no longer need a rewrite; `autoSize`'s chosen size is still not in the document |
+| `DeviceContext.fontScaleCurve` (T121) | Remove, in its own slice | Android Compose converts sizes from the font scale |
+| The em refusals (#222) | Keep | The document carries sp only |
+| Bundled Roboto and font bundles (ADR 0017, ADR 0020, T128) | Keep, loaded with Android `Font(file)` | The device draws those files |
+| ADR 0015 | Replaced by ADR 0026 if accepted | |
+| ADR 0021 | Keep | layoutlib's lock gives the same shape |
+| ADR 0023, ADR 0025 | Records of earlier options | |
+| T123 | Remove | Replaced by the replay test and the device tests above |
+| T124 | Change | Drop the curve comparison test; the rest stands |
+| T125 | Keep | App components are still measured on the device |
+| T129 | Change | The load test runs on layoutlib, on the Linux server |
+| PR #212's recorder and file, M0's device test | Change | The recorder writes the new format; M0's check becomes the ellipsis device test |
+
+Principle I. The producer still composes, measures and arranges every screen, now with Android Compose, and sends a positioned document; the device draws each node in its box and reports no text size. App components keep ADR 0016. Nothing makes the catalog the only content.
+
+Principle III, wording proposed for the owner, replacing "A document MUST be producible on a plain JVM with no Android classes, stubs or emulators":
+
+"A document MUST be produced on a server JVM. The producer MAY run layoutlib, the Android rendering library Android Studio uses for previews, inside its own process, at one pinned version, only while tests that replay layouts recorded on real devices pass for that version. The producer MUST NOT need a real device, an emulator, an Android system image or an Android SDK installation."
+
+And in "Technology and Platform Constraints", replacing "Producer library: runs on a plain JVM server. It MUST NOT need Android.":
+
+"Producer library: runs on a JVM server. It MUST NOT need a device, an emulator or an Android SDK installation; it may embed layoutlib as principle III allows."
+
+Risks:
+
+- Shipping Android jars to plain JVM servers (L1-0). If it cannot be done without the Android Gradle plugin on the server, L1 and L2 both stop and D is the fallback.
+- Memory at 10,000 sessions: about 4 times desktop Compose per live screen on macOS. The Linux run decides.
+- The producer's Android Compose version and the app's: text was matched with 1.12.1 on both sides only. A different app version is not tested; the docs say to keep them on the same minor version.
+- A new Android version may change text before a layoutlib release follows. The replay test on each upgrade catches it.
+- Paparazzi's code copied into the driver must follow layoutlib upgrades by hand.
+
+#### Slices
+
+Each is tests first, one mechanism, compile and detekt on every commit, the tests the change affects plus the new ones while building, and the full suite once before the push. Sizes from the table in `.ai/agents/engineering-manager.md`.
+
+- L1-0, complex. Shipping: a module built with the Android Gradle plugin that publishes the Android Compose classes and generated resource classes as plain jars, and a sample plain JVM server, built without the Android Gradle plugin, that renders one screen and reads its semantics on Linux in CI, with no `android.jar` and no SDK at run time. Stop and report if it cannot.
+- L1-1, complex. The driver in `dev.tonholo.ssrcompose.producer.internal.layoutlib`: bridge start from the runtime and resources jars, the session, one `ComposeView` per screen, frames, semantics roots; Paparazzi not on the runtime classpath. Tests: a screen of 50 rows renders and its 100 text nodes are read.
+- L1-2, medium. The committed recordings and the replay test that replace T123, with the 1 sp control.
+- A1, trivial, the system-architect. Contracts and data-model for the removed curve, and the owner's constitution amendment, once L1-0 to L1-2 pass.
+- L1-3, complex. The scene on the driver: `ScreenScene` and `LiveScreen` on layoutlib, the reader's tests moved and passing, desktop Compose and Skiko removed.
+- L1-4, medium. Remove the rewrite and its order check from `compiler-plugin`, `ScaledBasicText`, the mark and `UnscaledText`; allow Material `Text`.
+- L1-4b, small. Remove `DeviceContext.fontScaleCurve` from `core` and `consumer`, a public API change on its own.
+- L1-5, small. The ellipsis line limit in the reader, and the device test of P27 committed.
+- L1-6, small. Fonts loaded with Android `Font(file)` (T128 part B on L1).
+- L1-7, small. The supported Android versions note in the docs, the KDoc of `SsrScreen` and the README.
+- T129 on the Linux server, with the probe package as its start.
+
+#### Validation checklist
+
+1. A plain JVM server built without the Android Gradle plugin renders a screen on Linux from published jars, with no SDK at run time.
+2. No shipped artifact depends on Paparazzi; no type outside `internal.layoutlib` names a layoutlib type.
+3. The replay test passes for API 30 and later files and fails for each 1 sp control.
+4. Every render runs on the scene thread; `Bridge.getLock()` is never held across two screens.
+5. The reader's tests pass unchanged on Android Compose.
+6. An `Ellipsis` text's `maxLines` in the document is the smaller of the server's and the laid-out line count; the device test passes on the tablet.
+7. The rewrite, `ScaledBasicText`, `UnscaledText` and `fontScaleCurve` are gone, each in its own slice.
+8. App fonts and the bundled Roboto load with Android `Font(file)`; `FontFamily.Default` is refused.
+9. The supported Android versions note is in the docs, the KDoc of `SsrScreen` and the README, with the same words.
+10. The Linux load run is recorded here, with memory per live screen and screens per second per process.
+11. Principle I: no layout decision moved to the device; app components keep ADR 0016.
+12. Principle III is amended by the owner before L1-3 merges.
+
 ### Probes
 
 Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `core/src/jvmTest` (`./gradlew :core:jvmTest --tests dev.tonholo.ssrcompose.core.probe.ProbeTest --configuration-cache`, exit 0), and a producer probe (`./gradlew :producer:test --tests dev.tonholo.ssrcompose.producer.probe.ProbeTest --configuration-cache`, exit 0). P4 to P9 and P11 in a throwaway Gradle project outside the repository: Kotlin 2.4.21, Compose Multiplatform 1.12.2 desktop (`ui-desktop`, `foundation-desktop`), `skiko-awt-runtime-macos-arm64` 0.150.2, JVM 17 with `-Djava.awt.headless=true`, on macOS arm64, run by `./gradlew -p <probe> test` (exit 0). Both were removed afterwards.
@@ -2216,6 +2348,12 @@ Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `
 - P24: with the key normalized (no height, the unbounded measurement and intrinsics asked with the first width), and rule 1 of "Text measured on the device", every layout took 1 round trip when the fake device matched Skia, and 1 or 2 at 3% and -3% off; 200 rows of a label and a wrapping value (400 texts) took 2, with 400 unbounded and 600 width measurements.
 - P25: the key computed from the text and its style in composition, set as a semantics property on the modifier given to `ScaledBasicText` and read back from every text node of the semantics tree; 13 layouts (P24's, a row of two equal texts at weights 1 and 2, `maxLines = 2` with `Ellipsis`, an `Ellipsis` text and a `Clip` text in a 40 dp tall box, a minimum width above the text's own, centred text, a text that changes by state, 50 rows of label and value), at 1.03, 1.005 and 0.995. After settling, every text's box and position equalled those of the same layout drawn with plain `BasicText` at the fake device's size and no table: 39 of 39. Round trips: 1, or 2 for the row of labels before a wrapping text, the `IntrinsicSize.Min` row, the changing text (also 2 after its change) and the 50 rows. `readScreen` read every one as a document with the key on every text. Converting every pixel from 0 to 1,000,000 to dp (`px / density` as `NodeBox.placedIn` does) and back with `roundToInt` gave 0 misses at densities 1, 1.5, 2.625, 2.975, 3.5 and 10; `ceil` missed 64,038 at 2.625 and 80,099 at 2.975, `floor` 64,026 and 80,089.
 - P26: in the same copy, `TextMeasurer` with Roboto at 16 sp on a wrapping text 525 px wide (3 lines, 147 px unbounded): with `Clip` and `maxHeight` 20, 49 or 60 px the height was 20, 49 or 60 with 3 lines and baselines 38.7 and 136.7 px; with `Ellipsis` and `maxHeight` 20 or 49 the height was 20 or 49 with 1 line and both baselines 38.7; with `Ellipsis` and 60 the height was 49 with 1 line. So a height bounded by `maxHeight` can be below the baselines.
+- P27 ran on 2026-11-27 on the tablet RX2R600PM0N (SM-P615, LineageOS, API 36, density 1.5), in a copy of M0's commit b0f2a702 (which pins Espresso 3.7.0) made with `git archive`, with one new device test, `EllipsisFixDeviceTest`. `ANDROID_SERIAL=RX2R600PM0N ./gradlew -p <copy> :contract-tests:connectedAndroidDeviceTest -Pandroid.testInstrumentationRunnerArguments.class=dev.tonholo.ssrcompose.contracttests.textgate.EllipsisFixDeviceTest` exited 1 by design: the result XML had 1 test and 1 failure, the assertion "no height: 440". Over M0's 720 cases and 4 constraints, each text was measured with `TextMeasurer` under its constraints, then again in a fixed box of the measured size: with the case's own `maxLines`, 16 of 2,880 differed in line ends, ellipsis flags, size or baselines (M0's 16); with `maxLines` set to the smaller of the case's and the measured line count, 0; at the fixed width with no height limit, 440. Only our own test APK was installed, and Gradle removed it; no input or setting. The test source and its result, keeping only our log lines, are in `.crew/reports-layoutlib/cost/ellipsis-fix-tablet/`.
+- P28 ran on 2026-11-27 on this Mac (macOS arm64, M3 Pro) with Paparazzi 2.0.0-alpha05 and layoutlib 16.2.1, in a throwaway probe (`.crew/reports-layoutlib/cost/mac/probe-src`, `./gradlew -p <probe> testDebugUnitTest --tests <class>`, exit 0). The same ellipsis matrix with `TextMeasurer` inside layoutlib, at densities 1.5 and 2.625: 16 mismatches each with the case's own `maxLines`, 0 with the line limit. Text measuring: a new string 0.04 ms median, 0.13 ms at p90, 0.46 ms worst over 1,440; strings seen before 0.03 ms; on 1, 2, 4 and 8 threads, each with its own `TextMeasurer`, 13,250, 12,980, 2,570 and 2,440 texts per second in all, with no error and no size different from one thread. Fallback, at 16 sp and density 2.625, with only the bundled Roboto file: "Hello world" 210 x 49 px, the same as `FontFamily.Default` (layoutlib's own Roboto); an emoji alone 53 px wide; Chinese and Japanese 61 px tall against 49 for Latin; Arabic 72 px tall; Hebrew, Thai and Devanagari laid out with widths of their own; a code point no font has, U+10FFFD, 19 px wide.
+- P29 ran on 2026-11-27 on the same Mac (12 cores, 36 GB, load average 3 to 5 from other work), with the same probe. Startup: the JVM ran 1.7 to 2.7 s before the bridge started, the bridge took 0.4 to 0.8 s and the session 0.8 to 1.3 s. A screen of 50 rows of two `BasicText` in a padded `Row`: the first in a process 245 to 424 ms, then 9.5 ms median over 100 new screens (15.5 at p90); one composition updated every frame through `PaparazziSdk.gif` 6.7 ms median over 100 frames, with 1 composition and 101 recompositions; `ViewRootForTest.semanticsOwner` gave 100 text nodes with their bounds. Live screens, composed and laid out together in one column, heap after GC per screen: 716 KB at 10, 768 at 100, 995 at 250, 1,171 at 500, 1,254 at 1,000, 1,292 at 2,000; resident 1.0 to 3.3 MB per screen; 4,000 screens of 1,700 dp failed with "Size(1080 x 20400000) is out of range". Processes: 1 process 121.6 new screens per second (median 7.6 ms); 4 at once 78.4 to 79.2 each; 8 at once 42.4 to 43.2 each (median 18.3 to 19.5 ms), all overlapping in time, each with a 1 GB heap and 1.2 to 1.3 GB resident. Results in `.crew/reports-layoutlib/cost/mac/`. The same probe for the owner's Linux server is packed with a run script that caps every container at 24 GB; it did not run (P29's Linux half is pending).
+- P30: in the same probe, the test task's classpath (232 entries, including the Android Gradle plugin's generated `R.jar` and `android.jar`) and system properties were written to a Java argument file, and `java @<file>` ran `PlainMain`, a `main` function, with no Gradle, no Android Gradle plugin and no JUnit runner: startup 1,975 ms, the first screen 393 ms, then 14.9 ms median over 20, 100 text nodes read from the semantics, and a text measured to 525 x 98 px (exit 0).
+- P31, read in the class files of layoutlib 16.2.1: `RenderAction.init` and its other entry points call `acquireLock`, which takes `Bridge.getLock()`, a static `ReentrantLock`, and set the static `sCurrentContext`; so one render runs at a time per process. `ui-text-desktop` 1.12.2 and `ui-text-android` and `ui-unit-android` 1.12.1 define the same classes, such as `androidx.compose.ui.text.TextMeasurer` and `androidx.compose.ui.unit.Density`. Sizes read from the Gradle cache: `layoutlib-16.2.1.jar` 60.3 MB, `layoutlib-runtime-16.2.1-linux.jar` 80.7 MB, `-mac-arm.jar` 79.3 MB, `layoutlib-resources-16.2.1.jar` 34.8 MB, `layoutlib-api-32.0.1.jar` 0.1 MB, and about 11 MB of AndroidX jars on the probe's classpath. The POMs of layoutlib, its runtime and Paparazzi declare Apache 2.0; the runtime carries the ICU licence and the licences of its native libraries, and its fonts include Noto (OFL 1.1) and Roboto.
+- P32: the two replay rounds of layoutlib against recorded devices, by another worker on 2026-11-27, `.crew/reports-layoutlib/` and `report-round2.md`; summarized under "Text laid out by layoutlib (#194)", "Evidence".
 
 ### Guardrails proposed for the rules
 
