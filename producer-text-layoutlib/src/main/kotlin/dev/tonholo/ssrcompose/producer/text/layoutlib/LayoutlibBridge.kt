@@ -50,7 +50,7 @@ internal object LayoutlibBridge {
 
     private fun initialize(root: Path) {
         val data = root.resolve(DATA_FOLDER)
-        val log = StartupLog()
+        val log = JvmLayoutLog()
         val isStarted = Bridge().init(
             buildProperties(root.resolve(BUILD_PROPERTIES)),
             data.resolve(FONTS_FOLDER).toFile(),
@@ -62,9 +62,17 @@ internal object LayoutlibBridge {
             log,
         )
         if (!isStarted) {
-            val reason = log.firstMessage ?: "an earlier start failed in this process, and layoutlib does not retry"
-            throw IllegalStateException("layoutlib did not start from $root: $reason", log.firstCause)
+            throw startFailure(root = root, log = log)
         }
+    }
+
+    fun startFailure(root: Path, log: JvmLayoutLog): IllegalStateException {
+        val reason = if (log.hasRecordedError) {
+            log.firstErrorMessage ?: "layoutlib reported an error with no message"
+        } else {
+            "an earlier start failed in this process, and layoutlib does not retry"
+        }
+        return IllegalStateException("layoutlib did not start from $root: $reason", log.firstErrorCause)
     }
 
     private fun nativeLibraryFolder(): String {
