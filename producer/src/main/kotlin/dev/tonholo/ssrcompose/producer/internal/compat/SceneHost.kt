@@ -17,7 +17,10 @@ internal interface SceneHost : AutoCloseable {
     /** Composes [content] over the whole screen, and throws what its first composition throws. */
     fun setContent(content: @Composable () -> Unit)
 
-    /** Runs one frame at [nanoTime], which `withFrameNanos` reads, then measures and places what changed. */
+    /**
+     * Runs one frame at [nanoTime], which `withFrameNanos` reads, then measures and places what changed. Nothing is
+     * drawn.
+     */
     fun renderFrame(nanoTime: Long)
 
     /** The roots of the unmerged semantics trees, one per window: the screen's, and one per popup or dialog. */
@@ -33,4 +36,4 @@ internal interface SceneHost : AutoCloseable {
  * Opens a host for the screen [setup] describes. Its effects and recompositions run on [coroutineContext].
  */
 internal fun openSceneHost(setup: SceneSetup, coroutineContext: CoroutineContext): SceneHost =
-    ImageSceneHost(setup = setup, coroutineContext = coroutineContext)
+    SkikoSceneHost(setup = setup, coroutineContext = coroutineContext)
