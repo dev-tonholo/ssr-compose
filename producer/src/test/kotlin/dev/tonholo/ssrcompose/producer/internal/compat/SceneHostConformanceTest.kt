@@ -19,6 +19,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
@@ -36,6 +37,7 @@ import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 import dev.tonholo.ssrcompose.producer.internal.scene.withSceneLock
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
+import dev.tonholo.ssrcompose.producer.testing.skiaClassesAllocatedBy
 import kotlin.coroutines.CoroutineContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -69,6 +71,8 @@ private const val TALLER_ROW_HEIGHT_DP = 30
 private const val TALLER_ROW_HEIGHT_PX = 60f
 private const val FAILURE = "the first composition fails"
 private const val FRAMES_TO_SETTLE = 120
+private val RASTER_PIXEL_CLASSES = setOf("Surface", "Bitmap")
+private const val TEXT_LAYOUT_CLASS = "Paragraph"
 
 private data class PlacedText(val text: String, val bounds: Rect)
 
@@ -476,6 +480,45 @@ internal abstract class SceneHostConformanceTest(
 
         // Assert
         assertEquals(expected = FAILURE, actual = thrown.message)
+    }
+
+    @Test
+    fun `given a screen with text, when it opens, composes and renders, then no raster surface is made`() {
+        // Arrange
+        val content: @Composable () -> Unit = {
+            BasicText(text = "screen")
+            Popup { BasicText(text = "popup") }
+        }
+
+        // Act
+        val allocated = skiaClassesAllocatedBy {
+            val host = open()
+            host.setContentLocked(content = content)
+            host.renderUntilIdle()
+        }
+
+        // Assert
+        assertEquals(expected = true, actual = TEXT_LAYOUT_CLASS in allocated)
+        assertEquals(expected = emptySet(), actual = allocated intersect RASTER_PIXEL_CLASSES)
+    }
+
+    @Test
+    fun `given content with a draw step, when frames run, then it is never drawn`() {
+        // Arrange
+        var draws = 0
+        var heightDp by mutableStateOf(value = ROW_HEIGHT_DP)
+        val host = open()
+        host.setContentLocked {
+            Box(modifier = Modifier.size(width = NAME_WIDTH_DP.dp, height = heightDp.dp).drawBehind { draws++ })
+        }
+        host.renderUntilIdle()
+
+        // Act
+        Snapshot.withMutableSnapshot { heightDp = TALLER_ROW_HEIGHT_DP }
+        host.renderUntilIdle()
+
+        // Assert
+        assertEquals(expected = 0, actual = draws)
     }
 
     private fun open(

@@ -244,7 +244,7 @@ Rules checked while decoding, so a document that breaks one is unreadable: sizes
 
 ### Hole and reader (`producer`, internal)
 
-The producer no longer builds its own node tree. Each open screen lives in an `ImageComposeScene`, and an internal reader turns its semantics tree into a `ScreenDocument` ([research.md R20](research.md#4-constraints-and-non-functional-requirements-2)). `ConsumerComponent` is a Compose UI `Layout` with a semantics property that holds:
+The producer no longer builds its own node tree. Each open screen lives in a Compose UI desktop scene that lays out and never draws, behind the producer's internal `SceneHost`, and an internal reader turns its semantics tree into a `ScreenDocument` ([research.md R20](research.md#4-constraints-and-non-functional-requirements-2)). `ConsumerComponent` is a Compose UI `Layout` with a semantics property that holds:
 
 | Field | Meaning |
 |---|---|
