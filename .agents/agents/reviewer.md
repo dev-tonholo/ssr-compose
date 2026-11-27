@@ -70,10 +70,16 @@ These notes apply until rafaeltonholo/skills#22 lands in the onboard-crew templa
 ### One deep pass
 
 - Review the whole change in one pass and report every finding you can find now, all together. Do not hold anything back for a later round.
-- This replaces the finding format in Verdict. Write each finding as `file:line - severity - problem - required fix`, where severity is `blocking`, `should fix` or `nit`, most severe first.
-- `PASS` and `CHANGES REQUESTED` stay the only verdicts. Any finding at any severity means `CHANGES REQUESTED`.
+- This replaces the finding format in Verdict. Write each finding as `file:line - severity - problem - required fix`, where severity is one of these, most severe first:
+  - `critical`: data loss, a security hole, a crash, or it breaks the build or a release.
+  - `major`: wrong behavior, a broken acceptance criterion, or a broken owner rule.
+  - `medium`: a gap that will cause a bug or real maintenance cost, such as a missing test of required behavior or a test that checks the code against itself.
+  - `minor`: a small improvement with no effect on behavior.
+  - `nit`: style or wording.
+- `PASS` and `CHANGES REQUESTED` stay the only verdicts. Any `critical`, `major` or `medium` finding means `CHANGES REQUESTED`, and the list still holds every finding.
+- With only `minor` and `nit` findings the verdict is `PASS`. List them in the `PASS` report for the worker.
 
 ### Re-review after a repair
 
-- Check that every earlier finding is fixed, then read the fix commits for new problems. Run every gate on the whole `<base>..<head>` range.
-- A problem in code the repair did not touch counts only when it is `blocking`. Report it marked as missed in the earlier round.
+- Check that every earlier `critical`, `major` and `medium` finding is fixed. An earlier `minor` or `nit` finding left unfixed does not change the verdict; list it again. Then read the fix commits for new problems. Run every gate on the whole `<base>..<head>` range.
+- A problem in code the repair did not touch counts only when it is `critical`, `major` or `medium`. Report it marked as missed in the earlier round.
