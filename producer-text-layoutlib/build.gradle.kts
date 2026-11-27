@@ -57,6 +57,7 @@ class LayoutlibRuntimeArgument(
 }
 
 tasks.test {
+    forkEvery = 1
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     jvmArgumentProviders.add(LayoutlibRuntimeArgument(extractLayoutlibRuntime.map { it.destinationDir }))
 }
