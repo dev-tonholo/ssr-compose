@@ -34,5 +34,5 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0022](0022-android-variant-api-for-generated-resources.md) | Add generated resources to Android variants through the Android Gradle plugin's variant API | Proposed |
 | [0023](0023-producer-converts-text-sizes-with-the-font-scale-curve.md) | The producer converts text sizes with the font scale curve | Proposed, amended by 0025 |
 | [0024](0024-text-gate-producer-half-in-contract-tests-jvm.md) | The text gate's producer half runs in a JVM target of contract-tests | Rejected |
-| [0025](0025-device-measures-server-text.md) | The device measures server text and reports its sizes | Proposed, candidate D of 0026 |
-| [0026](0026-producer-lays-screens-out-in-layoutlib.md) | The producer lays screens out in layoutlib | Proposed |
+| [0025](0025-device-measures-server-text.md) | The device measures server text and reports its sizes | Not chosen; fallback D of 0026 |
+| [0026](0026-producer-measures-text-with-layoutlib.md) | The producer measures text with layoutlib's Android text classes | Accepted (L2b) |

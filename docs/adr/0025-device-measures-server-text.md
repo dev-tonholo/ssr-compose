@@ -1,6 +1,6 @@
 # 0025. The device measures server text and reports its sizes
 
-- Status: Proposed; since 2026-11-27 candidate D of [ADR 0026](0026-producer-lays-screens-out-in-layoutlib.md), which recommends laying screens out in layoutlib. Only slice M0 was approved and built.
+- Status: Not chosen; since 2026-11-27 fallback D of [ADR 0026](0026-producer-measures-text-with-layoutlib.md), which was accepted with option L2b, text measured with layoutlib's Android text classes. Only slice M0 was approved and built.
 - Date: 2026-11-26
 - Modules: `core`, `producer`, `consumer`, `contract-tests`
 
