@@ -22,8 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.SemanticsNode
@@ -38,6 +36,7 @@ import androidx.compose.ui.window.Popup
 import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 import dev.tonholo.ssrcompose.producer.internal.scene.withSceneLock
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
+import dev.tonholo.ssrcompose.producer.testing.PlacedBy
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
 import dev.tonholo.ssrcompose.producer.testing.skiaClassesAllocatedBy
 import kotlin.coroutines.CoroutineContext
@@ -130,14 +129,6 @@ private class StateMadeInLayout {
     var shift: MutableState<Int>? = null
 
     fun readOrMake(): Int = (shift ?: mutableStateOf(value = 0).also { shift = it }).value
-}
-
-@Composable
-private fun PlacedBy(content: @Composable () -> Unit, place: Placeable.PlacementScope.(Placeable) -> Unit) {
-    Layout(content = content) { measurables, constraints ->
-        val placeable = measurables.single().measure(constraints)
-        layout(width = constraints.maxWidth, height = placeable.height) { place(placeable) }
-    }
 }
 
 private fun nameAt(left: Float, top: Float = 0f, height: Float = ROW_HEIGHT_PX, text: String = "moving"): PlacedText =
