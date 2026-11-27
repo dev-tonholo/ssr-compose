@@ -2001,7 +2001,7 @@ The 10 rows that missed, device then producer, as line count and height in px:
 
 ### Text measured on the device (#194)
 
-Proposed on 2026-11-26, for the owner to approve before any worker starts. After probe P21 the owner chose that the device reports text sizes back to the producer ([ADR 0025](../../docs/adr/0025-device-measures-server-text.md), which holds the options table). This section is the design. The wire shape below goes into [contracts/messages.md](contracts/messages.md) and [data-model.md](data-model.md) only after approval (slice A0), so it is written in one place until then.
+Proposed on 2026-11-26. After probe P21 the owner chose that the device reports text sizes back to the producer ([ADR 0025](../../docs/adr/0025-device-measures-server-text.md), which holds the options table). On 2026-11-26, after reading that table, the owner answered "Yes both": yes to option (a), text waits for the device, and yes to running slice M0 on the tablet now. That approves building slice M0 only. Slices A0 and M0b to M6 are not approved yet, and neither are the `textPendingLimit` fallback, the refusal of `onTextLayout` and of `minLines` above 1, whole pixels on the wire for text, and the removal of PR #212's recorder and recorded file. This section is the design. The wire shape below goes into [contracts/messages.md](contracts/messages.md) and [data-model.md](data-model.md) only after approval (slice A0), so it is written in one place until then.
 
 #### Evidence
 
@@ -2162,7 +2162,7 @@ Each is tests first, one mechanism, compile and detekt on every commit, the test
 - M6, medium. In `contract-tests/src/androidHostTest`: the real producer and consumer sessions over `InMemoryConnection` with a fake `TextSizer`, link 3 above, for R20's examples 1 to 3 and a row of label and wrapping value.
 - T129 then measures the load with text rounds.
 
-Order: M0 first, then the owner's go for the rest; M0b, A0, M1; M2 and M3 after M1, beside T124 and T125; M4 after T125 and M3; M5 after T124, T125 and M1; M6 after M4 and M5.
+Order: M0 first, approved on 2026-11-26; the rest waits for the owner's approval; M0b, A0, M1; M2 and M3 after M1, beside T124 and T125; M4 after T125 and M3; M5 after T124, T125 and M1; M6 after M4 and M5.
 
 #### Validation checklist
 
