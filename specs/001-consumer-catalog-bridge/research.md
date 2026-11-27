@@ -1609,6 +1609,8 @@ Producer to consumer:
 
 #### Text sizes and the font scale curve
 
+Proposed change of 2026-11-26: the device measures every server text and reports its sizes, and `ScaledBasicText` becomes the hook that applies them ("Text measured on the device (#194)", [ADR 0025](../../docs/adr/0025-device-measures-server-text.md)). What follows still holds for the producer's first layout; it no longer decides what the device draws.
+
 Decided by the owner on 2026-11-21 ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md), which holds the options, the probes and the Compose source lines). The compiler plugin rewrites each call to foundation's `BasicText` in server code into `ScaledBasicText`, the library's copy of that overload, which provides `LocalDensity` with the device's density and `fontScale = curve.spToDp(size) / size` around the text and marks it in its semantics. One `LocalDensity` for the whole screen cannot work, since a node takes one density and each size needs its own factor (probe J of the ADR: 52 px where the curve gives 59). The scene keeps the device's density and font scale. The reader refuses a text with no mark, or whose laid-out size is not the curve's, with `UnscaledText`; `ScaledBasicText` leaves a text with `autoSize` unmarked, since the layout input the reader reads shows the style as written and not the size `autoSize` chose, and writes the sizes as the server wrote them, in sp; the device converts them with its own curve, exact under the conditions the ADR lists.
 
 Test plan for the rewrite, in `compiler-plugin`, tests first, each compiled with the SSR and Compose compiler plugins as `CompileTestSupport` does, with `producer` on the class path:
@@ -1700,13 +1702,13 @@ The app's fonts travel in a font bundle of their own, with its own version, sepa
 - Custom drawing is invisible to the reader and lost. Documented for server developers; images and brushes are refused, not lost.
 - A layer that a custom layout places with `placeWithLayer` has no inspector values. The reader refuses it when it scales or rotates the node, since the transform from the node to the scene's root is then more than a move, but alpha or a clip set inside that layer is not seen and is lost. Known gap.
 - Text properties the reader does not refuse yet: `fontFeatureSettings`, `localeList`, `lineBreak`, `hyphens`, `textDirection` and `lineHeightStyle` can move line breaks or where text sits, and the document cannot hold them. A plain refusal would refuse all Material 3 text, since its text styles set `lineHeightStyle` by default, so they need a design. #224 tracks it.
-- Text measured on the server can still wrap differently on a device, from another text engine version or locale data. It clips in its box. A follow-up can report overflow back, like a component size.
+- Text measured on the server can wrap differently on a device, from another text engine (probe P21). Proposed answer: the device measures each server text and reports its sizes ("Text measured on the device (#194)", [ADR 0025](../../docs/adr/0025-device-measures-server-text.md)).
 - A component whose size depends on its slot content, and slot content whose size depends on the component, can loop. Once every component has a reported size, `measuringRounds` bounds it at 4 more rounds for one change, and the latest reported sizes are sent.
 - A late `ComponentMeasured` after the screen changed. It names an older revision and is ignored; the newer screen asks again.
 - Many sessions: memory at 10,000 open screens is not measured yet. Slice 9 measures it before the feature is called done.
 - Skiko's native runtime is per OS. A server without it fails at the first screen; `Producer { }` checks for it at start and fails with a message that names the missing jar.
 - `isDebugInspectorInfoEnabled` is a process-wide switch. Any other Compose code in the same server process also builds inspector info, a small cost.
-- The consumer's device test environment: every Compose device test fails on the owner's Android 17 phone with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso (probe P10). Device work for this design runs on the emulator `emulator-5554`, or since 2026-11-26 on the two devices the owner allowed ("Text gate (T123)", "Where it runs"), with `ANDROID_SERIAL` set on every command and never on any other phone. P10 has not been checked again on the Pixel, so the Pixel is unproven until slice G2 of the text gate runs the existing device test there once. The text gate and slices 4 and 5 run on these devices.
+- The consumer's device test environment: every Compose device test fails on the owner's Android 17 phone with `NoSuchMethodException: android.hardware.input.InputManager.getInstance` from Espresso (probe P10). Device work for this design runs on the emulator `emulator-5554`, or since 2026-11-26 on the two devices the owner allowed ("Text gate (T123)", "Where it runs"), with `ANDROID_SERIAL` set on every command and never on any other phone. P10 has not been checked again on the Pixel, so the Pixel is unproven until a device slice runs an existing device test there once. Slice M0 of "Text measured on the device (#194)" and slices 4 and 5 run on these devices.
 - An older development build of either side fails at its first `Screen` with `AnswerUnreadable` ([ADR 0019](../../docs/adr/0019-contract-version-1-carries-the-document.md)).
 - Text measured by Skia on the server and drawn by Android's text engine on the device, with the same font file, is not compared yet. It is the design's largest risk, so a gate after slice 3 measures it on a device before the consumer slices start.
 - A Compose upgrade adds or changes a `BasicText` overload. The rewrite gives a compile error at the call, and the parameter test of `ScaledBasicText` fails the build ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)).
@@ -1765,7 +1767,7 @@ Each slice is tests first, one mechanism, and buildable on every commit. Each na
 3. The producer scene and reader. Add Compose UI, foundation and the Skiko test runtime to `producer`. Tests: `SemanticsVisibilityTest` (invariant 7); the reader turns a `Box` with background and border, a text and a `verticalScroll` into example 1's nodes without its click, and a `clickable` node is sent with no `click` until slice 6 (T126); a state change sends a new revision; an image, a brush, a lazy list and an unknown shape each give `onScreenNotSendable`; every scene step runs on the scene thread and a blocked composition holds back no other thread (invariants 12 and 13). Break per test: drop one case from the reader, or drive one scene step from the caller's thread.
 3a. The scene watchdog ([ADR 0021](../../docs/adr/0021-producer-runs-every-scene-on-one-scene-thread.md)), after T051 adds `ProducerLimits` and `ProducerObserver`. Tests, with a manual clock: a task of one screen that passes `sceneTaskLimit` calls `onSceneThreadHeld` once with that screen and the time held; a task under the limit calls nothing; a later long task of the same screen is reported again. Then add `sceneTaskLimit`, `onSceneThreadHeld`, and the scene thread's record of the running task and its screen, read from a coroutine context element the scene's context carries. Break per test: report on every check, or never.
 3b. The text rewrite, T130 ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)). Tests: items 1 to 8 of the test plan in section 2, "Text sizes and the font scale curve". Then the IR step, registered by `SsrCompilerPluginRegistrar` in `producer` and `check` mode, its call-based order check and the "not supported yet" error, and the same mode and order in the Kotlin toolchain plugin (T101). Break per test; for the main one, skip the rewrite and the 16 and 24 sp texts are 61 and 91 px.
-Text gate, after slice 3 and before slice 4. On `emulator-5554` or one of the two devices the owner allowed on 2026-11-26, with `ANDROID_SERIAL` set to it, draw a fixed set of strings (short, long and wrapping, Latin and one other script) at 12, 16 and 24 sp and font scales 1 and 1.3 with one font from a font bundle and with the default Roboto, and compare each one's line count and height with what the producer measured for the same font, density and width. The gate passes when every line count matches and every height is within 1 dp. If it fails, stop and report to the owner, since measuring on the producer would then need text overflow reports from the device. Its first run found the non-linear font scaling of Android 14 and later, so the producer measures with the device's `fontScaleCurve`, not with `fontScale` alone (section 2, "Messages"). A text with a line height in sp also runs at font scale 1.04, the band where the line height has a curve of its own. Server text in the gate is written as `BasicText` and compiled with the plugin, so the rewrite is what is measured ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)). The design, and a first result from replaying the emulator's file that missed the rule in 10 of 60 rows (probe P21), are in "Text gate (T123)".
+Text gate, dropped on 2026-11-26 and replaced by "Text measured on the device (#194)", whose slices M0 to M6 take its place; kept as the record of what was planned. After slice 3 and before slice 4. On `emulator-5554` or one of the two devices the owner allowed on 2026-11-26, with `ANDROID_SERIAL` set to it, draw a fixed set of strings (short, long and wrapping, Latin and one other script) at 12, 16 and 24 sp and font scales 1 and 1.3 with one font from a font bundle and with the default Roboto, and compare each one's line count and height with what the producer measured for the same font, density and width. The gate passes when every line count matches and every height is within 1 dp. If it fails, stop and report to the owner, since measuring on the producer would then need text overflow reports from the device. Its first run found the non-linear font scaling of Android 14 and later, so the producer measures with the device's `fontScaleCurve`, not with `fontScale` alone (section 2, "Messages"). A text with a line height in sp also runs at font scale 1.04, the band where the line height has a curve of its own. Server text in the gate is written as `BasicText` and compiled with the plugin, so the rewrite is what is measured ([ADR 0023](../../docs/adr/0023-producer-converts-text-sizes-with-the-font-scale-curve.md)). The design, and a first result from replaying the emulator's file that missed the rule in 10 of 60 rows (probe P21), are in "Text gate (T123)".
 
 4. The consumer drawing and the switch-over. Tests: example 1 draws at its boxes with `ComponentBindings {}` (invariant 4); invariant 1's grep. Then `ProducerMessage.Screen` carries `ScreenDocument`, `ScreenContent`, `ProvisionalScreenContent` and the list loop are deleted, in one commit, since the type change breaks every caller at once. Break: place one node at 0, 0 and the bounds test fails.
 5. App components as holes. Tests: `ConsumerComponent` reads as a `Component` node with its values; a pending document is not shown (invariant 8); the consumer reports a measured size; the producer lays out again and sends `pending = false`; a slot reports its space and its server content comes back laid out in it (example 3); the guard inside a slot (invariant 6); nested components stay pending until all are measured (invariant 8); `measuringRounds` stops a loop only after every component is measured; a first report with 10,000 components is accepted and one with 10,001 is refused; measurements over 30 per second are merged, not dropped. Break per test.
@@ -1791,7 +1793,7 @@ Text gate, after slice 3 and before slice 4. On `emulator-5554` or one of the tw
 13. The marker exists once, in `core`, on the types ADR 0014 lists, and invariant 9's `PublicSignatureMarkerTest` finds no marked type in a public signature, and catches its own fixtures.
 14. The load test ran at 10,000 open screens and its numbers are in this section.
 15. Principle I gate, again: the producer owns arrangement (points 1, 5 and 9); a screen with no app component renders in an app with an empty catalog (point 9); nothing makes the catalog the only content or gives the consumer a layout decision (points 2 and 9); composable logic runs on the producer only (point 5 and invariant 5).
-16. The text gate passed on the device the owner named, with its numbers recorded in "Text gate (T123)", "Results".
+16. Text measured on the device: slice M0 passed on the device the owner named, and the validation checklist of "Text measured on the device (#194)" holds.
 17. The producer refuses out-of-range measurements and viewports without laying out, ignores unknown ids, and merges, without dropping, `ComponentMeasured` and `ViewportChanged` over their own limit, apart from the trigger limit, each with a test.
 18. An app component inside a switcher variant gives `onScreenNotSendable`.
 19. `./gradlew build detekt --configuration-cache` and `./gradlew check --configuration-cache` pass.
@@ -1842,6 +1844,8 @@ The design:
 The principle I gate for this change: it moves only where the producer's own work runs. The producer still composes, measures and arranges every screen in its scene (points 1 and 4 of [the gate](#the-principle-i-gate)), the document and the wire do not change, so the consumer gains no layout decision (point 3), and a screen with no app component takes the same path as any other, so the zero-catalog path stays open (point 2). No option above moves layout to the consumer or limits content to the app's catalog.
 
 ### Text gate (T123)
+
+Dropped on 2026-11-26, not built. After the first result below, the owner chose that the device measures server text and reports its sizes ([ADR 0025](../../docs/adr/0025-device-measures-server-text.md), "Text measured on the device (#194)" below). Nothing under "Boundaries" to "Validation checklist" of this section is to be built; [ADR 0024](../../docs/adr/0024-text-gate-producer-half-in-contract-tests-jvm.md) is rejected. "First result" and "Results" stay as the record of probes P21 and P22.
 
 Designed on 2026-11-26 for the part of T123 that PR #212 did not build: the producer half, the cases T123 still lacks, and the comparison. Where the producer half lives is [ADR 0024](../../docs/adr/0024-text-gate-producer-half-in-contract-tests-jvm.md).
 
@@ -1995,6 +1999,184 @@ The 10 rows that missed, device then producer, as line count and height in px:
 | `open-sans-regular/greek-long/16sp/x1.3` | 8, 584 | 8, 576 | 3.05 dp |
 | `open-sans-regular/greek-long/24sp/x1.0` | 9, 765 | 9, 774 | 3.43 dp |
 
+### Text measured on the device (#194)
+
+Proposed on 2026-11-26, for the owner to approve before any worker starts. After probe P21 the owner chose that the device reports text sizes back to the producer ([ADR 0025](../../docs/adr/0025-device-measures-server-text.md), which holds the options table). This section is the design. The wire shape below goes into [contracts/messages.md](contracts/messages.md) and [data-model.md](data-model.md) only after approval (slice A0), so it is written in one place until then.
+
+#### Evidence
+
+- P23 to P25 ran the producer side with a fake device: Skia laying the same text out with its font size changed by 3%, 0.5% or -0.5%, so its sizes differ from the producer's own by up to a few pixels, as P21's real ones do (about 1 px per line). After the producer applied the fake device's answers, every text of 13 layouts sat at exactly the box and position the fake device gives it when it lays the layout out on its own: 39 runs of 39 (P25). Every layout settled in 1 or 2 round trips.
+- Compose's text rules, read in the 1.12.1 sources: the width a paragraph is laid out at is `maxWidth` when `minWidth == maxWidth`, else the ceiled max intrinsic width kept between `minWidth` and `maxWidth` (`LayoutUtils.kt`, `finalMaxWidth`, lines 38 to 66). `maxHeight` reaches the paragraph (`finalConstraints`, line 34), but on Android it changes the lines only when the overflow is `Ellipsis`, the text is taller than `maxHeight` and `maxLines` is above 1 (`AndroidParagraph.android.kt` line 286); otherwise it only clips the box, and foundation itself lays out again only when `maxHeight` is below the paragraph's height (`ParagraphLayoutCache.kt` line 340).
+- A pixel size the device reports survives the document's dp and the device's way back, `Dp.roundToPx()` (`roundToInt`): 0 misses for every pixel from 0 to 1,000,000 at densities 1, 1.5, 2.625, 2.975, 3.5 and 10. `ceil` and `floor` miss up to 80,099 of them (P25).
+- Unproven: that on a device, `TextMeasurer` gives the same size and baselines as `BasicText` under the same constraints, and that `BasicText` drawn in a fixed box of that size draws the same lines. On desktop Skia they matched in every case of P23 and P25. Slice M0 proves it on a device before any other slice.
+
+#### Boundaries
+
+- `core` owns the wire: a `measure` request on a pending `Text` node and the `TextMeasured` message, with their checks.
+- `producer` owns every decision: which constraints each text is measured with (its Compose layout asks them), what is asked, when a document is pending, what is remembered, and where every node goes. The device's numbers enter only through the measure policy of `ScaledBasicText`.
+- `consumer` measures what it is asked, with the same text style it draws with, and reports numbers. It never places, orders or sizes a node on its own.
+- `compiler-plugin` is unchanged. Its rewrite is what puts every server `BasicText` through `ScaledBasicText`.
+
+#### What the device measures and reports for one text
+
+The producer asks for a text by width queries. A query is `TextWidthQuery(minWidth: Int, maxWidth: Int?, maxHeight: Int?)` in pixels at the session's density; null is unbounded. `maxHeight` is set only for a text whose overflow is `Ellipsis`, since for `Clip` it does not change the lines; for `Clip` the producer asks with no height and clips the answer itself. `minHeight` is never asked: the producer applies it. A `Text` node of a pending document carries `measure: TextMeasureRequest(widths: List<TextWidthQuery>)`, 1 to 8 queries, only while the producer lacks an answer for it.
+
+For each text with a `measure`, the device lays the text out with `TextMeasurer.measure`, with the node's text, the style built by the same function it draws with, the node's `maxLines` and `overflow`, `softWrap = true`, the screen's layout direction, its own `Density` and font resolver, and reports one `TextMeasurement`:
+
+- `id`, the node's id in that revision;
+- `minIntrinsicWidth` and `maxIntrinsicWidth`, the paragraph's intrinsic widths ceiled to whole pixels;
+- `height`, `firstBaseline` and `lastBaseline` of the layout with no bounds, the baselines rounded as Compose rounds them for alignment lines;
+- `widths`: for each query, `TextWidthMeasurement(query, width, height, firstBaseline, lastBaseline)` under `Constraints(query.minWidth, query.maxWidth ?: Infinity, 0, query.maxHeight ?: Infinity)`.
+
+All numbers are whole pixels. That is a deliberate break from the rest of the wire, which is in dp: Compose measures text in whole pixels on both sides, the producer's queries are pixel constraints, and a dp number turned back into pixels could miss a query by one. The document still carries every box in dp, which round-trips exactly (Evidence).
+
+On the producer, for a query with constraints `c`, in this order:
+
+1. When the text's `maxIntrinsicWidth` `M` is known, `c.maxWidth >= M`, and the query has no `maxHeight` or `maxHeight >= height`, the answer is known without asking: the width is `c.maxWidth` when `c.minWidth == c.maxWidth`, else `max(M, c.minWidth)`, and the height and baselines are the unbounded ones. The text does not wrap at such a width, so this is Compose's own rule (Evidence). It keeps a short label in a row from being asked again each time its row moves.
+2. Else an answer for the exact query is used.
+3. Else the producer lays the text out with its own Skia measurement for now, records the query, and the document is pending.
+
+The box is the answer's width, and its height kept between `c.minHeight` and `c.maxHeight`; the alignment lines `FirstBaseline` and `LastBaseline` are the answer's baselines. The child `BasicText` is then measured with `Constraints.fixed` at that box, so the reader reads the box from its semantics as today. Intrinsic queries: `maxIntrinsicWidth` and `minIntrinsicWidth` return the device's values once known; `minIntrinsicHeight(w)` and `maxIntrinsicHeight(w)` are the height of the query `TextWidthQuery(0, w, null)`.
+
+What this covers, each in P25 unless marked:
+
+| Case | How |
+|---|---|
+| Wrapping | A width query at the width the layout gives; the device breaks the lines |
+| `maxLines` and `Ellipsis` | Sent on the node, applied by the device's measurement |
+| `Ellipsis` cut by a bounded height | `maxHeight` in the query |
+| `Clip` in a bounded height | Asked unbounded, clipped by the producer |
+| Intrinsic width, `IntrinsicSize.Min` and `Max` | `minIntrinsicWidth` and `maxIntrinsicWidth` |
+| Intrinsic height | A width query with no height |
+| Weighted rows and columns | The weighted width is a fixed-width query |
+| A minimum width above the text's own | Rule 1, `max(M, minWidth)` |
+| First and last baseline alignment | The answer's baselines as the box's alignment lines |
+| Centred, end and justified text | The device draws the alignment inside the box it measured |
+| Two equal texts at different widths | One text key, two queries |
+| Text in slot content | Asked once the slot's space is reported; answered in the next round with the component sizes (not probed) |
+| Text in a switcher variant the device does not show | Measured: measuring needs no drawing, unlike an app component (not probed) |
+
+What cannot work, and how each is refused, by the reader, with `onScreenNotSendable`:
+
+- `minLines` above 1. `TextMeasurer` has no `minLines`, and foundation applies it outside the paragraph. The mark carries `minLines`; the reader refuses with `UnsupportedTextStyle`.
+- `onTextLayout`. The callback gets the producer's own `TextLayoutResult`, whose lines may differ from the device's, so server code that decides on line counts would decide wrongly. The mark records that a callback was given; the reader refuses with the new reason `TextLayoutCallback`.
+- A text the layout measures in more than 8 different ways in one revision: the new reason `TextMeasureLimit`. P23 to P25 never asked more than 3.
+- More than 10,000 texts that need answers in one revision: `TextMeasureLimit`, like the 10,000 app components of rule 3.
+- Already refused and unchanged: several styles and inline content, sizes and line heights in em (#222), `autoSize`, `softWrap = false`, and text not rewritten by the plugin (`UnscaledText`).
+- Lost without a report, as now: text drawn by server code with `drawText` and its own `TextMeasurer`.
+
+#### The flow and its cost
+
+1. The producer composes and lays the screen out. Every text resolves its queries from the session's store; a text with an unanswered query gets `measure` in the document, and the `Screen` is `pending`.
+2. The consumer never shows a pending document (rule 3b). It measures each requested text and sends one `TextMeasured(revision, texts)`, at the same cadence as `ComponentMeasured`, at most 20 per second with changes merged. A pending document with both app components and texts is answered by one `ComponentMeasured` and one `TextMeasured` in the same round.
+3. The producer checks the message, writes the answers into the store, and the texts lay out again with no recomposition. A new revision is sent, pending while any query is still unanswered.
+
+Round trips, from P25: one before a screen with text is first shown; two when a wrapping text's width depends on a sibling's measured width (4 of 13 layouts: a row of labels before a wrapping text, a row of label and value, a row with `IntrinsicSize.Min` height, and the text that changes by state). On an update, a text whose key and query are already in the store needs no round trip; a new string or a new width needs one, or two in the same layouts, while the last shown screen stays. A screen that waits for app components gets its text answers in the same rounds; a wrapping text whose width depends on a component's reported size needs one more (not probed). Text in slot content adds at most one round per level of slot nesting beyond the component rounds.
+
+Answers are facts about a text, not about a revision. So, unlike `ComponentMeasured`, a `TextMeasured` for an older revision is kept: the producer keeps, for its last 8 revisions, each text node's id with its text key and the queries it asked, and stores every valid answer under the text key. This is what lets a text that changes faster than a round trip settle once it stops.
+
+What stops a loop. Answers only add to the store, and the layout is a fixed function of the store, so a loop ends when a layout asks nothing new. `measuringRounds` (4) bounds the rounds that come after every app component has a size and every text an unbounded measurement. Past it, and when the latest revision has been pending only for text answers longer than `textPendingLimit` (a new `ProducerLimits` value, 1 second by default), the producer sends that revision not pending, with its own Skia sizes for the queries still unanswered, and calls `onLayoutNotSettled(screen)`. A text the producer measured itself can then be clipped by a line or leave space; nothing else moves. App components keep their own rule: a screen is never shown with an app component that has no size.
+
+What is remembered. Per session, a store of answers in snapshot state, so a new answer lays out only the texts that read it.
+
+- The text key: the node's `text`, its `style` without `color` (family, size, weight, italic, line height, alignment), `maxLines` and `overflow`, as the document carries them. The mark computes it in composition, so the measure policy and the reader use the same key.
+- A width answer's key: the text key and the query as asked.
+- Dropped all at once when the session's font version, density, font scale, layout direction or language changes (`DeviceChanged`, `FontVersionChanged`), since each can change how the device lays text out. A viewport change drops nothing, since queries name their widths.
+- Bounded: at most `textSizeEntries` (a new `ProducerLimits` value, 4,096 by default) per session, the entries no text of the latest revision uses evicted first, the oldest first.
+- Never shared between sessions (rule 5 of the security rules), since two devices can lay the same text out differently.
+
+#### Upper bounds
+
+- Thousands of texts. P24's screen of 200 rows (400 texts) settled in 2 rounds with about 2.5 device measurements per text (400 unbounded and 600 width measurements at 3% off). A screen of 5,000 texts asks about 12,500 measurements; at about 60 bytes per text and 100 bytes per width answer in JSON, its `TextMeasured` is about 1 MB. Per message: at most 10,000 texts, 8 widths per text and 20,000 width answers, about 2.6 MB at most. The device's time per measurement is unproven; slice M0 records it on the device and R20 gets the number for 10,000 texts.
+- A text that changes many times a second. Each new string is a new key and one device measurement. Faster than a round trip, the screen stays pending for text until `textPendingLimit`, then shows the producer's own size for that text, reported. `TextMeasured` shares the 30 per second limit of `ComponentMeasured` and `ViewportChanged`, merged and never dropped.
+- 10,000 open sessions on one scene thread (ADR 0021). Each round re-lays out the screen once: P17 measured 2.3 ms per frame of a 50-row screen against 20 ms per new screen, so each round adds about one frame of work, unmeasured with text answers. The store holds, for a 50-row screen, about 250 entries of about 150 bytes, about 37 KB, about 370 MB for 10,000 sessions, against P7's 297 KB of heap per scene; at its cap, 4,096 entries, about 600 KB per session. These are estimates; T129 measures new screens per second with text rounds and the store's heap.
+
+#### While sizes are missing, and when the device is wrong
+
+- Before the first answer the user sees the loading state; on an update, the last shown screen. A device that never answers sees the screen after `textPendingLimit` with the producer's own text sizes, reported with `onLayoutNotSettled`, unless app components also wait.
+- `TextMeasured` is untrusted input (rule 7 of the security rules), checked before it sizes anything. The whole message is refused and reported, laying nothing out, when: a number is negative or above 100,000 dp in pixels at the session's density; `minIntrinsicWidth` is above `maxIntrinsicWidth`; a baseline is negative, `firstBaseline` is above `lastBaseline`, or `lastBaseline` is above its `height`; a width answer is below its query's `minWidth` or above its `maxWidth`; an id or a query appears twice; or a cap of the previous section is passed. An entry for an id that is not a text of one of the last 8 revisions, or a query that id was not asked, is ignored and reported. None of these ends the session.
+- A device that lies within those checks only moves its own screen's boxes: the store is per session (rule 5), capped, and the producer still chooses every constraint and position.
+- Rule 3 of the security rules: the consumer checks a document's `measure` requests while decoding it (1 to 8 queries, whole pixels, `maxWidth` not below `minWidth`, `maxHeight` only on an `Ellipsis` text); a broken request makes the message unreadable, never a crash.
+- Rule 8: neither side logs a text, a query or an answer at a level that ships.
+- Rule 4: contract version 1 is not released ([ADR 0019](../../docs/adr/0019-contract-version-1-carries-the-document.md)), so the wire changes in place.
+
+#### Principle I
+
+- The device reports only these numbers per text: `minIntrinsicWidth`, `maxIntrinsicWidth`, and for the unbounded layout and each query the producer asked, `width`, `height`, `firstBaseline` and `lastBaseline`, all measured from the text's own top-left corner. No position, no order, no constraint of its own choosing, nothing about any other node.
+- The producer chooses every constraint, by its own Compose layout, and places every node; the consumer still places each node at the box it was sent (rule 14 of the architecture rules). The device's answers are inputs to one text's size, like an app component's size in ADR 0016.
+- A screen with no app component still renders, one round trip later. The zero-catalog path is unchanged: text is server content.
+- Nothing makes the catalog the only content: no catalog, component or bridge is involved.
+
+#### What happens to merged and planned work
+
+| Work | Keep, change or remove | Why |
+|---|---|---|
+| The font scale curve in the handshake (merged, T121) | Keep | No longer needed for correctness. It keeps the producer's first layout close: with it, 44 of P21's 60 heights matched the device exactly, so fewer widths need a second round. |
+| T124's consumer test comparing `FontScaleCurve.spToDp` with the device's `Density.toDp` (planned) | Remove from T124 | It guarded correctness under ADR 0023; a mismatch now costs rounds, not wrong text. |
+| `ScaledBasicText` (merged) | Change | Becomes the hook: it wraps `BasicText` in the measure policy above; its mark gains the text key, `minLines` and whether `onTextLayout` was given. Its per-text density stays for the first layout. |
+| The plugin's rewrite (merged, T130) and its order check | Keep, unchanged | It is what puts every server text through the hook. |
+| ADR 0023 | Amended by ADR 0025 | Its "When the device draws what the producer measured" no longer carries correctness. |
+| The reader's `UnscaledText` and its size check (merged) | Keep | Only a rewritten text can take the device's sizes; the size check keeps the first layout honest. |
+| The em refusals (merged, #222) | Keep | The document carries sp only. #222 gets simpler: once the document carries em, the device measures it. |
+| Bundled Roboto (ADR 0020) and font bundles (ADR 0017, T128 part A merged, part B planned) | Keep | The device draws with those files, and the producer's first layout uses the same ones. |
+| PR #212's device half in `contract-tests` (merged) | Change | Its case list and font loader serve slice M0. Its recorder, file format, recorded file and their host tests lose their only reader and are removed (slice M0b). |
+| T123 | Remove | Replaced by slices M0, M2 and M6 below. |
+| T124 | Change | Drop the curve test; draw text with the style function the measurement uses; draw each box with `Dp.roundToPx()`, which `Modifier.size` uses. |
+| T125 | Keep | Slice M4 extends its pending documents, rounds and limits to text. |
+| T128 | Keep | As above. |
+| T129 | Change | The load test adds text rounds and the store's heap; its contract test runs with text answers. |
+| `measuringRounds` and `measurementsPerSecond` | Keep, extended | They also cover text. |
+
+Merged work that becomes unused: the recorder, file format and recorded file of PR #212, and the font scale curve's role in correctness (the curve itself stays used).
+
+#### What replaces the text gate
+
+The proof that text draws right is three links, each a test:
+
+1. On the device, slice M0: for each case and each constraint, `TextMeasurer` gives the size and baselines `BasicText` gives under the same constraints, and `BasicText` drawn in a fixed box of that size has the same line count and line ends. The device's measurement is its drawing.
+2. On the producer, slice M2: with a fake device, after settling, every text's box and position equal the fake device's own layout, P25 as a test. The producer uses the answers exactly.
+3. Across the wire, slice M6: with the real producer and consumer sessions and a fake measurement, a shown document's text boxes are the reported answers, and no shown document holds an unanswered text.
+
+#### The text gate and ADR 0024
+
+The gate design ("Text gate (T123)" above) is dropped and ADR 0024 is rejected; neither was accepted or pushed. The P21 and P22 records and the gate's "Results" stay.
+
+#### Slices
+
+Each is tests first, one mechanism, compile and detekt on every commit, the tests the change affects plus the new ones while building, and the full suite once before the push. Sizes from the table in `.ai/agents/engineering-manager.md`.
+
+- M0, medium, needs a device and the owner's device permission. In `contract-tests/src/androidDeviceTest/kotlin/dev/tonholo/ssrcompose/contracttests/textgate/`, `TextMeasureMatchesDrawDeviceTest`: over the existing case list (fonts, samples, 12, 16 and 24 sp, font scales 1, 1.04 and 1.3 through `LocalDensity`) plus line heights in sp, `maxLines = 2` with `Ellipsis`, and an `Ellipsis` text in a 40 dp tall box, and for the constraints unbounded, 0 to 200 dp, fixed 200 dp, and a minimum width above the text's own: link 1 above. It also writes the time per `TextMeasurer.measure` to the test output. On the device the owner names, with `ANDROID_SERIAL` set. If it fails, stop and report to the owner: the design rests on it.
+- M0b, small. Remove the recorder, the file format, the recorded file and their host tests from `contract-tests`, and rename the package `textgate` to `textmeasure`.
+- A0, trivial, the system-architect. Write the approved wire shape into `contracts/messages.md` and `data-model.md`.
+- M1, medium. In `core`, package `dev.tonholo.ssrcompose.core.document`: `TextWidthQuery`, `TextMeasureRequest`, `TextMeasurement`, `TextWidthMeasurement`, with their checks in `core.document.internal`, and `measure` on `DocumentNode.Text`; in `core.message`, `ConsumerMessage.TextMeasured` with its caps. Codec tests decode and round trip each, one failing decode per check.
+- M2, complex. In `producer`, package `dev.tonholo.ssrcompose.producer.internal.text`: `TextKey`, `TextSizeStore` (snapshot state, the cap and the eviction, dropped on a context change) and the measure policy in `ScaledText`, provided per screen like `LocalScaledTextScene`; the mark gains the key, `minLines` and the callback flag. Tests with a fake answer table: an answer becomes the box and baselines; rule 1; a `Clip` query has no height and an `Ellipsis` one does; intrinsics; an unanswered query is recorded; and P25's ground truth test at 3% and 0.5% off. Complex because it changes how every server text is measured.
+- M3, medium. In `producer/internal/reader`: `measure` on each text with unanswered queries, the document pending for text, each revision's id-to-key map, and the refusals `TextLayoutCallback`, `TextMeasureLimit` and `UnsupportedTextStyle` for `minLines`.
+- M4, complex, after T125. In the producer's session, where T125 handles `ComponentMeasured`: `TextMeasured` checked as above, stored for the last 8 revisions, merged under the shared limit, the store dropped on a context change, `measuringRounds` counting text, `textPendingLimit` and `textSizeEntries` in `ProducerLimits`. Complex: untrusted input and the scene thread.
+- M5, medium, after T124 and T125. In `consumer`, package `dev.tonholo.ssrcompose.consumer.internal.measure`: answer each pending document's requests with `TextMeasurer` and the style function T124 draws with, behind an internal `TextSizer` interface with a fake for host tests, and send `TextMeasured` with `ComponentMeasured`'s cadence. Host tests: exactly the asked queries and the unbounded measurement are answered; a pending document is not shown; a broken request is unreadable.
+- M6, medium. In `contract-tests/src/androidHostTest`: the real producer and consumer sessions over `InMemoryConnection` with a fake `TextSizer`, link 3 above, for R20's examples 1 to 3 and a row of label and wrapping value.
+- T129 then measures the load with text rounds.
+
+Order: M0 first, then the owner's go for the rest; M0b, A0, M1; M2 and M3 after M1, beside T124 and T125; M4 after T125 and M3; M5 after T124, T125 and M1; M6 after M4 and M5.
+
+#### Validation checklist
+
+1. M0 passed on the device the owner named, and its time per measurement is recorded here.
+2. Every text query is in whole pixels; `maxHeight` is asked only for `Ellipsis`; `minHeight` is never asked.
+3. Rule 1 answers a width at or above `maxIntrinsicWidth` without asking, and only when the height fits.
+4. A box is the answer's width and its height kept in the constraints; its alignment lines are the answer's baselines; the child `BasicText` is measured at that fixed box.
+5. The text key is computed once, in composition, and read by both the measure policy and the reader.
+6. A document is pending while any text has `measure`; the consumer never shows it.
+7. `TextMeasured` for any of the last 8 revisions is stored by text key; an unknown id or query is ignored and reported.
+8. Every check of "When the device is wrong" refuses the whole message without laying anything out, each with a test.
+9. The store is per session, capped by `textSizeEntries`, and dropped on a font version, density, font scale, direction or language change.
+10. `measuringRounds` and `textPendingLimit` end every loop, send the latest revision with the producer's own sizes for unanswered queries, and call `onLayoutNotSettled`.
+11. `minLines` above 1, `onTextLayout` and over 8 queries or 10,000 texts are refused with their reasons.
+12. The consumer measures with the same style function it draws with, and draws boxes with `roundToPx`.
+13. M2's ground truth test and M6's contract test pass.
+14. No log at a shipping level holds a text, a query or an answer.
+15. Principle I: the device sends no position and no constraint of its own; the producer places every node; a screen with no app component renders.
+16. T123 is gone from `tasks.md`, and no file builds the dropped gate.
+
 ### Probes
 
 Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `core/src/jvmTest` (`./gradlew :core:jvmTest --tests dev.tonholo.ssrcompose.core.probe.ProbeTest --configuration-cache`, exit 0), and a producer probe (`./gradlew :producer:test --tests dev.tonholo.ssrcompose.producer.probe.ProbeTest --configuration-cache`, exit 0). P4 to P9 and P11 in a throwaway Gradle project outside the repository: Kotlin 2.4.21, Compose Multiplatform 1.12.2 desktop (`ui-desktop`, `foundation-desktop`), `skiko-awt-runtime-macos-arm64` 0.150.2, JVM 17 with `-Djava.awt.headless=true`, on macOS arm64, run by `./gradlew -p <probe> test` (exit 0). Both were removed afterwards.
@@ -2023,6 +2205,10 @@ Run on 2026-11-20. P1 to P3 in a throwaway worktree of c352229a with a test in `
 - P21 and P22 ran on 2026-11-26 on macOS arm64, in a copy of branch `test/194/text-gate-server` at 6e449de7 made with `git archive`, outside the repository, with the wiring of [ADR 0024](../../docs/adr/0024-text-gate-producer-half-in-contract-tests-jvm.md): a `jvm()` target on `contract-tests`, `:compiler-plugin` on `kotlinCompilerPluginClasspathJvmTest` with `mode=producer` and `-Xcompiler-plugin-order=dev.tonholo.ssrcompose>androidx.compose.compiler.plugins.kotlin`, and a test fixture in `producer` that measures through `ScreenScene`. No device command ran: the permission settings of the run refused `adb devices`.
 - P21: `./gradlew -p <copy> :contract-tests:jvmTest` (exit 0, the probe printed instead of asserting) replayed the 60 rows of PR #212's emulator file. The server text was `BasicText` in a 200 dp box with the row's font, weight and size, rewritten by the plugin. The curve was Compose's table for font scale 1.3 (8, 10, 12, 14, 18, 20, 24, 30 and 100 sp to 10.4, 13, 15.6, 18.8, 21.6, 23.2, 26.4, 30 and 100 dp) and a straight line for font scale 1, since the file holds no curve; `density * curve.spToDp(size)` matched every row's `fontSizeInPx` to 0.001 px. Roboto was the producer's bundled family and Open Sans `Font(identity, data)` from `ph-fonts-open-sans` 5.0.4, which Skia read. Every text carried the mark, every Roboto row read as a document, and every Open Sans row gave `UnknownFontFamily`, as the reader does until T128. 10 of 60 rows missed the rule; the numbers are in "Text gate (T123)", "Results". Each failing row with equal line counts is a whole number of pixels per line on both sides, height divided by line count: Roboto at 24 sp and font scale 1 is 73 px per line on the device and 74 px on the producer, and Open Sans at 16 sp and font scale 1.3 is 73 px on the device and 72 px on the producer. In the same run, "Καλημέρα κόσμε" in Roboto at 24 sp and font scale 1.3 was 525.9 px wide on one line, in a box of 525 px.
 - P22: in the same copy, `./gradlew -p <copy> :contract-tests:compileTestKotlinJvm -Pprobe.order=compose-first` failed with `PLUGIN_ORDER` and the message to pass the order flag (exit 1); with the Compose id misspelled in the order flag (`...plugins.kotlinx`), `:contract-tests:jvmTest` compiled and every one of the 60 texts still carried the mark (exit 0), and with no order flag at all `:contract-tests:compileTestKotlinJvm` compiled (exit 0), so the default order of this build puts the SSR plugin first and a wrong id is ignored without an error; `:contract-tests:testAndroidHostTest :contract-tests:assembleAndroidDeviceTest :producer:test` passed (exit 0); `:contract-tests:jvmTest :producer:verifyMavenPublications --configuration-cache` passed (exit 0). `dependencyInsight` on `:contract-tests:androidHostTestRuntimeClasspath` picked `androidRuntimeElements-published` for `org.jetbrains.compose.ui:ui`, also for `:producer`'s, and found no `org.jetbrains.skiko`. `shasum -a 256` of `fonts/ttf/Roboto/Roboto-Regular.ttf` in `ph-fonts-roboto` 5.0.4, the producer's bundled file, gave `7277cfb805def6410f317129b8e1f78bdd47d1a4e24c233077d06e88a36e57ae`, and of `fonts/ttf/OpenSans/OpenSans-Regular.ttf` in `ph-fonts-open-sans` 5.0.4 gave `c53aceea2dcf5b4098099c0c4d0a061d17e178a049317b42a422b1a9f7f8eb59`, the `fontSha256` of the device file's 30 Roboto and 30 Open Sans rows. `javap` on `ui-unit-android` 1.12.1 showed `Density(Context)` building a `DensityWithConverter` from Compose's own `FontScaleConverterFactory.forScale`, in that artifact.
+- P23 to P25 ran on 2026-11-26 on macOS arm64 in the same copy, as producer tests in `producer/src/test` (`./gradlew -p <copy> :producer:test --tests <probe class>`, exit 0 each, results written to a file instead of asserted), at density 2.625. Each wrapped `ScaledBasicText` in a `Layout` whose measure policy took sizes from a table in snapshot state, laid out the producer's own Skia size and recorded the query when the table had none, and re-rendered after each batch of answers. The fake device was a `TextMeasurer` with the producer's bundled Roboto at the font size times 1.03, 1.005 or 0.995 (P23 and P24: 1 and 1.03, and 0.97 in P24).
+- P23: with the raw constraints as the key and one id per text, 8 layouts (a column, a row of two short texts and a wrapping one, a row with weights, `IntrinsicSize.Max`, a row with `IntrinsicSize.Min` height, a baseline row, a `FlowRow`, a box) took 1 round trip each when the fake device matched Skia and 1 to 4 at 3% off; texts in a column were asked again only because `maxHeight` shrank as earlier texts grew (2951, 2949 px). No text was asked more than 3 ways in one layout pass, intrinsics included. `readScreen` read every layout as a document. `TextMeasurer` and `BasicText` measured under the same constraints gave the same width, height and rounded baselines in 12 of 12 cases (3 texts, 4 constraints, default overflow and no `maxLines`).
+- P24: with the key normalized (no height, the unbounded measurement and intrinsics asked with the first width), and rule 1 of "Text measured on the device", every layout took 1 round trip when the fake device matched Skia, and 1 or 2 at 3% and -3% off; 200 rows of a label and a wrapping value (400 texts) took 2, with 400 unbounded and 600 width measurements.
+- P25: the key computed from the text and its style in composition, set as a semantics property on the modifier given to `ScaledBasicText` and read back from every text node of the semantics tree; 13 layouts (P24's, a row of two equal texts at weights 1 and 2, `maxLines = 2` with `Ellipsis`, an `Ellipsis` text and a `Clip` text in a 40 dp tall box, a minimum width above the text's own, centred text, a text that changes by state, 50 rows of label and value), at 1.03, 1.005 and 0.995. After settling, every text's box and position equalled those of the same layout drawn with plain `BasicText` at the fake device's size and no table: 39 of 39. Round trips: 1, or 2 for the row of labels before a wrapping text, the `IntrinsicSize.Min` row, the changing text (also 2 after its change) and the 50 rows. `readScreen` read every one as a document with the key on every text. Converting every pixel from 0 to 1,000,000 to dp (`px / density` as `NodeBox.placedIn` does) and back with `roundToInt` gave 0 misses at densities 1, 1.5, 2.625, 2.975, 3.5 and 10; `ceil` missed 64,038 at 2.625 and 80,099 at 2.975, `floor` 64,026 and 80,089.
 
 ### Guardrails proposed for the rules
 
