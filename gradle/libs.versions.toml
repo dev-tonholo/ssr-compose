@@ -12,6 +12,7 @@ ksp = "2.3.14"
 turbine = "1.2.1"
 androidx-compose-test = "1.12.1"
 androidx-test-runner = "1.7.0"
+androidx-test-espresso = "3.7.0"
 detekt = "2.0.0-alpha.6"
 buildconfig = "6.1.2"
 gradle-idea-ext = "1.4.1"
@@ -48,6 +49,7 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "androidx-compose-test" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-test" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test-runner" }
+androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-test-espresso" }
 
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
