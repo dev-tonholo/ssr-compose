@@ -6,7 +6,6 @@ import dev.tonholo.ssrcompose.producer.internal.reader.readScreen
 import dev.tonholo.ssrcompose.producer.internal.scene.FrameTimeSource
 import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 import dev.tonholo.ssrcompose.producer.internal.scene.ScreenScene
-import dev.tonholo.ssrcompose.producer.internal.scene.WakingDispatcher
 import dev.tonholo.ssrcompose.producer.internal.scene.sceneDispatcher
 import dev.tonholo.ssrcompose.producer.internal.text.ScaledTextScene
 import kotlin.time.Duration.Companion.milliseconds
@@ -49,8 +48,9 @@ internal class LiveScreen(
     private val framePause: suspend () -> Unit = { delay(FRAME_INTERVAL) },
 ) {
     /**
-     * Lays the screen out for each collector and emits what it shows, then again whenever a state it reads changes
-     * or an effect asks for a frame, and what it shows differs from the last frame. While an effect keeps asking for
+     * Lays the screen out for each collector and emits what it shows, then again whenever a state its composition,
+     * measuring, placing or layers read changes or an effect asks for a frame, and what it shows differs from the last
+     * frame. Another screen's change renders this one only if this one reads it. While an effect keeps asking for
      * frames, such as an animation, the scene renders one frame per 16 ms. A collector that falls behind gets the
      * latest frame only.
      * The flow fails with the error of a composition or an effect that throws. The scene is closed when the flow
@@ -65,13 +65,12 @@ internal class LiveScreen(
         val changes = Channel<Unit>(capacity = Channel.CONFLATED)
         launch(start = CoroutineStart.UNDISPATCHED) { notifier.applyWritesWhileWaiting() }
         val failEffects = CoroutineExceptionHandler { _, error -> changes.close(cause = error) }
-        val wakingDispatcher = WakingDispatcher(delegate = dispatcher) { changes.trySend(Unit) }
-        val sceneContext = wakingDispatcher + failEffects
         ScreenScene(
             setup = setup,
-            coroutineContext = sceneContext,
+            coroutineContext = dispatcher + failEffects,
             frameTime = frameTime,
             readScaledTextScene = scaledTextScene,
+            onInvalidated = { changes.trySend(Unit) },
         ).use { scene ->
             scene.setContent(content = content)
             sendChanges(scene = scene, changes = changes)
@@ -92,11 +91,13 @@ internal class LiveScreen(
     }
 
     private suspend fun awaitWork(scene: ScreenScene, changes: Channel<Unit>) {
-        if (scene.hasInvalidations()) {
-            framePause()
-        } else {
-            do changes.receive() while (!scene.hasInvalidations())
-        }
+        changes.dropLeftoverSignal()
+        if (scene.hasInvalidations()) framePause()
+        while (!scene.hasInvalidations()) changes.receive()
+    }
+
+    private fun Channel<Unit>.dropLeftoverSignal() {
+        tryReceive()
     }
 
     private fun ScreenRead.toFrame(): ScreenFrame = when (this) {

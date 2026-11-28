@@ -52,6 +52,7 @@ import dev.tonholo.ssrcompose.producer.testing.liveSetup
 import dev.tonholo.ssrcompose.producer.testing.robotoStyle
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
 import dev.tonholo.ssrcompose.producer.testing.shown
+import dev.tonholo.ssrcompose.producer.testing.textX
 import dev.tonholo.ssrcompose.producer.testing.withoutIds
 import kotlin.math.roundToInt
 import kotlin.test.Test
@@ -460,11 +461,6 @@ class LiveScreenTest {
                 assertEquals(expected = listOf(0f, LAYER_SHIFT_PX.toFloat()), actual = listOf(before, after))
             }
         }
-
-    private fun ScreenFrame.textX(): Float {
-        assertIs<ScreenFrame.Sent>(this)
-        return document.root.firstText().x
-    }
 
     private fun ScreenFrame.textHeightPx(): Int {
         assertIs<ScreenFrame.Sent>(this)
