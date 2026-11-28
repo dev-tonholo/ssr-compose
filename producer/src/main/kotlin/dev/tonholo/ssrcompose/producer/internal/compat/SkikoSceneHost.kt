@@ -62,7 +62,10 @@ internal class SkikoSceneHost(
             windowRoots.remove(semanticsOwner)
         }
 
-        override fun onSemanticsChange(semanticsOwner: SemanticsOwner) = Unit
+        override fun onSemanticsChange(semanticsOwner: SemanticsOwner) {
+            semanticsChangedSinceFrame = true
+            onInvalidated()
+        }
 
         override fun onLayoutChange(semanticsOwner: SemanticsOwner, semanticsNodeId: Int) = Unit
     }
@@ -80,6 +83,9 @@ internal class SkikoSceneHost(
      */
     @Volatile
     private var redrawRequestedSinceFrame = false
+
+    @Volatile
+    private var semanticsChangedSinceFrame = false
 
     private val scene = CanvasLayersComposeScene(
         frameRecomposer = frameRecomposer,
@@ -103,12 +109,13 @@ internal class SkikoSceneHost(
         scene.measureAndLayout()
         settleStateWrittenWhileLayingOut()
         redrawRequestedSinceFrame = false
+        semanticsChangedSinceFrame = false
     }
 
     override fun semanticsRoots(): List<SemanticsNode> = windowRoots.map { owner -> owner.unmergedRootSemanticsNode }
 
-    override fun hasPendingWork(): Boolean =
-        frameRecomposer.hasPendingWork() || scene.hasPendingMeasureOrLayout || redrawRequestedSinceFrame
+    override fun hasPendingWork(): Boolean = frameRecomposer.hasPendingWork() || scene.hasPendingMeasureOrLayout ||
+        redrawRequestedSinceFrame || semanticsChangedSinceFrame
 
     override fun close() {
         scene.close()

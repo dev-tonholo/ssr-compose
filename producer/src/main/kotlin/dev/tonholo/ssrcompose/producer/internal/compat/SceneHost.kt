@@ -26,7 +26,7 @@ internal interface SceneHost : AutoCloseable {
     /** The roots of the unmerged semantics trees, one per window: the screen's, and one per popup or dialog. */
     fun semanticsRoots(): List<SemanticsNode>
 
-    /** Whether the next frame has something to do. */
+    /** Whether the next frame has something to do, or the semantics changed since the last one. */
     fun hasPendingWork(): Boolean
 
     override fun close()
@@ -36,8 +36,8 @@ internal interface SceneHost : AutoCloseable {
  * Opens a host for the screen [setup] describes. Its effects and recompositions run on [coroutineContext].
  *
  * @param onInvalidated called when this scene reports that its next frame has something to do, after
- * [SceneHost.hasPendingWork] shows it. It is called on any thread and during any call to the host, so it must not
- * block. A write the scene never read does not call it.
+ * [SceneHost.hasPendingWork] shows it. It is called on any thread, while the host opens and during any call to it, so
+ * it must not block. A write the scene never read does not call it.
  */
 internal fun openSceneHost(
     setup: SceneSetup,

@@ -31,7 +31,9 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
@@ -720,6 +722,27 @@ internal abstract class SceneHostConformanceTest(
     }
 
     @Test
+    fun `given a state read only in semantics, when it changes, then the host tells with the work already pending`() {
+        // Arrange
+        var label by mutableStateOf(value = "before")
+        val told = HostThatNotesEachTell(
+            content = {
+                Box(
+                    modifier = Modifier
+                        .size(width = NAME_WIDTH_DP.dp, height = ROW_HEIGHT_DP.dp)
+                        .semantics { contentDescription = label },
+                )
+            },
+        )
+
+        // Act
+        val pendingEachTimeTold = told.notedAfterSnapshot { label = "after" }
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeTold.toSet())
+    }
+
+    @Test
     fun `given a screen with no popup, when a write adds one, then the host tells and the popup shows`() {
         // Arrange
         var shown by mutableStateOf(value = false)
@@ -760,8 +783,10 @@ internal abstract class SceneHostConformanceTest(
         content: @Composable () -> Unit,
     ) {
         private val pendingWhenTold = mutableListOf<Boolean>()
+        private var openedHost: SceneHost? = null
 
         val host: SceneHost = open(coroutineContext = coroutineContext, onInvalidated = { notePendingWork() })
+            .also { openedHost = it }
 
         val timesTold: Int get() = pendingWhenTold.size
 
@@ -780,7 +805,7 @@ internal abstract class SceneHostConformanceTest(
             notedDuring { Snapshot.withMutableSnapshot(block = write) }
 
         private fun notePendingWork() {
-            pendingWhenTold.add(host.hasPendingWork())
+            openedHost?.let { pendingWhenTold.add(it.hasPendingWork()) }
         }
     }
 

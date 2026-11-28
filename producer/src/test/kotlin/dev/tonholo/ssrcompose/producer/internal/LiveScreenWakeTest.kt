@@ -8,13 +8,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.Modifier
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.turbineScope
+import dev.tonholo.ssrcompose.producer.ScaledBasicText
 import dev.tonholo.ssrcompose.producer.testing.FakeFrameTimeSource
 import dev.tonholo.ssrcompose.producer.testing.PlacedBy
 import dev.tonholo.ssrcompose.producer.testing.ShownText
+import dev.tonholo.ssrcompose.producer.testing.describedBySemanticsNode
 import dev.tonholo.ssrcompose.producer.testing.liveScaledTextScene
 import dev.tonholo.ssrcompose.producer.testing.liveSetup
+import dev.tonholo.ssrcompose.producer.testing.robotoStyle
+import dev.tonholo.ssrcompose.producer.testing.sentText
 import dev.tonholo.ssrcompose.producer.testing.shown
 import dev.tonholo.ssrcompose.producer.testing.textX
 import kotlin.test.Test
@@ -198,6 +203,65 @@ class LiveScreenWakeTest {
             }
         }
 
+    @Test
+    fun `given a description only a semantics node reads, when its own effect writes it plainly, then it shows`() =
+        runTest {
+            // Arrange
+            val description = mutableStateOf(BEFORE)
+            val change = CompletableDeferred<Unit>()
+            val screens = ScreensOnOneSceneThread(scope = this)
+            val described = screens.screen {
+                DescribedText { description.value }
+                LaunchedEffect(Unit) {
+                    change.await()
+                    description.value = AFTER
+                }
+            }
+
+            turbineScope {
+                val frames = described.screen.frames().testIn(backgroundScope)
+                val before = frames.awaitItem().description()
+                settle()
+
+                // Act
+                change.complete(Unit)
+                settle()
+                val after = frames.expectMostRecentItem().description()
+
+                // Assert
+                assertEquals(expected = listOf(BEFORE, AFTER), actual = listOf(before, after))
+                cancelAll(frames)
+            }
+        }
+
+    @Test
+    fun `given a description only a semantics node reads, when another screen writes it in a snapshot, then it shows`() =
+        runTest {
+            // Arrange
+            val description = mutableStateOf(BEFORE)
+            val change = CompletableDeferred<Unit>()
+            val screens = ScreensOnOneSceneThread(scope = this)
+            val described = screens.screen { DescribedText { description.value } }
+            val writer = screens.screen { WritesInASnapshot(after = change) { description.value = AFTER } }
+
+            turbineScope {
+                val describedFrames = described.screen.frames().testIn(backgroundScope)
+                val writerFrames = writer.screen.frames().testIn(backgroundScope)
+                val before = describedFrames.awaitItem().description()
+                writerFrames.awaitItem()
+                settle()
+
+                // Act
+                change.complete(Unit)
+                settle()
+                val after = describedFrames.expectMostRecentItem().description()
+
+                // Assert
+                assertEquals(expected = listOf(BEFORE, AFTER), actual = listOf(before, after))
+                cancelAll(describedFrames, writerFrames)
+            }
+        }
+
     private class CountedScreen(val screen: LiveScreen, private val clock: FakeFrameTimeSource) {
         val renders: Int get() = clock.reads
     }
@@ -230,6 +294,17 @@ class LiveScreenWakeTest {
         }
     }
 
+    @Composable
+    private fun DescribedText(description: () -> String) {
+        ScaledBasicText(
+            text = UNRELATED,
+            modifier = Modifier.describedBySemanticsNode(description = description),
+            style = robotoStyle(sizeSp = TEXT_SIZE_SP),
+        )
+    }
+
+    private fun ScreenFrame.description(): String? = sentText().semantics?.description
+
     private fun TestScope.settle() {
         advanceTimeBy(SETTLE_TIME)
         runCurrent()
@@ -244,6 +319,7 @@ class LiveScreenWakeTest {
         const val AFTER = "after"
         const val UNRELATED = "unrelated"
         const val SHIFT_PX = 50
+        const val TEXT_SIZE_SP = 14
         val SETTLE_TIME = 1.seconds
     }
 }
