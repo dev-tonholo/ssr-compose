@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.isDebugInspectorInfoEnabled
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.unit.Density
 import dev.tonholo.ssrcompose.core.handshake.FontScaleCurve
 import dev.tonholo.ssrcompose.producer.internal.compat.SceneHost
 import dev.tonholo.ssrcompose.producer.internal.compat.openSceneHost
+import dev.tonholo.ssrcompose.producer.internal.font.robotoFontResolver
 import dev.tonholo.ssrcompose.producer.internal.text.LocalScaledTextScene
 import dev.tonholo.ssrcompose.producer.internal.text.ScaledTextScene
 import kotlin.coroutines.CoroutineContext
@@ -40,8 +42,12 @@ internal class ScreenScene(
     /** Composes [content] inside the producer's root `Box`, and throws what its first composition throws. */
     fun setContent(content: @Composable () -> Unit) {
         withSceneLock {
+            val fontResolver = robotoFontResolver()
             host.setContent {
-                CompositionLocalProvider(LocalScaledTextScene provides readScaledTextScene()) {
+                CompositionLocalProvider(
+                    LocalFontFamilyResolver provides fontResolver,
+                    LocalScaledTextScene provides readScaledTextScene(),
+                ) {
                     Box(modifier = Modifier.fillMaxSize()) { content() }
                 }
             }

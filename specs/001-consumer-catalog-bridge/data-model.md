@@ -286,18 +286,19 @@ Used by app and server developers:
 
 `InMemoryConnection` is not in `core`. It lives in the `core-testing` module, which other modules and library users add as a test dependency.
 
-Public only because `consumer`, `producer` or `catalog-model` use it across the module boundary, since Kotlin's `internal` does not cross modules:
+Public only because other modules of this repo use it across the module boundary, since Kotlin's `internal` does not cross modules:
 
 - `Answer` (with `Accepted` and `Refused`)
 - `ConsumerMessage` and `ProducerMessage`, with their cases
 - `MessageFrame`, `MessageCodec`, `MessageDecodingException`
 - `ScreenDocument`, `DocumentNode` with its cases, `SlotContent`, and the document values above (`DocumentColor`, `Decoration`, `Click`, `NodeSemantics` with `NodeRole`, `TextStyleSpec`, `Viewport`, `Measurement` with `SlotSpace`)
+- `Fingerprint`, which `catalog-model`, `tooling` and `producer` call ([research.md R17](research.md#r17-the-catalog-is-build-time-only))
 
-The second group carries the opt-in marker `InternalSsrComposeApi` ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)).
+The second group carries the opt-in marker `InternalSsrComposeApi` ([ADR 0014](../../docs/adr/0014-one-opt-in-marker-for-internal-api.md)). ADR 0014 has `core`, `consumer`, `producer` and `contract-tests` opt in once in their build files. `catalog-model` and `tooling` do the same since `Fingerprint` moved to `core`. The ADR's test of public signatures does not read those two modules.
 
-`FontBundleManifest`, `FontEntry`, `FontBundleReader` and `FontBundleException` are public too, with no marker: `tooling` and `producer` read the font bundle with them, and ADR 0014 does not list them.
+`FontBundleManifest`, `FontEntry`, `FontBundleReader`, `FontBundleException`, `FontBundleWriter`, `FontVersionResource` and `FontVersionsIndex` are public too, with no marker, and ADR 0014 does not list them. They are the font bundle format and its [writers and indexes](#writers-and-indexes), public because other modules use them. Today `tooling` does, and so does a `gradle-plugin` test. The readers in `consumer` and `producer` are designed ([contracts/font-bundle.md](contracts/font-bundle.md)) but not built yet.
 
-`isKotlinIdentifier`, `isKotlinPackageName` and `MAX_IDENTIFIER_LENGTH` are public too, with no marker: they are the one identifier rule, which `catalog-model` and `compiler-plugin` call and the font bundle reader uses for family names, and those two modules do not opt in.
+`isKotlinIdentifier`, `isKotlinPackageName` and `MAX_IDENTIFIER_LENGTH` are public too, with no marker: they are the one identifier rule, which `catalog-model` and `compiler-plugin` call and the font bundle reader uses for family names, and `compiler-plugin` does not opt in.
 
 ## Session (`producer`)
 

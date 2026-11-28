@@ -1,4 +1,4 @@
-package dev.tonholo.ssrcompose.catalog.bundle.fingerprint
+package dev.tonholo.ssrcompose.core.fingerprint
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

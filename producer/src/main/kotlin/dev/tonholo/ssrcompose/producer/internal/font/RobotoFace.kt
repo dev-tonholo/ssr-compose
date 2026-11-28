@@ -4,7 +4,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.platform.Font as bytesFont
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 
 private const val ROBOTO_RESOURCE_DIRECTORY = "fonts/ttf/Roboto"
 
@@ -30,11 +30,19 @@ internal enum class RobotoFace(
         return stream.use { it.readBytes() }
     }
 
-    fun toFont(): Font =
-        bytesFont(identity = "roboto-${name.lowercase()}", data = readBytes(), weight = weight, style = style)
+    fun toFont(): Font {
+        val data = readBytes()
+        val fingerprint = Fingerprint.of(bytes = data)
+        return fingerprintedFont(data = data, fingerprint = fingerprint, weight = weight, style = style)
+    }
 }
 
-private val bundledRoboto: FontFamily by lazy { FontFamily(RobotoFace.entries.map { it.toFont() }) }
+private val faces: List<Font> by lazy { RobotoFace.entries.map { it.toFont() } }
+
+private val bundledRoboto: FontFamily by lazy { FontFamily(faces) }
+
+/** The bundled Roboto files as fonts, in the order of [RobotoFace], read once for the process. */
+internal fun bundledRobotoFaces(): List<Font> = faces
 
 /** The library's default family, read once for the process. */
 internal fun bundledRobotoFamily(): FontFamily = bundledRoboto

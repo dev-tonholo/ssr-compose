@@ -1,6 +1,5 @@
 package dev.tonholo.ssrcompose.catalog.bundle
 
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.catalog.bundle.io.CatalogManifestWriter
 import dev.tonholo.ssrcompose.catalog.bundle.io.CatalogPartWriter
 import dev.tonholo.ssrcompose.catalog.model.Catalog
@@ -8,6 +7,7 @@ import dev.tonholo.ssrcompose.catalog.model.CatalogManifest
 import dev.tonholo.ssrcompose.catalog.model.PartEntry
 import dev.tonholo.ssrcompose.catalog.model.PartName
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 import java.io.ByteArrayInputStream
 import java.io.FileNotFoundException
 import kotlin.test.Test

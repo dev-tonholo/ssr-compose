@@ -2,7 +2,7 @@ package dev.tonholo.ssrcompose.producer.memory
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalFontFamilyResolver
-import androidx.compose.ui.text.font.createFontFamilyResolver
+import dev.tonholo.ssrcompose.producer.internal.font.robotoFontResolver
 
 /** One way of holding screens, each measured in a JVM of its own. [label] names it on the command line. */
 internal enum class MemoryScenario(val label: String, val newSessions: () -> MemorySessions) {
@@ -15,7 +15,7 @@ internal enum class MemoryScenario(val label: String, val newSessions: () -> Mem
     /** A scene per screen with no session around it and no read. */
     Hosts(label = "hosts", newSessions = { hostSessions { seed -> MemoryScreen(seed = seed) } }),
 
-    /** As [Hosts], with every scene's texts resolving fonts through one resolver, which the producer does not do. */
+    /** As [Hosts], with one resolver for every scene's texts: the producer's for sessions with no font bundle. */
     HostsSharedFonts(label = "hosts-shared-fonts", newSessions = ::sharedFontHostSessions),
 
     /** As [Hosts], with an empty box in place of each text. */
@@ -37,9 +37,6 @@ internal enum class MemoryScenario(val label: String, val newSessions: () -> Mem
     }
 }
 
-private fun sharedFontHostSessions(): MemorySessions {
-    val sharedResolver = createFontFamilyResolver()
-    return hostSessions { seed ->
-        CompositionLocalProvider(LocalFontFamilyResolver provides sharedResolver) { MemoryScreen(seed = seed) }
-    }
+private fun sharedFontHostSessions(): MemorySessions = hostSessions { seed ->
+    CompositionLocalProvider(LocalFontFamilyResolver provides robotoFontResolver()) { MemoryScreen(seed = seed) }
 }

@@ -14,7 +14,7 @@ A server project, which may be in another repository, is given the address of ea
 
 A server developer writes screens per catalog version and registers them under that version. The app connects, introduces itself, and gets the screen registered under the name it asked for, for its own catalog version. The producer composes each screen with Compose UI foundation, measures and places it with the device's density, size, font scale and layout direction, and sends a positioned document. The app draws that document as it is, measures the app components the screen places and reports their sizes, and the producer places them ([research.md R20](research.md#r20-server-rendered-content-194)). App components render with their own composable, slots hold server-rendered content again, and callbacks run lambdas on the server. A guard stops a screen that places a component from the bridge of another catalog version.
 
-The catalog is build time only. Its model, validation, reader, writer, fingerprint and index live in a JVM library, `catalog-model`, that `tooling`, `compiler-plugin` and the two build-tool plugins (for the compiler plugin's id and option names only) use. `core`, `consumer` and `producer` never depend on it, and the running producer holds no catalog.
+The catalog is build time only. Its model, validation, reader, writer and index live in a JVM library, `catalog-model`, that `tooling`, `compiler-plugin` and the two build-tool plugins (for the compiler plugin's id and option names only) use. `core`, `consumer` and `producer` never depend on it, and the running producer holds no catalog. The fingerprint of a catalog or font file is in `core`, since the producer needs it for fonts ([research.md R17](research.md#r17-the-catalog-is-build-time-only)).
 
 The approach rests on two experiments run before the design, both successful (see [research.md](research.md)):
 
@@ -111,6 +111,7 @@ core/                                # Kotlin Multiplatform: jvm, android
     ├── message/                     # messages, MessageFrame, MessageCodec, the JSON codec
     ├── document/                    # ScreenDocument, DocumentNode and the document values (research.md R20)
     ├── font/                        # FontBundleVersion, the font bundle format and its reader (contracts/font-bundle.md)
+    ├── fingerprint/                 # Fingerprint, the SHA-256 of a catalog or font file
     └── connection/                  # Connection
 
 core-testing/                        # Kotlin Multiplatform: jvm, android. Published test support for core
@@ -121,7 +122,7 @@ core-testing/                        # Kotlin Multiplatform: jvm, android. Publi
 catalog-model/                       # Kotlin JVM, build time only
 └── src/main/kotlin/dev/tonholo/ssrcompose/catalog/
     ├── model/                       # ChoiceList, Parameter, ComponentDescriptor, PartName (kinds from core)
-    ├── bundle/                      # CatalogManifest, CatalogPart, reader, writer, fingerprint, size cap
+    ├── bundle/                      # CatalogManifest, CatalogPart, reader, writer, size cap
     ├── validation/                  # one part, and the checks across parts
     ├── index/                       # the index the compiler plugin reads, format from T031a
     └── options/                     # CompilerPluginOptions and the generated plugin id (buildconfig)
@@ -191,7 +192,7 @@ Module dependencies:
 |---|---|
 | `core` | nothing in this repo |
 | `core-testing` | `core`. Published, and added by other modules and by library users as a test dependency only. `core` never depends on it |
-| `catalog-model` | `core`, for `CatalogVersion` and `ValueKind` only |
+| `catalog-model` | `core`, for `CatalogVersion`, `ValueKind`, `Fingerprint` and the identifier rule |
 | `consumer`, `producer` | `core` |
 | `compiler-plugin`, `tooling` | `catalog-model`. The tests of `compiler-plugin` also use `producer`, as a test dependency only, because the compile tests of the bridges need `ConsumerComponent` and `RemoteAction1` on their classpath |
 | `gradle-plugin`, `toolchain-plugin` | `tooling`, and `catalog-model` for the compiler plugin's id and option names |
@@ -239,4 +240,4 @@ Decisions that become ADRs when implemented are listed in [research.md](research
 | A test-only module, `contract-tests`, and samples as two separate builds | Principle VI asks for the producer's output to run through the consumer's reader, and principle II forbids the two libraries from depending on each other. The spec requires proof that a server builds with none of the app's code. | Tests inside either library would put the other on its build. One shared sample build would not prove that the two sides share only a catalog. |
 | Compose UI desktop and Skiko on the producer, with a process-wide inspector flag ([ADR 0015](../../docs/adr/0015-producer-renders-with-compose-ui-foundation.md)) | Principle I needs the producer to measure and arrange screens, and the owner wanted server developers to write normal Compose. Real foundation laid out on a plain JVM and its result is readable through public semantics and inspector API only with `isDebugInspectorInfoEnabled` set for the process. Skiko needs a native runtime jar for each server OS. | Layout composables of the library's own would need a layout engine of our own on the producer and a second set of names for server developers. A draw-op document turns text into glyphs, and reading the internal `LayoutNode` tree depends on internal API. |
 | Principle IV: the font bundle is a second thing the app and server builds share, next to the catalog ([ADR 0017](../../docs/adr/0017-app-fonts-travel-in-a-pinned-font-bundle.md)) | The producer measures text, so it needs the app's font files while it runs, and the owner kept the catalog build time only (FR-069). The owner chose a separate pinned font bundle on 2026-11-20. | Font files inside the catalog would make the catalog needed at run time. Fonts configured by hand on the server would drift from the app's fonts. |
-| Principle II: an extra library, `catalog-model`, holds the catalog format instead of `core` | The owner decided the catalog is build time only (FR-069). The catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index are used only by `tooling` and `compiler-plugin`. The two build-tool plugins also depend on `catalog-model`, but only for the compiler plugin's id and option names. Keeping them in `core` would ship a JSON reader, a hashing step and validation code in every app and every server that never use them. `catalog-model` counts as part of the compiler plugin deliverable, like the tooling library. | Keeping the catalog code in `core`, as principle II's wording asks, was turned down because `core` is a run-time dependency of `consumer` and `producer`. Putting it inside `tooling` was turned down because `compiler-plugin` must not depend on the build-tool library. |
+| Principle II: an extra library, `catalog-model`, holds the catalog format instead of `core` | The owner decided the catalog is build time only (FR-069). The catalog model, its validation, the manifest and part reader and writer and the index are used only by `tooling` and `compiler-plugin`. The two build-tool plugins also depend on `catalog-model`, but only for the compiler plugin's id and option names. Keeping them in `core` would ship the catalog's JSON reader and validation code in every app and every server that never use them. The fingerprint is not part of this deviation: it is in `core`, for the reason in [research.md R17](research.md#r17-the-catalog-is-build-time-only). `catalog-model` counts as part of the compiler plugin deliverable, like the tooling library. | Keeping the catalog code in `core`, as principle II's wording asks, was turned down because `core` is a run-time dependency of `consumer` and `producer`. Putting it inside `tooling` was turned down because `compiler-plugin` must not depend on the build-tool library. |

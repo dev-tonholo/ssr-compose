@@ -1,6 +1,6 @@
 package dev.tonholo.ssrcompose.tooling.font
 
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.tooling.StepException
 import dev.tonholo.ssrcompose.tooling.font.FontFixture.Companion.BOLD
 import dev.tonholo.ssrcompose.tooling.font.FontFixture.Companion.REGULAR

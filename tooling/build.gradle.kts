@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.ssrcompose.conventions.scale.test)
 }
 
+kotlin {
+    compilerOptions {
+        optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi")
+    }
+}
+
 dependencies {
     api(projects.catalogModel)
     implementation(libs.kotlinx.serialization.json)

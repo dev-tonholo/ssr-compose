@@ -1,12 +1,12 @@
 package dev.tonholo.ssrcompose.catalog.bundle
 
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.catalog.bundle.io.CatalogManifestWriter
 import dev.tonholo.ssrcompose.catalog.bundle.io.CatalogPartWriter
 import dev.tonholo.ssrcompose.catalog.model.Catalog
 import dev.tonholo.ssrcompose.catalog.model.CatalogManifest
 import dev.tonholo.ssrcompose.catalog.model.CatalogPart
 import dev.tonholo.ssrcompose.catalog.model.PartEntry
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 
 /**
  * Writes a catalog as a manifest and one file for each part.
