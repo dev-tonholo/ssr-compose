@@ -649,7 +649,7 @@ Decision: a limit per session, 100 per second by default and configurable throug
 | Module | Kind | Targets | Depends on |
 |---|---|---|---|
 | `core` | Kotlin Multiplatform library | `jvm`, `android` | nothing in this repo |
-| `catalog-model` | Kotlin JVM library, build time only | JVM | `core` (`CatalogVersion` and `ValueKind` only) |
+| `catalog-model` | Kotlin JVM library, build time only | JVM | `core` (`CatalogVersion`, `ValueKind`, `Fingerprint` and the identifier rule) |
 | `consumer` | Kotlin Multiplatform library | `android` | `core` |
 | `producer` | Kotlin JVM library | JVM | `core` |
 | `compiler-plugin` | Kotlin JVM | JVM | `catalog-model` |
@@ -1018,9 +1018,11 @@ Not checked:
 
 ## R17. The catalog is build time only
 
-Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer, the fingerprint and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `gradle-plugin` and `toolchain-plugin` depend on it too, only for the compiler plugin's id and option names. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), `ValueKind` (the kinds of values), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion` and `ValueKind` only, so each has one definition. `ValueKind` is in `core` because the producer needs it at run time to declare and check callback arguments, and `catalog-model` needs it for parameters; one list of kinds serves both, and neither module defines its own.
+Decision: the owner said "We don't need the catalog at the runtime, as we will use it only during the build time to generate the types." So the catalog model, its validation, the manifest and part reader and writer and the index live in a JVM library, `catalog-model`, that `tooling` and `compiler-plugin` depend on. `gradle-plugin` and `toolchain-plugin` depend on it too, only for the compiler plugin's id and option names. `core`, `consumer` and `producer` never depend on it. `core` keeps `CatalogVersion` (a label), `ValueKind` (the kinds of values), the two annotations, the handshake, the messages, the connection and `DataValue`. `catalog-model` depends on `core` for `CatalogVersion`, `ValueKind`, `Fingerprint` and the identifier rule, so each has one definition. `ValueKind` is in `core` because the producer needs it at run time to declare and check callback arguments, and `catalog-model` needs it for parameters; one list of kinds serves both, and neither module defines its own.
 
-Rationale: principle II asks for one definition of everything both sides agree on. The catalog format still has one definition, in `catalog-model`. Keeping it in `core` would put a JSON reader, hashing and validation in every app and every server at run time, where nothing uses them. The plan records this in Complexity Tracking.
+Rationale: principle II asks for one definition of everything both sides agree on. The catalog format still has one definition, in `catalog-model`. Keeping it in `core` would put its JSON reader and validation in every app and every server at run time, where nothing uses them. The plan records this in Complexity Tracking.
+
+The fingerprint (`Fingerprint.of`, in `core.fingerprint`) first lived in `catalog-model` with the rest and moved to `core` with [#251](https://github.com/dev-tonholo/ssr-compose/issues/251). It is no longer only a build-time step: the producer has to check each font file against its fingerprint at start ([contracts/font-bundle.md](contracts/font-bundle.md)) and to name each font it makes from bytes by it ([ADR 0029](../../docs/adr/0029-one-font-resolver-keyed-by-file-fingerprint.md)), and it may depend on `core` only. `catalog-model` and `tooling` call the same function, so there is one definition. The cost is that every app and server now ships it, and the app does not call it. It adds no dependency: its JVM and Android code each call the platform's `MessageDigest`.
 
 Consequences: the running producer cannot look anything up in a catalog. It checks the session's catalog version against the versions it has screens for (R10), and callback arguments against the kinds and the conversion in the bridge's `Callback` (R8).
 
