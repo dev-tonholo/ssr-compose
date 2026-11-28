@@ -2,22 +2,31 @@ package dev.tonholo.ssrcompose.producer.text.layoutlib
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.nio.file.Path
 import java.util.Locale
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.nameWithoutExtension
 import kotlin.math.roundToInt
 
 private val RECORDING_LOCALE = Locale.US
 private const val TABLET_RECORDING = "api36-tablet-physical"
+private const val RECORDINGS_FOLDER = "text-recordings"
 
 private val json = Json { ignoreUnknownKeys = true }
 
 /** What one device measured for each text. `text-recordings/README.md` says where each file came from. */
 @Serializable
-internal data class DeviceRecording(val measurements: List<DeviceRow>) {
+internal data class DeviceRecording(val density: Float, val measurements: List<DeviceRow>) {
     fun row(caseId: String): DeviceRow = measurements.single { it.caseId == caseId }
 
     companion object {
         fun named(name: String): DeviceRecording =
-            json.decodeFromString(classpathBytes("text-recordings/$name.json").decodeToString())
+            json.decodeFromString(classpathBytes("$RECORDINGS_FOLDER/$name.json").decodeToString())
+
+        fun namesInTheFolder(): List<String> {
+            val folder = requireNotNull(DeviceRecording::class.java.classLoader.getResource(RECORDINGS_FOLDER))
+            return Path.of(folder.toURI()).listDirectoryEntries("*.json").map { it.nameWithoutExtension }
+        }
 
         fun tablet(): DeviceRecording = named(TABLET_RECORDING)
     }
@@ -28,6 +37,7 @@ internal data class DeviceRow(
     val caseId: String,
     val text: String,
     val fontFile: String,
+    val fontSha256: String,
     val sizeInSp: Float,
     val fontScale: Float,
     val fontSizeInPx: Float,
