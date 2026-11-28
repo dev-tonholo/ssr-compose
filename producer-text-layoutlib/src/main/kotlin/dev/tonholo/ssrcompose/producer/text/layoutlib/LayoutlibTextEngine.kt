@@ -112,4 +112,4 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
 }
 
 private fun Layout.shownTextEnd(line: Int): Int =
-    if (getEllipsisCount(line) > 0) getLineStart(line) + getEllipsisStart(line) else getLineVisibleEnd(line)
+    if (getEllipsisCount(line) > 0) getLineStart(line) + getEllipsisStart(line) else composeLineVisibleEnd(line)
