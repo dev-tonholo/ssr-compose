@@ -1,6 +1,7 @@
 package dev.tonholo.ssrcompose.producer.text.layoutlib
 
 import com.android.layoutlib.bridge.Bridge
+import java.util.Locale
 import java.util.concurrent.Callable
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.ExecutorService
@@ -38,6 +39,7 @@ private data class Case(
         font = fonts.getValue(fontFile),
         sizePx = sizePx,
         widthPx = widthPx,
+        locale = Locale.US,
         maxLines = lineLimit.maxLines,
         overflow = lineLimit.overflow,
     )
