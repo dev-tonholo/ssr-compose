@@ -37,7 +37,12 @@ internal enum class RobotoFace(
     }
 }
 
-private val bundledRoboto: FontFamily by lazy { FontFamily(RobotoFace.entries.map { it.toFont() }) }
+private val faces: List<Font> by lazy { RobotoFace.entries.map { it.toFont() } }
+
+private val bundledRoboto: FontFamily by lazy { FontFamily(faces) }
+
+/** The bundled Roboto files as fonts, in the order of [RobotoFace], read once for the process. */
+internal fun bundledRobotoFaces(): List<Font> = faces
 
 /** The library's default family, read once for the process. */
 internal fun bundledRobotoFamily(): FontFamily = bundledRoboto
