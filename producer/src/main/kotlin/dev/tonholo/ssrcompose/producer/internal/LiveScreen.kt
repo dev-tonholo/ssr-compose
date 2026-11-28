@@ -49,10 +49,10 @@ internal class LiveScreen(
 ) {
     /**
      * Lays the screen out for each collector and emits what it shows, then again whenever a state its composition,
-     * measuring, placing or layers read changes or an effect asks for a frame, and what it shows differs from the last
-     * frame. Another screen's change renders this one only if this one reads it. While an effect keeps asking for
-     * frames, such as an animation, the scene renders one frame per 16 ms. A collector that falls behind gets the
-     * latest frame only.
+     * measuring, placing, layers or semantics read changes or an effect asks for a frame, and what it shows differs
+     * from the last frame. Another screen's change renders this one only if this one reads it. While an effect keeps
+     * asking for frames, such as an animation, the scene renders one frame per 16 ms. A collector that falls behind
+     * gets the latest frame only.
      * The flow fails with the error of a composition or an effect that throws. The scene is closed when the flow
      * ends, however it ends.
      */

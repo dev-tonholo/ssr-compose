@@ -23,8 +23,11 @@ internal fun liveSetup(layoutDirection: LayoutDirection = LayoutDirection.Ltr): 
     layoutDirection = layoutDirection,
 )
 
+/** The first text of a sent frame, in document order. */
+internal fun ScreenFrame.sentText(): DocumentNode.Text = (this as ScreenFrame.Sent).document.root.firstText()
+
 /** Where the first text of a sent frame starts, from the left. */
-internal fun ScreenFrame.textX(): Float = (this as ScreenFrame.Sent).document.root.firstText().x
+internal fun ScreenFrame.textX(): Float = sentText().x
 
 /** A sent frame as its revision and the texts it shows, in document order. */
 internal data class ShownFrame(val revision: Long, val texts: List<String>)
