@@ -31,7 +31,10 @@ private val FRAME_INTERVAL = 16.milliseconds
  * @param scaledTextScene the device's font scale curve and font scale, read in composition so a device change
  * recomposes the texts.
  * @param dispatcher creates, drives and closes the scene, and runs its effects. By default the producer's one scene
- * thread; a test may pass its own, which must run one thing at a time.
+ * thread; a test may pass its own, which must run one thing at a time. One that resumes the screen inside the call
+ * that wakes it, such as `Dispatchers.Unconfined`, is safe only when every state write is applied on that same thread:
+ * [WatchedReads] wakes the screen under its observer's lock, and with writes applied on two threads that lock can
+ * deadlock against the scene lock.
  * @param notifier tells the screen about state writes.
  * @param revisions numbers the documents sent.
  * @param frameTime gives the scene the time of each frame it renders.
@@ -48,11 +51,10 @@ internal class LiveScreen(
     private val framePause: suspend () -> Unit = { delay(FRAME_INTERVAL) },
 ) {
     /**
-     * Lays the screen out for each collector and emits what it shows, then again whenever a state its composition,
-     * measuring, placing, layers or semantics read changes or an effect asks for a frame, and what it shows differs
-     * from the last frame. Another screen's change renders this one only if this one reads it. While an effect keeps
-     * asking for frames, such as an animation, the scene renders one frame per 16 ms. A collector that falls behind
-     * gets the latest frame only.
+     * Lays the screen out for each collector and emits what it shows, then again whenever a state it reads changes
+     * or an effect asks for a frame, and what it shows differs from the last frame. Another screen's change renders
+     * this one only if this one reads it. While an effect keeps asking for frames, such as an animation, the scene
+     * renders one frame per 16 ms. A collector that falls behind gets the latest frame only.
      * The flow fails with the error of a composition or an effect that throws. The scene is closed when the flow
      * ends, however it ends.
      */
@@ -65,35 +67,44 @@ internal class LiveScreen(
         val changes = Channel<Unit>(capacity = Channel.CONFLATED)
         launch(start = CoroutineStart.UNDISPATCHED) { notifier.applyWritesWhileWaiting() }
         val failEffects = CoroutineExceptionHandler { _, error -> changes.close(cause = error) }
+        val wake: () -> Unit = { changes.trySend(Unit) }
         ScreenScene(
             setup = setup,
             coroutineContext = dispatcher + failEffects,
             frameTime = frameTime,
             readScaledTextScene = scaledTextScene,
-            onInvalidated = { changes.trySend(Unit) },
+            onInvalidated = wake,
         ).use { scene ->
             scene.setContent(content = content)
-            sendChanges(scene = scene, changes = changes)
+            WatchedReads(onChanged = wake).use { reads ->
+                sendChanges(scene = scene, reads = reads, changes = changes)
+            }
         }
     }
 
-    private suspend fun ProducerScope<ScreenFrame>.sendChanges(scene: ScreenScene, changes: Channel<Unit>): Nothing {
+    private suspend fun ProducerScope<ScreenFrame>.sendChanges(
+        scene: ScreenScene,
+        reads: WatchedReads,
+        changes: Channel<Unit>,
+    ): Nothing {
         var lastRead: ScreenRead? = null
         while (true) {
             scene.render()
-            val read = scene.read { roots ->
-                readScreen(roots = roots, density = scene.density, fontScaleCurve = scene.fontScaleCurve)
+            val read = reads.read {
+                scene.read { roots ->
+                    readScreen(roots = roots, density = scene.density, fontScaleCurve = scene.fontScaleCurve)
+                }
             }
             if (read != lastRead) send(read.toFrame())
             lastRead = read
-            awaitWork(scene = scene, changes = changes)
+            awaitWork(changes = changes) { reads.haveChanged || scene.hasInvalidations() }
         }
     }
 
-    private suspend fun awaitWork(scene: ScreenScene, changes: Channel<Unit>) {
+    private suspend fun awaitWork(changes: Channel<Unit>, hasWork: () -> Boolean) {
         changes.dropLeftoverSignal()
-        if (scene.hasInvalidations()) framePause()
-        while (!scene.hasInvalidations()) changes.receive()
+        if (hasWork()) framePause()
+        while (!hasWork()) changes.receive()
     }
 
     private fun Channel<Unit>.dropLeftoverSignal() {

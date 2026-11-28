@@ -21,15 +21,25 @@ internal class ReplacedContentTracker {
         ReplacedContent(generation = generation).also { made += WeakReference(it) }
 
     /** The generations still reachable, collecting garbage until none is older than [oldestExpected] or giving up. */
-    fun reachableGenerations(oldestExpected: Int): List<Int> {
-        repeat(COLLECTIONS) {
-            System.gc()
-            val reachable = reachableNow()
-            if (reachable.all { it >= oldestExpected }) return reachable
-            Thread.sleep(COLLECTION_PAUSE_MS)
-        }
-        return reachableNow()
-    }
+    fun reachableGenerations(oldestExpected: Int): List<Int> = collectGarbageUntil(
+        isEnough = { reachable -> reachable.all { it >= oldestExpected } },
+        observe = ::reachableNow,
+    )
 
     private fun reachableNow(): List<Int> = made.mapNotNull { it.get()?.generation }
+}
+
+/** What this still refers to after collecting garbage until it refers to nothing, or null once it does. */
+internal fun <T : Any> WeakReference<T>.afterCollectingGarbage(): T? =
+    collectGarbageUntil(isEnough = { referred -> referred == null }, observe = ::get)
+
+/** Collects garbage until what [observe] returns [isEnough] or giving up, and returns the last it returned. */
+private fun <T> collectGarbageUntil(isEnough: (T) -> Boolean, observe: () -> T): T {
+    repeat(COLLECTIONS) {
+        System.gc()
+        val observed = observe()
+        if (isEnough(observed)) return observed
+        Thread.sleep(COLLECTION_PAUSE_MS)
+    }
+    return observe()
 }
