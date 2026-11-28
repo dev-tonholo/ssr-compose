@@ -67,7 +67,11 @@ class LayoutlibTextEngineDeviceRowsTest {
         val firstBaseline = row.firstBaselineInPx.roundToInt()
         val firstLineOnly = TextMeasurement(
             heightPx = row.lineBottomsInPx.first().roundToInt(),
+            widthPx = row.textWidthInPx,
             lineEnds = row.lineVisibleEnds.take(1),
+            lineRightsPx = row.lineRightsInPx.take(1),
+            lineBottomsPx = listOf(row.lineBottomsInPx.first().roundToInt()),
+            isLastLineEllipsized = false,
             firstBaselinePx = firstBaseline,
             lastBaselinePx = firstBaseline,
         )

@@ -42,9 +42,14 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
         }
         val layout = layOut(request = request, paint = paintFor(request))
         val lastLine = min(a = layout.lineCount, b = request.maxLines) - 1
+        val shownLines = 0..lastLine
         return TextMeasurement(
             heightPx = layout.getLineBottom(lastLine),
-            lineEnds = (0..lastLine).map(layout::shownTextEnd),
+            widthPx = layout.width,
+            lineEnds = shownLines.map(layout::shownTextEnd),
+            lineRightsPx = shownLines.map(layout::getLineRight),
+            lineBottomsPx = shownLines.map(layout::getLineBottom),
+            isLastLineEllipsized = layout.getEllipsisCount(lastLine) > 0,
             firstBaselinePx = layout.getLineBaseline(0),
             lastBaselinePx = layout.getLineBaseline(lastLine),
         )

@@ -32,8 +32,11 @@ internal data class DeviceRow(
     val widthInPx: Int,
     val lineCount: Int,
     val heightInPx: Int,
+    val textWidthInPx: Int,
     val lineVisibleEnds: List<Int>,
+    val lineRightsInPx: List<Float>,
     val lineBottomsInPx: List<Float>,
+    val isLastLineEllipsized: Boolean,
     val firstBaselineInPx: Float,
     val lastBaselineInPx: Float,
     val maxLines: Int? = null,
@@ -52,7 +55,11 @@ internal data class DeviceRow(
 
     fun measurement(): TextMeasurement = TextMeasurement(
         heightPx = heightInPx,
+        widthPx = textWidthInPx,
         lineEnds = lineVisibleEnds,
+        lineRightsPx = lineRightsInPx,
+        lineBottomsPx = lineBottomsInPx.map { it.roundToInt() },
+        isLastLineEllipsized = isLastLineEllipsized,
         firstBaselinePx = firstBaselineInPx.roundToInt(),
         lastBaselinePx = lastBaselineInPx.roundToInt(),
     )
