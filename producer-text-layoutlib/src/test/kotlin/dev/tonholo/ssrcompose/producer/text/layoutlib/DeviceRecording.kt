@@ -28,6 +28,8 @@ internal data class DeviceRow(
     val caseId: String,
     val text: String,
     val fontFile: String,
+    val sizeInSp: Float,
+    val fontScale: Float,
     val fontSizeInPx: Float,
     val widthInPx: Int,
     val lineCount: Int,
@@ -40,6 +42,7 @@ internal data class DeviceRow(
     val firstBaselineInPx: Float,
     val lastBaselineInPx: Float,
     val maxLines: Int? = null,
+    val lineHeightInSp: Float? = null,
     val lineHeightInPx: Float? = null,
 ) {
     fun request(font: TextFont): TextRequest = TextRequest(
@@ -48,10 +51,14 @@ internal data class DeviceRow(
         sizePx = fontSizeInPx,
         widthPx = widthInPx,
         locale = RECORDING_LOCALE,
-        lineHeightPx = lineHeightInPx,
+        lineHeight = lineHeight(),
         maxLines = maxLines ?: Int.MAX_VALUE,
         overflow = if (maxLines == null) TextOverflow.Clip else TextOverflow.Ellipsis,
     )
+
+    private fun lineHeight(): TextLineHeight? = lineHeightInSp?.let { sp ->
+        TextLineHeight(sp = sp, px = requireNotNull(lineHeightInPx), sizePxAsSp = sizeInSp, fontScale = fontScale)
+    }
 
     fun measurement(): TextMeasurement = TextMeasurement(
         heightPx = heightInPx,
