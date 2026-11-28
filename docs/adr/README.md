@@ -38,3 +38,4 @@ How to write one: [.ai/blueprints/adr.md](../../.ai/blueprints/adr.md).
 | [0026](0026-producer-measures-text-with-layoutlib.md) | The producer measures text with layoutlib's Android text classes | Accepted (L2b) |
 | [0027](0027-compose-decides-the-versions-of-libraries-tied-to-it.md) | Let Compose decide the versions of the libraries tied to it | Accepted |
 | [0028](0028-live-session-wakes-on-its-own-scene-invalidations.md) | A live session wakes only when its own scene reports a change | Accepted |
+| [0029](0029-one-font-resolver-keyed-by-file-fingerprint.md) | One font resolver for every scene, with each font named by its file's fingerprint | Accepted |
