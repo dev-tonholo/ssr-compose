@@ -29,6 +29,10 @@ internal class ReplacedContentTracker {
     private fun reachableNow(): List<Int> = made.mapNotNull { it.get()?.generation }
 }
 
+/** What this still refers to after collecting garbage until it refers to nothing, or null once it does. */
+internal fun <T : Any> WeakReference<T>.afterCollectingGarbage(): T? =
+    collectGarbageUntil(isEnough = { referred -> referred == null }, observe = ::get)
+
 /** Collects garbage until what [observe] returns [isEnough] or giving up, and returns the last it returned. */
 private fun <T> collectGarbageUntil(isEnough: (T) -> Boolean, observe: () -> T): T {
     repeat(COLLECTIONS) {
