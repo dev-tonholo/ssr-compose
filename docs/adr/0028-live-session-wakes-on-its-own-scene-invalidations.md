@@ -26,7 +26,7 @@ Option 2, accepted by the owner on 2026-11-27. A live session renders and reads 
 
 ## Consequences
 
-- Good: a change renders and reads only the sessions it touches. On a Mac with 300 sessions: 0 frames for another session's change instead of 301, 2.0 frames per session to open instead of 149.6, and 5.4 to 7.0 MB per session in two runs instead of 12.7 MB, since repeated reads no longer leave garbage paragraphs (P43, one run per figure).
+- Good: a change renders and reads only the sessions it touches. Opening costs about 2 frames per session instead of half the number of sessions open, and memory per live session falls, since repeated reads no longer leave garbage paragraphs. The figures, on a Mac (P43) and on the reference laptop (P47), are in [R20, "4. Constraints and numbers"](../../specs/001-consumer-catalog-bridge/research.md#4-constraints-and-numbers).
 - Good: changes read only while placing, in a layer, in semantics or by the reader reach the session with no other event.
 - Bad: the host now depends on three Compose callbacks behind the seam (`FrameRecomposer`'s `invalidate`, `invalidateLayout`, `invalidateDraw`) and on the semantics listener; the conformance suite must pin each one on every Compose upgrade.
 - Bad: each session adds one apply observer for its reader. Each global write still costs one task per open scene on the scene thread for Compose's own write observer and recomposer loop, now without a render; its cost up to 2,000 sessions is in [R20](../../specs/001-consumer-catalog-bridge/research.md#4-constraints-and-numbers) (P41), and T129 measures 10,000.

@@ -24,7 +24,7 @@ Option 2, accepted by the owner on 2026-11-27. The producer holds one `FontFamil
 
 ## Consequences
 
-- Good: about 720 KB less per live session on the laptop (P43 on a Mac: 4,261 to 3,543 KB with the new wake rule).
+- Good: each live session drops its own copy of the fonts, which brings the candidate design under the 2.8 MB budget on the reference laptop, without headroom for the collector. The figures, on the laptop (P47) and on a Mac (P43), are in [R20, "4. Constraints and numbers"](../../specs/001-consumer-catalog-bridge/research.md#4-constraints-and-numbers).
 - Good: the identity rule also fixes the stale font after `FontVersionChanged` inside one scene, which exists with or without sharing.
 - Bad: every typeface any session loaded stays in memory for the life of the process, bounded by the bundles loaded at start and the bundled Roboto.
 - Bad: registering a new typeface clears the shared paragraph cache of every session (`FontCache.ensureRegistered`); this happens once per font file.
