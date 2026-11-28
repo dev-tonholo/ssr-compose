@@ -55,6 +55,7 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
         val paint = TextPaint(TextPaint.ANTI_ALIAS_FLAG)
         paint.typeface = font.typeface
         paint.textSize = request.sizePx
+        paint.textLocale = request.locale
         return paint
     }
 

@@ -2,8 +2,10 @@ package dev.tonholo.ssrcompose.producer.text.layoutlib
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.util.Locale
 import kotlin.math.roundToInt
 
+private val RECORDING_LOCALE = Locale.US
 private const val TABLET_RECORDING = "text-recordings/api36-tablet-rows-used-by-tests.json"
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -44,6 +46,7 @@ internal data class DeviceRow(
         font = font,
         sizePx = fontSizeInPx,
         widthPx = widthInPx,
+        locale = RECORDING_LOCALE,
         lineHeightPx = lineHeightInPx,
         maxLines = maxLines ?: Int.MAX_VALUE,
         overflow = if (maxLines == null) TextOverflow.Clip else TextOverflow.Ellipsis,
