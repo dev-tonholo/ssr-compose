@@ -1,2 +1,3 @@
 catalog-model/src/test/resources/** text eol=lf
 specs/001-consumer-catalog-bridge/contracts/catalog-bundle.md text eol=lf
+producer-text-layoutlib/src/test/resources/text-recordings/*.json linguist-generated=true
