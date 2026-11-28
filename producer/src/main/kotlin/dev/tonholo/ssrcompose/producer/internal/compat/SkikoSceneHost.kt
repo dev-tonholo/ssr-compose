@@ -36,7 +36,11 @@ import kotlin.coroutines.CoroutineContext
  * A [SceneHost] over Compose UI desktop's scene API. It composes, measures and places a screen, and never draws it.
  */
 @OptIn(InternalComposeUiApi::class)
-internal class SkikoSceneHost(setup: SceneSetup, coroutineContext: CoroutineContext) : SceneHost {
+internal class SkikoSceneHost(
+    setup: SceneSetup,
+    coroutineContext: CoroutineContext,
+    onInvalidated: () -> Unit,
+) : SceneHost {
     private val sceneSize = IntSize(width = setup.widthPx, height = setup.heightPx)
 
     private val sceneWindowInfo = object : WindowInfo {
@@ -68,7 +72,7 @@ internal class SkikoSceneHost(setup: SceneSetup, coroutineContext: CoroutineCont
         override val semanticsOwnerListener: PlatformContext.SemanticsOwnerListener get() = windowRootsListener
     }
 
-    private val frameRecomposer = FrameRecomposer(coroutineContext = coroutineContext)
+    private val frameRecomposer = FrameRecomposer(coroutineContext = coroutineContext, invalidate = onInvalidated)
 
     /*
      * Only drawing clears the scene's own pending draw flag, so that flag stays set here. A layer that moves asks for
@@ -83,7 +87,11 @@ internal class SkikoSceneHost(setup: SceneSetup, coroutineContext: CoroutineCont
         layoutDirection = setup.layoutDirection,
         size = sceneSize,
         platformContext = platformContext,
-        invalidateDraw = { redrawRequestedSinceFrame = true },
+        invalidateLayout = onInvalidated,
+        invalidateDraw = {
+            redrawRequestedSinceFrame = true
+            onInvalidated()
+        },
     )
 
     override fun setContent(content: @Composable () -> Unit) {

@@ -21,7 +21,7 @@ import kotlin.coroutines.CoroutineContext
  * [coroutineContext] must also run on. It shows nothing until [setContent].
  *
  * [readScaledTextScene] gives the device's curve and font scale together. Composition reads it, so values held in
- * state recompose the texts when they change.
+ * state recompose the texts when they change. [openSceneHost] says when [onInvalidated] is called.
  *
  * Every step that touches the scene's nodes holds the scene lock, for the reason [SceneHost] gives.
  */
@@ -30,8 +30,11 @@ internal class ScreenScene(
     coroutineContext: CoroutineContext,
     private val frameTime: FrameTimeSource = FrameTimeSource.Monotonic,
     private val readScaledTextScene: () -> ScaledTextScene,
+    onInvalidated: () -> Unit = {},
 ) : AutoCloseable {
-    private val host = withSceneLock { openSceneHost(setup = setup, coroutineContext = coroutineContext) }
+    private val host = withSceneLock {
+        openSceneHost(setup = setup, coroutineContext = coroutineContext, onInvalidated = onInvalidated)
+    }
 
     val density: Density = setup.density
 

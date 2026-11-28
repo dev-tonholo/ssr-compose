@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -173,7 +174,7 @@ private fun nameAt(left: Float, top: Float = 0f, height: Float = ROW_HEIGHT_PX, 
  * What every [SceneHost] must do. An implementation's test class extends this one with the function that opens it.
  */
 internal abstract class SceneHostConformanceTest(
-    private val openHost: (SceneSetup, CoroutineContext) -> SceneHost,
+    private val openHost: (SceneSetup, CoroutineContext, () -> Unit) -> SceneHost,
 ) {
     private val openHosts = mutableListOf<SceneHost>()
 
@@ -650,6 +651,139 @@ internal abstract class SceneHostConformanceTest(
         assertOnlyTheLatestAreReachable(reachable = reachable)
     }
 
+    @Test
+    fun `given a state read in composition, when it changes, then the host tells with the work already pending`() {
+        // Arrange
+        var label by mutableStateOf(value = "before")
+        val told = HostThatNotesEachTell(content = { BasicText(text = label) })
+
+        // Act
+        val pendingEachTimeTold = told.notedAfterSnapshot { label = "after" }
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeTold.toSet())
+    }
+
+    @Test
+    fun `given a state read in measure, when it changes, then the host tells with the work already pending`() {
+        // Arrange
+        var heightPx by mutableStateOf(value = 0)
+        val told = HostThatNotesEachTell(
+            content = {
+                Layout { _, constraints -> layout(width = constraints.maxWidth, height = heightPx) {} }
+            },
+        )
+
+        // Act
+        val pendingEachTimeTold = told.notedAfterSnapshot { heightPx = SHIFT_PX }
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeTold.toSet())
+    }
+
+    @Test
+    fun `given a state read only while placing, when it changes, then the host tells with the work already pending`() {
+        // Arrange
+        var shift by mutableStateOf(value = 0)
+        val told = HostThatNotesEachTell(
+            content = {
+                FixedText(text = "moving", widthDp = NAME_WIDTH_DP, modifier = Modifier.offset { IntOffset(shift, 0) })
+            },
+        )
+
+        // Act
+        val pendingEachTimeTold = told.notedAfterSnapshot { shift = SHIFT_PX }
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeTold.toSet())
+    }
+
+    @Test
+    fun `given a state read only by a layer, when it changes, then the host tells with the work already pending`() {
+        // Arrange
+        var shift by mutableStateOf(value = 0)
+        val told = HostThatNotesEachTell(
+            content = {
+                FixedText(
+                    text = "moving",
+                    widthDp = NAME_WIDTH_DP,
+                    modifier = Modifier.graphicsLayer { translationX = shift.toFloat() },
+                )
+            },
+        )
+
+        // Act
+        val pendingEachTimeTold = told.notedAfterSnapshot { shift = SHIFT_PX }
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeTold.toSet())
+    }
+
+    @Test
+    fun `given a screen with no popup, when a write adds one, then the host tells and the popup shows`() {
+        // Arrange
+        var shown by mutableStateOf(value = false)
+        val told = HostThatNotesEachTell(content = { if (shown) Popup { BasicText(text = "popup") } })
+
+        // Act
+        val pendingEachTimeTold = told.notedAfterSnapshot { shown = true }
+        told.host.renderUntilIdle()
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeTold.toSet())
+        assertEquals(expected = listOf(listOf(), listOf("popup")), actual = told.host.textsByWindow())
+    }
+
+    @Test
+    fun `given a state only another host reads, when a plain write changes it, then only that host tells`() {
+        // Arrange
+        val sceneThread = ManualDispatcher()
+        var label by mutableStateOf(value = "before")
+        val reader = HostThatNotesEachTell(coroutineContext = sceneThread) { BasicText(text = label) }
+        val bystander = HostThatNotesEachTell(coroutineContext = sceneThread) { BasicText(text = "bystander") }
+        runUntilIdle(sceneThread)
+        val toldBefore = bystander.timesTold
+
+        // Act
+        val pendingEachTimeReaderTold = reader.notedDuring {
+            label = "after"
+            runUntilIdle(sceneThread)
+        }
+
+        // Assert
+        assertEquals(expected = setOf(true), actual = pendingEachTimeReaderTold.toSet())
+        assertEquals(expected = 0, actual = bystander.timesTold - toldBefore)
+    }
+
+    private inner class HostThatNotesEachTell(
+        coroutineContext: CoroutineContext = Dispatchers.Unconfined,
+        content: @Composable () -> Unit,
+    ) {
+        private val pendingWhenTold = mutableListOf<Boolean>()
+
+        val host: SceneHost = open(coroutineContext = coroutineContext, onInvalidated = { notePendingWork() })
+
+        val timesTold: Int get() = pendingWhenTold.size
+
+        init {
+            host.setContentLocked(content = content)
+            host.renderUntilIdle()
+        }
+
+        fun notedDuring(action: () -> Unit): List<Boolean> {
+            val toldBefore = timesTold
+            action()
+            return pendingWhenTold.drop(toldBefore)
+        }
+
+        fun notedAfterSnapshot(write: () -> Unit): List<Boolean> =
+            notedDuring { Snapshot.withMutableSnapshot(block = write) }
+
+        private fun notePendingWork() {
+            pendingWhenTold.add(host.hasPendingWork())
+        }
+    }
+
     /* A slot that layout removes stays reachable until one more has replaced it, however many came before. */
     private fun assertOnlyTheLatestAreReachable(reachable: List<Int>) {
         assertTrue(actual = REPLACEMENTS in reachable, message = "the content on screen was not reachable: $reachable")
@@ -660,6 +794,7 @@ internal abstract class SceneHostConformanceTest(
     private fun open(
         layoutDirection: LayoutDirection = LayoutDirection.Ltr,
         coroutineContext: CoroutineContext = Dispatchers.Unconfined,
+        onInvalidated: () -> Unit = {},
     ): SceneHost {
         val setup = SceneSetup(
             widthPx = WIDTH_PX,
@@ -667,7 +802,7 @@ internal abstract class SceneHostConformanceTest(
             density = Density(density = DENSITY),
             layoutDirection = layoutDirection,
         )
-        return withSceneLock { openHost(setup, coroutineContext) }.also { openHosts += it }
+        return withSceneLock { openHost(setup, coroutineContext, onInvalidated) }.also { openHosts += it }
     }
 
     private fun SceneHost.setContentLocked(content: @Composable () -> Unit) {
