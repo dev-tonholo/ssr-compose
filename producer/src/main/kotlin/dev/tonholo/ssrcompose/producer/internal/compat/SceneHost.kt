@@ -34,6 +34,13 @@ internal interface SceneHost : AutoCloseable {
 
 /**
  * Opens a host for the screen [setup] describes. Its effects and recompositions run on [coroutineContext].
+ *
+ * @param onInvalidated called when this scene reports that its next frame has something to do, after
+ * [SceneHost.hasPendingWork] shows it. It is called on any thread and during any call to the host, so it must not
+ * block. A write the scene never read does not call it.
  */
-internal fun openSceneHost(setup: SceneSetup, coroutineContext: CoroutineContext): SceneHost =
-    SkikoSceneHost(setup = setup, coroutineContext = coroutineContext)
+internal fun openSceneHost(
+    setup: SceneSetup,
+    coroutineContext: CoroutineContext,
+    onInvalidated: () -> Unit,
+): SceneHost = SkikoSceneHost(setup = setup, coroutineContext = coroutineContext, onInvalidated = onInvalidated)

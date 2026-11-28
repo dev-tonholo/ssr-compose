@@ -164,7 +164,11 @@ private fun readMemoryScreen(roots: List<SemanticsNode>): ScreenRead {
 }
 
 private fun openRenderedHost(content: @Composable () -> Unit): SceneHost = withSceneLock {
-    openSceneHost(setup = memoryScreenSetup, coroutineContext = Dispatchers.Unconfined).also { host ->
+    openSceneHost(
+        setup = memoryScreenSetup,
+        coroutineContext = Dispatchers.Unconfined,
+        onInvalidated = {},
+    ).also { host ->
         host.setContent {
             CompositionLocalProvider(LocalScaledTextScene provides liveScaledTextScene()()) { content() }
         }
