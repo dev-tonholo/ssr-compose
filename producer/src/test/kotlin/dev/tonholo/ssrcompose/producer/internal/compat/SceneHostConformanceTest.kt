@@ -13,7 +13,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.withFrameNanos
@@ -22,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -37,6 +41,8 @@ import dev.tonholo.ssrcompose.producer.internal.scene.SceneSetup
 import dev.tonholo.ssrcompose.producer.internal.scene.withSceneLock
 import dev.tonholo.ssrcompose.producer.testing.ManualDispatcher
 import dev.tonholo.ssrcompose.producer.testing.PlacedBy
+import dev.tonholo.ssrcompose.producer.testing.ReplacedContent
+import dev.tonholo.ssrcompose.producer.testing.ReplacedContentTracker
 import dev.tonholo.ssrcompose.producer.testing.runUntilIdle
 import dev.tonholo.ssrcompose.producer.testing.skiaClassesAllocatedBy
 import kotlin.coroutines.CoroutineContext
@@ -45,6 +51,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
@@ -72,6 +79,8 @@ private const val TALLER_ROW_HEIGHT_DP = 30
 private const val TALLER_ROW_HEIGHT_PX = 60f
 private const val FAILURE = "the first composition fails"
 private const val FRAMES_TO_SETTLE = 120
+private const val REPLACEMENTS = 2000
+private const val OLDEST_GENERATION_A_HOST_MAY_HOLD = REPLACEMENTS - 1
 private val RASTER_PIXEL_CLASSES = setOf("Surface", "Bitmap")
 private const val TEXT_LAYOUT_CLASS = "Paragraph"
 
@@ -97,6 +106,32 @@ private fun CountedText(lifetime: Lifetime, text: () -> String) {
 @Composable
 private fun FixedText(text: String, widthDp: Int, modifier: Modifier = Modifier) {
     BasicText(text = text, modifier = modifier.size(width = widthDp.dp, height = ROW_HEIGHT_DP.dp))
+}
+
+@Composable
+private fun TextsReadByLayersAndPlacement(content: ReplacedContent) {
+    Column {
+        FixedText(
+            text = "layer",
+            widthDp = NAME_WIDTH_DP,
+            modifier = Modifier.graphicsLayer { translationX = content.shiftPx.intValue.toFloat() },
+        )
+        FixedText(
+            text = "layer made while placing",
+            widthDp = NAME_WIDTH_DP,
+            modifier = Modifier.layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                layout(width = placeable.width, height = placeable.height) {
+                    placeable.placeWithLayer(x = 0, y = 0) { translationX = content.shiftPx.intValue.toFloat() }
+                }
+            },
+        )
+        FixedText(
+            text = "placement",
+            widthDp = NAME_WIDTH_DP,
+            modifier = Modifier.offset { IntOffset(x = content.shiftPx.intValue, y = 0) },
+        )
+    }
 }
 
 private enum class AnchoredSlot { Anchor, Popup }
@@ -558,6 +593,68 @@ internal abstract class SceneHostConformanceTest(
 
         // Assert
         assertEquals(expected = 0, actual = draws)
+    }
+
+    @Test
+    fun `given texts read by layers and placement, when new keys replace them often, then old ones are let go`() {
+        // Arrange
+        var generation by mutableStateOf(value = 0)
+        val tracker = ReplacedContentTracker()
+        val host = open()
+        host.setContentLocked {
+            val current = generation
+            key(current) { TextsReadByLayersAndPlacement(content = remember { tracker.make(generation = current) }) }
+        }
+        host.renderUntilIdle()
+
+        // Act
+        repeat(REPLACEMENTS) { index ->
+            Snapshot.withMutableSnapshot { generation = index + 1 }
+            host.renderUntilIdle()
+        }
+        val reachable = tracker.reachableGenerations(oldestExpected = OLDEST_GENERATION_A_HOST_MAY_HOLD)
+
+        // Assert
+        assertEquals(expected = REPLACEMENTS + 1, actual = tracker.madeCount)
+        assertOnlyTheLatestAreReachable(reachable = reachable)
+    }
+
+    @Test
+    fun `given a slot that layout replaces while measuring, when replaced often, then old ones are let go`() {
+        // Arrange
+        var generation by mutableStateOf(value = 0)
+        val tracker = ReplacedContentTracker()
+        val host = open()
+        host.setContentLocked {
+            SubcomposeLayout { constraints ->
+                val current = generation
+                val placeables = subcompose(slotId = current) {
+                    TextsReadByLayersAndPlacement(content = remember { tracker.make(generation = current) })
+                }.map { it.measure(constraints) }
+                layout(width = constraints.maxWidth, height = constraints.maxHeight) {
+                    placeables.forEach { it.place(x = 0, y = 0) }
+                }
+            }
+        }
+        host.renderUntilIdle()
+
+        // Act
+        repeat(REPLACEMENTS) { index ->
+            Snapshot.withMutableSnapshot { generation = index + 1 }
+            host.renderUntilIdle()
+        }
+        val reachable = tracker.reachableGenerations(oldestExpected = OLDEST_GENERATION_A_HOST_MAY_HOLD)
+
+        // Assert
+        assertEquals(expected = REPLACEMENTS + 1, actual = tracker.madeCount)
+        assertOnlyTheLatestAreReachable(reachable = reachable)
+    }
+
+    /* A slot that layout removes stays reachable until one more has replaced it, however many came before. */
+    private fun assertOnlyTheLatestAreReachable(reachable: List<Int>) {
+        assertTrue(actual = REPLACEMENTS in reachable, message = "the content on screen was not reachable: $reachable")
+        val older = reachable.filter { it < OLDEST_GENERATION_A_HOST_MAY_HOLD }
+        assertEquals(expected = 0, actual = older.size, message = "replaced content is still reachable: $older")
     }
 
     private fun open(
