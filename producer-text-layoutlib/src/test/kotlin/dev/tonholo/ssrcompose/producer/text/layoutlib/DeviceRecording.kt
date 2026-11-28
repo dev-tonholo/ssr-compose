@@ -6,22 +6,20 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private val RECORDING_LOCALE = Locale.US
-private const val TABLET_RECORDING = "text-recordings/api36-tablet-rows-used-by-tests.json"
+private const val TABLET_RECORDING = "api36-tablet-physical"
 
 private val json = Json { ignoreUnknownKeys = true }
 
-/**
- * What a physical API 36 tablet measured for each text. The resource holds only the rows these tests use, copied
- * unchanged. The full recording is not in the repo: it is the git-ignored
- * `.crew/reports-layoutlib/round2/device-files/api36-tablet-physical.json` of the owner's main checkout.
- * L2b-2 brings the full replay and decides how to store it.
- */
+/** What one device measured for each text. `text-recordings/README.md` says where each file came from. */
 @Serializable
 internal data class DeviceRecording(val measurements: List<DeviceRow>) {
     fun row(caseId: String): DeviceRow = measurements.single { it.caseId == caseId }
 
     companion object {
-        fun tablet(): DeviceRecording = json.decodeFromString(classpathBytes(TABLET_RECORDING).decodeToString())
+        fun named(name: String): DeviceRecording =
+            json.decodeFromString(classpathBytes("text-recordings/$name.json").decodeToString())
+
+        fun tablet(): DeviceRecording = named(TABLET_RECORDING)
     }
 }
 
