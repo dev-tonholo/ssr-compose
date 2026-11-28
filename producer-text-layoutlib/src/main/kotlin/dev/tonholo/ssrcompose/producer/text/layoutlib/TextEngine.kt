@@ -9,10 +9,6 @@ internal interface TextEngine {
      */
     fun loadFont(bytes: ByteArray): TextFont
 
-    /**
-     * Lays [request] out. Its font must come from [loadFont] of this kind of engine.
-     *
-     * @throws UnsupportedOperationException when the request has a line height, which no engine measures yet.
-     */
+    /** Lays [request] out. Its font must come from [loadFont] of this kind of engine. */
     fun measure(request: TextRequest): TextMeasurement
 }

@@ -37,21 +37,26 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
     }
 
     override fun measure(request: TextRequest): TextMeasurement {
-        if (request.lineHeightPx != null) {
-            throw UnsupportedOperationException("a line height cannot be measured yet, only none")
-        }
-        val layout = layOut(request = request, paint = paintFor(request))
+        val paint = paintFor(request)
+        val lineHeightPx = request.lineHeight?.composePx(fontSizePx = request.sizePx)
+        val text = lineHeightPx?.let { composeTextWithLineHeight(text = request.text, lineHeightPx = it) }
+            ?: request.text
+        val layout = layOut(text = text, request = request, paint = paint)
         val lastLine = min(a = layout.lineCount, b = request.maxLines) - 1
+        val emptyLastLine = lineHeightPx?.let {
+            layout.emptyLastLineMetrics(lastLine = lastLine, lineHeightPx = it, paint = paint)
+        }
+        val lines = ComposeLines(layout = layout, lastLine = lastLine, emptyLastLine = emptyLastLine)
         val shownLines = 0..lastLine
         return TextMeasurement(
-            heightPx = layout.getLineBottom(lastLine),
+            heightPx = lines.bottom(lastLine),
             widthPx = layout.width,
             lineEnds = shownLines.map(layout::shownTextEnd),
             lineRightsPx = shownLines.map(layout::getLineRight),
-            lineBottomsPx = shownLines.map(layout::getLineBottom),
+            lineBottomsPx = shownLines.map(lines::bottom),
             isLastLineEllipsized = layout.getEllipsisCount(lastLine) > 0,
-            firstBaselinePx = layout.getLineBaseline(0),
-            lastBaselinePx = layout.getLineBaseline(lastLine),
+            firstBaselinePx = lines.baseline(0),
+            lastBaselinePx = lines.baseline(lastLine),
         )
     }
 
@@ -64,18 +69,18 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
         return paint
     }
 
-    private fun layOut(request: TextRequest, paint: TextPaint): Layout {
-        val desiredWidth = ceil(Layout.getDesiredWidth(request.text, paint)).toInt()
+    private fun layOut(text: CharSequence, request: TextRequest, paint: TextPaint): Layout {
+        val desiredWidth = ceil(Layout.getDesiredWidth(text, paint)).toInt()
         val width = min(a = desiredWidth, b = request.widthPx)
-        val boring = boringMetrics(text = request.text, paint = paint)
+        val boring = boringMetrics(text = text, paint = paint)
         return if (boring != null && boring.width <= width) {
-            boringLayout(text = request.text, paint = paint, width = width, metrics = boring)
+            boringLayout(text = text, paint = paint, width = width, metrics = boring)
         } else {
-            staticLayout(request = request, paint = paint, width = width)
+            staticLayout(text = text, request = request, paint = paint, width = width)
         }
     }
 
-    private fun boringMetrics(text: String, paint: TextPaint): BoringLayout.Metrics? = BoringLayout.isBoring(
+    private fun boringMetrics(text: CharSequence, paint: TextPaint): BoringLayout.Metrics? = BoringLayout.isBoring(
         text,
         paint,
         TextDirectionHeuristics.FIRSTSTRONG_LTR,
@@ -83,31 +88,23 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
         null,
     )
 
-    private fun boringLayout(text: String, paint: TextPaint, width: Int, metrics: BoringLayout.Metrics) = BoringLayout(
-        text,
-        paint,
-        width,
-        Layout.Alignment.ALIGN_NORMAL,
-        SPACING_MULTIPLIER,
-        SPACING_ADDED,
-        metrics,
-        INCLUDE_FONT_PADDING,
-        null,
-        width,
-        USE_FALLBACK_LINE_SPACING,
-    )
+    private fun boringLayout(text: CharSequence, paint: TextPaint, width: Int, metrics: BoringLayout.Metrics) =
+        BoringLayout(
+            text,
+            paint,
+            width,
+            Layout.Alignment.ALIGN_NORMAL,
+            SPACING_MULTIPLIER,
+            SPACING_ADDED,
+            metrics,
+            INCLUDE_FONT_PADDING,
+            null,
+            width,
+            USE_FALLBACK_LINE_SPACING,
+        )
 
-    private fun staticLayout(request: TextRequest, paint: TextPaint, width: Int): StaticLayout {
-        val builder = StaticLayout.Builder.obtain(request.text, 0, request.text.length, paint, width)
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
-            .setLineSpacing(SPACING_ADDED, SPACING_MULTIPLIER)
-            .setIncludePad(INCLUDE_FONT_PADDING)
-            .setUseLineSpacingFromFallbacks(USE_FALLBACK_LINE_SPACING)
-            .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
-            .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
-            .setJustificationMode(Layout.JUSTIFICATION_MODE_NONE)
-            .setMaxLines(request.maxLines)
+    private fun staticLayout(text: CharSequence, request: TextRequest, paint: TextPaint, width: Int): StaticLayout {
+        val builder = composeStaticLayout(text = text, paint = paint, width = width).setMaxLines(request.maxLines)
         if (request.overflow == TextOverflow.Ellipsis) {
             builder.setEllipsize(TextUtils.TruncateAt.END).setEllipsizedWidth(width)
         }
@@ -116,6 +113,17 @@ internal class LayoutlibTextEngine(runtimeRoot: Path) : TextEngine {
 
     private class LayoutlibFont(val typeface: Typeface) : TextFont
 }
+
+internal fun composeStaticLayout(text: CharSequence, paint: TextPaint, width: Int): StaticLayout.Builder =
+    StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+        .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
+        .setLineSpacing(SPACING_ADDED, SPACING_MULTIPLIER)
+        .setIncludePad(INCLUDE_FONT_PADDING)
+        .setUseLineSpacingFromFallbacks(USE_FALLBACK_LINE_SPACING)
+        .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+        .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
+        .setJustificationMode(Layout.JUSTIFICATION_MODE_NONE)
 
 private fun Layout.shownTextEnd(line: Int): Int =
     if (getEllipsisCount(line) > 0) getLineStart(line) + getEllipsisStart(line) else composeLineVisibleEnd(line)

@@ -3,23 +3,28 @@ package dev.tonholo.ssrcompose.producer.text.layoutlib
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
-private const val LINE_HEIGHT_CASE = "roboto-regular/latin-wrapping/12sp/x1.0/lh18sp"
+private const val ANY_CASE = "roboto-regular/latin-wrapping/12sp/x1.0"
 
 class LayoutlibTextEngineRefusalTest {
     private val engine = testEngine()
-    private val row = DeviceRecording.tablet().row(LINE_HEIGHT_CASE)
+    private val row = DeviceRecording.tablet().row(ANY_CASE)
     private val request = row.request(engine.loadFont(classpathBytes(row.fontFile)))
 
     @Test
-    fun `given a text with a line height, when measured, then it is refused rather than measured wrong`() {
+    fun `given a line height Android cannot lay out, when it is built, then it is refused`() {
         // Arrange
-        val withLineHeight = request
+        val lineHeight = TextLineHeight(sp = 18f, px = 27f, sizePxAsSp = 12f, fontScale = 1f)
 
         // Act
-        val measure = { engine.measure(withLineHeight) }
+        val builds = listOf<() -> TextLineHeight>(
+            { lineHeight.copy(sp = Float.NaN) },
+            { lineHeight.copy(px = -1f) },
+            { lineHeight.copy(sizePxAsSp = 0f) },
+            { lineHeight.copy(fontScale = Float.POSITIVE_INFINITY) },
+        )
 
         // Assert
-        assertFailsWith<UnsupportedOperationException> { measure() }
+        builds.forEach { build -> assertFailsWith<IllegalArgumentException> { build() } }
     }
 
     @Test
