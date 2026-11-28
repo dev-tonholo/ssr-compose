@@ -1,6 +1,6 @@
 # 0029. One font resolver for every scene, with each font named by its file's fingerprint
 
-- Status: Accepted on 2026-11-27 by the owner
+- Status: Superseded by [0030](0030-one-font-resolver-per-font-bundle-version.md)
 - Date: 2026-11-27
 - Modules: `producer`
 
