@@ -1,6 +1,6 @@
 package dev.tonholo.ssrcompose.tooling.fingerprint
 
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.tooling.StepException
 
 /** Checks a file against the fingerprint it is pinned to: the lowercase hexadecimal SHA-256 of its bytes. */

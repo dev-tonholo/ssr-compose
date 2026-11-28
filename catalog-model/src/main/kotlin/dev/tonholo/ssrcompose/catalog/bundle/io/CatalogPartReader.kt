@@ -2,12 +2,12 @@ package dev.tonholo.ssrcompose.catalog.bundle.io
 
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
 import dev.tonholo.ssrcompose.catalog.bundle.SizeCap
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.catalog.bundle.mapping.toPart
 import dev.tonholo.ssrcompose.catalog.bundle.serialization.file.CatalogPartFile
 import dev.tonholo.ssrcompose.catalog.model.CatalogPart
 import dev.tonholo.ssrcompose.catalog.model.PartEntry
 import dev.tonholo.ssrcompose.catalog.model.PartName
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 
 internal fun partSubject(name: PartName): String = "part ${name.value}"
 

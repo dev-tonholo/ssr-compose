@@ -1,7 +1,7 @@
 package dev.tonholo.ssrcompose.catalog.bundle
 
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.catalog.model.CatalogManifest
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 
 /**
  * The bytes of every file of a catalog bundle: [manifest], saved as [CatalogManifest.FILE_NAME], and [parts],

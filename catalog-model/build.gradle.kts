@@ -6,6 +6,12 @@ plugins {
     alias(libs.plugins.buildconfig)
 }
 
+kotlin {
+    compilerOptions {
+        optIn.add("dev.tonholo.ssrcompose.core.annotation.InternalSsrComposeApi")
+    }
+}
+
 dependencies {
     api(projects.core)
     implementation(libs.kotlinx.serialization.json)

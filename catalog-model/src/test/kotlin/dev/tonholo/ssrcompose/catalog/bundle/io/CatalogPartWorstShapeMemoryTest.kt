@@ -2,11 +2,11 @@ package dev.tonholo.ssrcompose.catalog.bundle.io
 
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogBundleReader
 import dev.tonholo.ssrcompose.catalog.bundle.CatalogFileException
-import dev.tonholo.ssrcompose.catalog.bundle.fingerprint.Fingerprint
 import dev.tonholo.ssrcompose.catalog.model.CatalogManifest
 import dev.tonholo.ssrcompose.catalog.model.PartEntry
 import dev.tonholo.ssrcompose.catalog.model.PartName
 import dev.tonholo.ssrcompose.core.catalog.CatalogVersion
+import dev.tonholo.ssrcompose.core.fingerprint.Fingerprint
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 
